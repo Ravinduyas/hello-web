@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { CalendarCheck, Tag, Bike, Users, LogOut, Store } from 'lucide-react';
+import { CalendarCheck, CalendarDays, Tag, Bike, Users, LogOut, Store } from 'lucide-react';
 
 const nav = [
   { to: '/walk-in', label: 'Walk-in', icon: Store },
   { to: '/bookings', label: 'Bookings', icon: CalendarCheck },
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/fleet', label: 'Fleet', icon: Bike },
   { to: '/owners', label: 'Owners', icon: Users },
   { to: '/extras', label: 'Extras', icon: Tag },
