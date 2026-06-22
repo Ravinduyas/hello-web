@@ -2,6 +2,13 @@
 
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
 
+export interface Payment {
+  id: string;
+  amount: number;
+  at: string;
+  note: string;
+}
+
 export interface Booking {
   id: string;
   reference: string;
@@ -19,6 +26,9 @@ export interface Booking {
   days: number;
   total: number;
   extras: { id: string; label: string; amount: number }[];
+  payments: Payment[];
+  deposit: number;
+  depositReturned: boolean;
   renter: { firstName: string; lastName: string; email: string; phone: string; license?: string };
 }
 
@@ -144,6 +154,8 @@ export interface WalkInBookingInput {
   days: number;
   extras: { id: string; label: string; amount: number }[];
   total: number;
+  deposit?: number;
+  paidNow?: number;
   renter: { firstName: string; lastName: string; email: string; phone: string; license?: string };
 }
 
@@ -155,6 +167,16 @@ export const createWalkInBooking = (input: WalkInBookingInput) =>
   fetch('/api/admin/bookings', { method: 'POST', headers: authHeaders(true), body: JSON.stringify(input) }).then(r =>
     handle<Booking>(r),
   );
+
+/** Update a booking's payments/deposit (add/remove a payment, set deposit, mark returned). */
+export const updateBilling = (
+  id: string,
+  ops: { addPayment?: { amount: number; note?: string }; removePaymentId?: string; deposit?: number; depositReturned?: boolean },
+) => fetch(`/api/admin/bookings/${id}/billing`, { method: 'PATCH', headers: authHeaders(true), body: JSON.stringify(ops) }).then(r => handle<Booking>(r));
+
+/** paid = sum of payments, due = total - paid (never below 0). */
+export const paidOf = (b: Booking) => b.payments.reduce((s, p) => s + p.amount, 0);
+export const dueOf = (b: Booking) => Math.max(0, b.total - paidOf(b));
 
 export const setBookingStatus = (id: string, status: BookingStatus, unitId?: string) =>
   fetch(`/api/admin/bookings/${id}`, {

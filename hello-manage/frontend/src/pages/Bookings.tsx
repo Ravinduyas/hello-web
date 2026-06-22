@@ -1,15 +1,21 @@
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown } from 'lucide-react';
+import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus } from 'lucide-react';
+import Drawer from '../components/Drawer';
 import {
   fetchBookings,
   setBookingStatus,
   deleteBooking,
   fetchUnits,
+  updateBilling,
+  paidOf,
+  dueOf,
   UnauthorizedError,
   type Booking,
   type BookingStatus,
   type Unit,
 } from '../lib/api';
+
+const money = (n: number) => `$${n.toFixed(2).replace(/\.00$/, '')}`;
 
 const statusStyles: Record<BookingStatus, string> = {
   pending: 'bg-amber-100 text-amber-800',
@@ -64,6 +70,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   const [range, setRange] = useState<DateRange>('all');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [payId, setPayId] = useState<string | null>(null);
 
   // `silent` polls update data without the spinner or clobbering the UI with a
   // transient error if a single background fetch fails.
@@ -100,6 +107,16 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     }
   }
 
+  async function applyBilling(id: string, ops: Parameters<typeof updateBilling>[1]) {
+    try {
+      const updated = await updateBilling(id, ops);
+      setBookings(prev => prev.map(b => (b.id === id ? updated : b)));
+    } catch (err) {
+      if (err instanceof UnauthorizedError) return onLogout();
+      setError(err instanceof Error ? err.message : 'Could not update payment');
+    }
+  }
+
   async function remove(id: string) {
     if (!window.confirm('Delete this booking permanently?')) return;
     try {
@@ -122,6 +139,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     confirmed: dateFiltered.filter(b => b.status === 'confirmed').length,
     cancelled: dateFiltered.filter(b => b.status === 'cancelled').length,
   };
+  const payBooking = payId ? bookings.find(b => b.id === payId) ?? null : null;
 
   return (
     <div>
@@ -223,6 +241,18 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                 <p className="text-xs text-dark/40 mt-3">Extras: {b.extras.map(e => e.label).join(', ')}</p>
               )}
 
+              {/* Billing summary */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs">
+                <span className="text-dark/50">Paid <b className="text-emerald-700">{money(paidOf(b))}</b></span>
+                <span className="text-dark/50">Due <b className={dueOf(b) > 0 ? 'text-red-600' : 'text-dark/60'}>{money(dueOf(b))}</b></span>
+                {b.deposit > 0 && (
+                  <span className="text-dark/50">
+                    Deposit <b className="text-dark">{money(b.deposit)}</b>
+                    {b.depositReturned && <span className="text-dark/40"> · returned</span>}
+                  </span>
+                )}
+              </div>
+
               <div className="flex flex-wrap items-center gap-2 mt-5">
                 {b.status !== 'confirmed' && (
                   <ConfirmControl
@@ -230,6 +260,12 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                     onConfirm={unitId => changeStatus(b.id, 'confirmed', unitId)}
                   />
                 )}
+                <button
+                  onClick={() => setPayId(b.id)}
+                  className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand/10 text-brand hover:bg-brand/20 transition"
+                >
+                  <Wallet className="w-4 h-4" /> Payments
+                </button>
                 {b.status !== 'cancelled' && (
                   <button
                     onClick={() => changeStatus(b.id, 'cancelled')}
@@ -249,6 +285,16 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
           ))}
         </div>
       )}
+
+      <Drawer
+        open={!!payBooking}
+        onClose={() => setPayId(null)}
+        title="Payments & deposit"
+        subtitle={payBooking ? `${payBooking.bikeTitle} · ${payBooking.renter.firstName} ${payBooking.renter.lastName}`.trim() : ''}
+        widthClass="max-w-md"
+      >
+        {payBooking && <PaymentsForm booking={payBooking} onApply={ops => applyBilling(payBooking.id, ops)} />}
+      </Drawer>
     </div>
   );
 }
@@ -322,6 +368,93 @@ function ConfirmControl({ plates, onConfirm }: { plates: Unit[]; onConfirm: (uni
         <X className="w-4 h-4" />
       </button>
     </span>
+  );
+}
+
+/** Payments & deposit manager (drawer body). Operates on the live booking and
+ *  applies each change immediately via onApply. */
+function PaymentsForm({ booking, onApply }: { booking: Booking; onApply: (ops: Parameters<typeof updateBilling>[1]) => Promise<void> }) {
+  const paid = paidOf(booking);
+  const due = dueOf(booking);
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [deposit, setDeposit] = useState(String(booking.deposit || ''));
+  const [busy, setBusy] = useState(false);
+
+  async function addPayment(e: React.FormEvent) {
+    e.preventDefault();
+    const a = Number(amount) || 0;
+    if (a <= 0) return;
+    setBusy(true);
+    try {
+      await onApply({ addPayment: { amount: a, note: note.trim() } });
+      setAmount('');
+      setNote('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary */}
+      <div className="bg-dark text-beige rounded-2xl p-5">
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div><p className="text-[10px] uppercase tracking-widest text-beige/50">Total</p><p className="font-display text-xl font-black mt-1">{money(booking.total)}</p></div>
+          <div><p className="text-[10px] uppercase tracking-widest text-beige/50">Paid</p><p className="font-display text-xl font-black mt-1 text-emerald-300">{money(paid)}</p></div>
+          <div><p className="text-[10px] uppercase tracking-widest text-beige/50">Due</p><p className={`font-display text-xl font-black mt-1 ${due > 0 ? 'text-amber-300' : 'text-beige/60'}`}>{money(due)}</p></div>
+        </div>
+      </div>
+
+      {/* Add payment */}
+      <form onSubmit={addPayment} className="space-y-3">
+        <p className="label">Record a payment</p>
+        <div className="flex gap-2">
+          <input type="number" min={0} step="0.5" className="input max-w-[130px]" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
+          <input className="input flex-1" placeholder="Note (cash, card…)" value={note} onChange={e => setNote(e.target.value)} />
+          <button type="submit" className="btn-primary shrink-0" disabled={busy || !(Number(amount) > 0)}>
+            <Plus className="w-4 h-4" /> Add
+          </button>
+        </div>
+        {due > 0 && (
+          <button type="button" onClick={() => setAmount(String(due))} className="text-xs font-bold text-brand hover:underline">
+            Pay full due ({money(due)})
+          </button>
+        )}
+      </form>
+
+      {/* History */}
+      {booking.payments.length > 0 && (
+        <div className="space-y-2">
+          <p className="label">Payment history</p>
+          {booking.payments.map(p => (
+            <div key={p.id} className="flex items-center gap-3 bg-beige rounded-xl px-3 py-2 text-sm">
+              <span className="font-bold tabular-nums">{money(p.amount)}</span>
+              <span className="text-dark/50 flex-1 truncate">{p.note || '—'}</span>
+              <span className="text-[10px] text-dark/40">{new Date(p.at).toLocaleDateString()}</span>
+              <button onClick={() => onApply({ removePaymentId: p.id })} title="Remove payment" className="text-red-600 hover:bg-red-50 rounded-full p-1 transition">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Deposit */}
+      <div className="space-y-3 pt-2 border-t border-dark/10">
+        <p className="label">Security deposit</p>
+        <div className="flex gap-2 items-center">
+          <input type="number" min={0} step="0.5" className="input max-w-[130px]" placeholder="0" value={deposit} onChange={e => setDeposit(e.target.value)} />
+          <button onClick={() => onApply({ deposit: Number(deposit) || 0 })} className="btn-outline shrink-0">Save</button>
+        </div>
+        {booking.deposit > 0 && (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={booking.depositReturned} onChange={e => onApply({ depositReturned: e.target.checked })} className="w-4 h-4 accent-brand" />
+            Deposit returned to customer
+          </label>
+        )}
+      </div>
+    </div>
   );
 }
 

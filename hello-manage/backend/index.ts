@@ -9,6 +9,7 @@ import {
   createConfirmedBooking,
   listBookings,
   updateBookingStatus,
+  updateBookingBilling,
   assignAndConfirm,
   deleteBooking,
   listExtras,
@@ -182,6 +183,9 @@ app.post('/api/bookings', (req: Request, res: Response) => {
       ? b.extras.map((e: any) => ({ id: String(e.id), label: String(e.label), amount: Number(e.amount) || 0 }))
       : [],
     total: Number(b.total) || 0,
+    payments: [],
+    deposit: 0,
+    depositReturned: false,
     renter: {
       firstName: String(renter.firstName),
       lastName: String(renter.lastName),
@@ -228,6 +232,8 @@ app.post('/api/admin/bookings', requireAuth, (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Customer name and phone are required.' });
   }
 
+  const paidNow = Number(b.paidNow) || 0;
+
   const booking: Booking = {
     id: randomUUID(),
     reference: makeReference(),
@@ -246,6 +252,9 @@ app.post('/api/admin/bookings', requireAuth, (req: Request, res: Response) => {
       ? b.extras.map((e: any) => ({ id: String(e.id), label: String(e.label), amount: Number(e.amount) || 0 }))
       : [],
     total: Number(b.total) || 0,
+    payments: paidNow > 0 ? [{ id: randomUUID(), amount: paidNow, at: new Date().toISOString(), note: 'Paid at pickup' }] : [],
+    deposit: Number(b.deposit) || 0,
+    depositReturned: false,
     renter: {
       firstName: String(renter.firstName),
       lastName: String(renter.lastName ?? ''),
@@ -282,6 +291,24 @@ app.patch('/api/admin/bookings/:id', requireAuth, (req: Request, res: Response) 
   } catch (err) {
     res.status(409).json({ error: err instanceof Error ? err.message : 'Could not update booking' });
   }
+});
+
+/** Payments & deposit for a booking: add/remove a payment, set the deposit, mark it returned. */
+app.patch('/api/admin/bookings/:id/billing', requireAuth, (req: Request, res: Response) => {
+  const b = req.body ?? {};
+  const ops: { addPayment?: { amount: number; note: string }; removePaymentId?: string; deposit?: number; depositReturned?: boolean } = {};
+  if (b.addPayment) {
+    const amount = Number(b.addPayment.amount) || 0;
+    if (amount <= 0) return res.status(400).json({ error: 'Payment amount must be greater than zero.' });
+    ops.addPayment = { amount, note: String(b.addPayment.note ?? '') };
+  }
+  if (b.removePaymentId !== undefined) ops.removePaymentId = String(b.removePaymentId);
+  if (b.deposit !== undefined) ops.deposit = Number(b.deposit) || 0;
+  if (b.depositReturned !== undefined) ops.depositReturned = !!b.depositReturned;
+
+  const updated = updateBookingBilling(req.params.id, ops);
+  if (!updated) return res.status(404).json({ error: 'Not found' });
+  res.json(updated);
 });
 
 app.delete('/api/admin/bookings/:id', requireAuth, (req: Request, res: Response) => {

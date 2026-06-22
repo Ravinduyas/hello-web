@@ -39,6 +39,8 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
   const [dropoffDate, setDropoffDate] = useState(todayISO()); // defaults to the pickup date
   const [chosen, setChosen] = useState<string[]>([]);
   const [customer, setCustomer] = useState(EMPTY_CUSTOMER);
+  const [deposit, setDeposit] = useState('');
+  const [paidNow, setPaidNow] = useState('');
 
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<Booking | null>(null);
@@ -104,6 +106,8 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
     setDropoffDate(todayISO());
     setChosen([]);
     setCustomer(EMPTY_CUSTOMER);
+    setDeposit('');
+    setPaidNow('');
   }
 
   async function submit() {
@@ -121,6 +125,8 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
           .filter(ex => chosen.includes(ex.id))
           .map(ex => ({ id: ex.id, label: ex.label, amount: ex.perDay ? ex.price * days : ex.price })),
         total: summary.total,
+        deposit: Number(deposit) || 0,
+        paidNow: Number(paidNow) || 0,
         renter: { firstName: customer.firstName.trim(), lastName: customer.lastName.trim(), email: customer.email.trim(), phone: customer.phone.trim() },
       });
       setDone(created);
@@ -281,6 +287,21 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
                 </label>
               </div>
             </Section>
+
+            {/* Payment & deposit */}
+            <Section title="Payment & deposit" step={5} hint="Optional">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="block space-y-2">
+                  <span className="label">Amount paid now ($)</span>
+                  <input type="number" min={0} step="0.5" className="input" placeholder="0" value={paidNow} onChange={e => setPaidNow(e.target.value)} />
+                </label>
+                <label className="block space-y-2">
+                  <span className="label">Security deposit ($)</span>
+                  <input type="number" min={0} step="0.5" className="input" placeholder="0" value={deposit} onChange={e => setDeposit(e.target.value)} />
+                </label>
+              </div>
+              <p className="text-[11px] text-dark/40 mt-2">Deposit is a refundable hold taken when the bike goes out. The remaining balance can be collected later from Bookings.</p>
+            </Section>
           </div>
 
           {/* Summary */}
@@ -313,6 +334,20 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
               <span className="font-bold">Total</span>
               <span className="font-display text-3xl font-black text-brand tabular-nums">${summary.total}</span>
             </div>
+
+            {(Number(paidNow) > 0 || Number(deposit) > 0) && (
+              <div className="space-y-1 text-sm mt-3">
+                {Number(paidNow) > 0 && (
+                  <>
+                    <div className="flex justify-between"><span className="text-beige/70">Paid now</span><span className="tabular-nums text-emerald-300">${Number(paidNow)}</span></div>
+                    <div className="flex justify-between"><span className="text-beige/70">Balance due</span><span className="tabular-nums">${Math.max(0, summary.total - Number(paidNow))}</span></div>
+                  </>
+                )}
+                {Number(deposit) > 0 && (
+                  <div className="flex justify-between"><span className="text-beige/70">Deposit (held)</span><span className="tabular-nums">${Number(deposit)}</span></div>
+                )}
+              </div>
+            )}
 
             <button onClick={submit} disabled={!valid || busy} className="btn-primary w-full justify-center mt-6">
               {busy ? 'Creating…' : 'Create rental'}

@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,6 +20,14 @@ export interface BookingExtra {
   amount: number;
 }
 
+/** A single customer payment against a booking. */
+export interface Payment {
+  id: string;
+  amount: number;
+  at: string;
+  note: string;
+}
+
 export interface Booking {
   id: string;
   reference: string;
@@ -37,6 +46,11 @@ export interface Booking {
   days: number;
   extras: BookingExtra[];
   total: number;
+  /** Customer payments toward the rental total (paid = sum, due = total - paid). */
+  payments: Payment[];
+  /** Refundable security deposit held while the bike is out. */
+  deposit: number;
+  depositReturned: boolean;
   renter: {
     firstName: string;
     lastName: string;
@@ -129,20 +143,24 @@ db.exec(`
     extras          TEXT NOT NULL,
     renter          TEXT NOT NULL,
     unitId          TEXT NOT NULL DEFAULT '',
-    plate           TEXT NOT NULL DEFAULT ''
+    plate           TEXT NOT NULL DEFAULT '',
+    payments        TEXT NOT NULL DEFAULT '[]',
+    deposit         REAL NOT NULL DEFAULT 0,
+    depositReturned INTEGER NOT NULL DEFAULT 0
   );
 `);
 db.exec('CREATE INDEX IF NOT EXISTS idx_bookings_createdAt ON bookings(createdAt);');
 
-// Migration: add unit assignment columns to bookings for DBs created before
-// plates were tied to bookings.
+// Migration: add columns to bookings for DBs created before the feature existed.
 const bookingCols = db.prepare('PRAGMA table_info(bookings)').all() as unknown as { name: string }[];
-if (!bookingCols.some(c => c.name === 'unitId')) {
-  db.exec("ALTER TABLE bookings ADD COLUMN unitId TEXT NOT NULL DEFAULT ''");
-}
-if (!bookingCols.some(c => c.name === 'plate')) {
-  db.exec("ALTER TABLE bookings ADD COLUMN plate TEXT NOT NULL DEFAULT ''");
-}
+const addBookingCol = (name: string, ddl: string) => {
+  if (!bookingCols.some(c => c.name === name)) db.exec(`ALTER TABLE bookings ADD COLUMN ${ddl}`);
+};
+addBookingCol('unitId', "unitId TEXT NOT NULL DEFAULT ''");
+addBookingCol('plate', "plate TEXT NOT NULL DEFAULT ''");
+addBookingCol('payments', "payments TEXT NOT NULL DEFAULT '[]'");
+addBookingCol('deposit', 'deposit REAL NOT NULL DEFAULT 0');
+addBookingCol('depositReturned', 'depositReturned INTEGER NOT NULL DEFAULT 0');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS extras (
@@ -289,6 +307,9 @@ interface BookingRow {
   renter: string;
   unitId: string;
   plate: string;
+  payments: string;
+  deposit: number;
+  depositReturned: number;
 }
 
 function rowToBooking(r: BookingRow): Booking {
@@ -308,6 +329,9 @@ function rowToBooking(r: BookingRow): Booking {
     days: r.days,
     total: r.total,
     extras: JSON.parse(r.extras) as BookingExtra[],
+    payments: r.payments ? (JSON.parse(r.payments) as Payment[]) : [],
+    deposit: r.deposit ?? 0,
+    depositReturned: !!r.depositReturned,
     renter: JSON.parse(r.renter) as Booking['renter'],
   };
 }
@@ -320,11 +344,11 @@ const insertBooking = db.prepare(`
   INSERT INTO bookings (
     id, reference, status, createdAt, bikeId, bikeTitle, unitId, plate,
     pickupLocation, dropoffLocation, pickupDate, dropoffDate,
-    days, total, extras, renter
+    days, total, extras, renter, payments, deposit, depositReturned
   ) VALUES (
     :id, :reference, :status, :createdAt, :bikeId, :bikeTitle, :unitId, :plate,
     :pickupLocation, :dropoffLocation, :pickupDate, :dropoffDate,
-    :days, :total, :extras, :renter
+    :days, :total, :extras, :renter, :payments, :deposit, :depositReturned
   )
 `);
 
@@ -346,7 +370,34 @@ function runInsertBooking(booking: Booking): void {
     total: booking.total,
     extras: JSON.stringify(booking.extras),
     renter: JSON.stringify(booking.renter),
+    payments: JSON.stringify(booking.payments),
+    deposit: booking.deposit,
+    depositReturned: booking.depositReturned ? 1 : 0,
   });
+}
+
+/** Add/remove payments and set deposit fields on a booking. */
+export function updateBookingBilling(
+  id: string,
+  ops: { addPayment?: { amount: number; note: string }; removePaymentId?: string; deposit?: number; depositReturned?: boolean },
+): Booking | null {
+  const row = getBookingRow(id);
+  if (!row) return null;
+  const current = rowToBooking(row);
+  let payments = current.payments;
+  if (ops.addPayment && ops.addPayment.amount > 0) {
+    payments = [...payments, { id: randomUUID(), amount: ops.addPayment.amount, at: new Date().toISOString(), note: ops.addPayment.note || '' }];
+  }
+  if (ops.removePaymentId) payments = payments.filter(p => p.id !== ops.removePaymentId);
+  const deposit = ops.deposit !== undefined ? ops.deposit : current.deposit;
+  const depositReturned = ops.depositReturned !== undefined ? ops.depositReturned : current.depositReturned;
+  db.prepare('UPDATE bookings SET payments = ?, deposit = ?, depositReturned = ? WHERE id = ?').run(
+    JSON.stringify(payments),
+    deposit,
+    depositReturned ? 1 : 0,
+    id,
+  );
+  return rowToBooking(getBookingRow(id)!);
 }
 
 export function listBookings(): Booking[] {
