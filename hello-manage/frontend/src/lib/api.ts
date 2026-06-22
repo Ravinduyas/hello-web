@@ -86,11 +86,18 @@ export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
 export class UnauthorizedError extends Error {}
 
 async function parseError(res: Response): Promise<string> {
+  // The backend always sends `{ error }` on a handled failure. A 5xx with no
+  // such JSON almost always means the API is unreachable — e.g. the dev proxy
+  // got a connection refused and synthesised a bare 500 "Internal Server Error".
+  // Surface that as actionable guidance instead of a scary generic message.
   try {
-    return (await res.json()).error || res.statusText;
+    const body = await res.json();
+    if (body?.error) return body.error;
   } catch {
-    return res.statusText;
+    /* non-JSON body — fall through */
   }
+  if (res.status >= 500) return "Can't reach the API. Is the backend running? (npm run backend in hello-manage)";
+  return res.statusText;
 }
 
 function authHeaders(json = false): HeadersInit {

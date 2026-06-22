@@ -52,7 +52,7 @@ export default function Hero() {
         ))}
       </div>
 
-      <div className="relative z-20 h-full max-w-7xl mx-auto px-6 flex flex-col justify-end pb-10">
+      <div className="relative z-20 h-full max-w-7xl mx-auto px-6 flex flex-col justify-center">
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
@@ -68,7 +68,7 @@ export default function Hero() {
           </h1>
 
           <div className="flex flex-col md:flex-row md:items-center gap-8 mt-12">
-            <Link to="/fleet" className="btn-light group w-fit text-base px-7 py-3.5 tracking-wide">
+            <Link to="/fleet" className="btn-light group w-fit">
               BOOK YOUR RIDE
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
@@ -89,12 +89,12 @@ export default function Hero() {
         </motion.div>
 
         {/* Editorial index bar — hairline rule + small-caps meta columns,
-            riding beneath the headline like a magazine masthead. */}
+            anchored to the foot of the hero like a magazine masthead. */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
-          className="mt-14"
+          className="absolute inset-x-0 bottom-0 max-w-7xl mx-auto px-6 pb-8"
         >
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-white/20 pt-5 text-white">
             {[
