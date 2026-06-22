@@ -65,23 +65,27 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
+  // `silent` polls update data without the spinner or clobbering the UI with a
+  // transient error if a single background fetch fails.
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [b, u] = await Promise.all([fetchBookings(), fetchUnits()]);
       setBookings(b);
       setUnits(u);
+      setError('');
     } catch (err) {
       if (err instanceof UnauthorizedError) return onLogout();
-      setError(err instanceof Error ? err.message : 'Failed to load bookings');
+      if (!silent) setError(err instanceof Error ? err.message : 'Failed to load bookings');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [onLogout]);
 
   useEffect(() => {
     load();
+    const id = setInterval(() => load(true), 15000); // auto-refresh every 15s
+    return () => clearInterval(id);
   }, [load]);
 
   async function changeStatus(id: string, status: BookingStatus, unitId?: string) {
@@ -122,7 +126,12 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <span className="eyebrow">[ Bookings ]</span>
+        <span className="flex items-center gap-2">
+          <span className="eyebrow">[ Bookings ]</span>
+          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-dark/40" title="Auto-refreshing every 15s">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
+          </span>
+        </span>
         <div className="flex flex-wrap items-center gap-2">
           {/* Date range menu (by pickup date) */}
           <div className="relative">
@@ -155,7 +164,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
             <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dark/40" />
           </div>
 
-          <button onClick={load} className="btn-outline" disabled={loading} aria-label="Refresh">
+          <button onClick={() => load()} className="btn-outline" disabled={loading} aria-label="Refresh">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
