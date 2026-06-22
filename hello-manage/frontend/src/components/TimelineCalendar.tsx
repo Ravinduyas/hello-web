@@ -123,12 +123,11 @@ export default function TimelineCalendar({ bookings, bikes, units }: { bookings:
         {placed.map(({ booking: b, startIdx, endIdx, lane }) => (
           <div
             key={b.id}
-            title={`${b.reference} · ${b.bikeTitle}${b.plate ? ' · ' + b.plate : ''} · ${b.renter.firstName} ${b.renter.lastName} · ${b.pickupDate} → ${b.dropoffDate}`.trim()}
+            title={`${b.bikeTitle}${b.plate ? ' · ' + b.plate : ''} · ${b.renter.firstName} ${b.renter.lastName} · ${b.pickupDate} → ${b.dropoffDate}`.trim()}
             className={`absolute rounded-md border-l-4 px-2 flex flex-col justify-center overflow-hidden shadow-sm ${barStyle[b.status]}`}
             style={{ left: startIdx * COL + 2, width: (endIdx - startIdx + 1) * COL - 4, top: lane * (BAR_H + LANE_GAP) + LANE_GAP, height: BAR_H }}
           >
-            <p className="text-[11px] font-bold leading-tight truncate">{b.reference}</p>
-            <p className="text-[10px] leading-tight truncate opacity-80">{b.renter.firstName} {b.renter.lastName}</p>
+            <p className="text-[11px] font-bold leading-tight truncate">{b.renter.firstName} {b.renter.lastName}</p>
           </div>
         ))}
       </div>

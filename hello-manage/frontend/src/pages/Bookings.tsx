@@ -115,7 +115,6 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-3 mb-1">
-                    <span className="font-display font-bold tracking-wide">{b.reference}</span>
                     <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${statusStyles[b.status]}`}>
                       {b.status}
                     </span>

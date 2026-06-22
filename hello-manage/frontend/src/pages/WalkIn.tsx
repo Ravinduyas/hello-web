@@ -142,7 +142,7 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
             <Check className="w-7 h-7 text-brand" />
           </div>
           <span className="eyebrow">[ Rental created ]</span>
-          <h2 className="display-xl text-3xl md:text-4xl mt-2 mb-6">{done.reference} is on the road</h2>
+          <h2 className="display-xl text-3xl md:text-4xl mt-2 mb-6">{done.renter.firstName} is on the road</h2>
           <div className="bg-beige rounded-2xl p-6 space-y-3">
             <SummaryRow icon={BikeIcon} label="Bike" value={`${done.bikeTitle} · Plate ${done.plate}`} />
             <SummaryRow icon={Calendar} label="Dates" value={`${done.pickupDate} → ${done.dropoffDate} (${done.days} day${done.days > 1 ? 's' : ''})`} />
