@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone } from 'lucide-react';
+import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown } from 'lucide-react';
 import {
   fetchBookings,
   setBookingStatus,
@@ -16,8 +16,6 @@ const statusStyles: Record<BookingStatus, string> = {
   confirmed: 'bg-emerald-100 text-emerald-800',
   cancelled: 'bg-red-100 text-red-700',
 };
-
-const FILTERS: ('all' | BookingStatus)[] = ['all', 'pending', 'confirmed', 'cancelled'];
 
 type DateRange = 'all' | 'today' | 'week' | 'month' | 'custom';
 const RANGES: { key: DateRange; label: string }[] = [
@@ -123,51 +121,54 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-        <div>
-          <span className="eyebrow">[ Bookings ]</span>
-        </div>
-        <button onClick={load} className="btn-outline" disabled={loading}>
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
-        </button>
-      </div>
-
-      {/* Date-range filter (by pickup date) */}
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        {RANGES.map(r => (
-          <button
-            key={r.key}
-            onClick={() => setRange(r.key)}
-            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
-              range === r.key ? 'bg-brand text-white' : 'bg-white text-dark border border-dark/10 hover:border-dark/30'
-            }`}
-          >
-            {r.label}
-          </button>
-        ))}
-        {range === 'custom' && (
-          <div className="flex items-center gap-2 ml-1">
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input max-w-[160px]" aria-label="From date" />
-            <span className="text-dark/40">→</span>
-            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input max-w-[160px]" aria-label="To date" />
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <span className="eyebrow">[ Bookings ]</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Date range menu (by pickup date) */}
+          <div className="relative">
+            <select
+              value={range}
+              onChange={e => setRange(e.target.value as DateRange)}
+              aria-label="Date range"
+              className="appearance-none cursor-pointer bg-white border border-dark/15 rounded-full pl-4 pr-9 py-2 text-sm font-bold text-dark hover:border-dark/30 focus:outline-none focus:border-brand"
+            >
+              {RANGES.map(r => (
+                <option key={r.key} value={r.key}>{r.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dark/40" />
           </div>
-        )}
+
+          {/* Status menu */}
+          <div className="relative">
+            <select
+              value={filter}
+              onChange={e => setFilter(e.target.value as 'all' | BookingStatus)}
+              aria-label="Status"
+              className="appearance-none cursor-pointer bg-white border border-dark/15 rounded-full pl-4 pr-9 py-2 text-sm font-bold text-dark hover:border-dark/30 focus:outline-none focus:border-brand"
+            >
+              <option value="all">All ({counts.all})</option>
+              <option value="pending">Pending ({counts.pending})</option>
+              <option value="confirmed">Confirmed ({counts.confirmed})</option>
+              <option value="cancelled">Cancelled ({counts.cancelled})</option>
+            </select>
+            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dark/40" />
+          </div>
+
+          <button onClick={load} className="btn-outline" disabled={loading} aria-label="Refresh">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
-      {/* Status filter */}
-      <div className="flex flex-wrap gap-2 mb-8">
-        {FILTERS.map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide transition-all ${
-              filter === f ? 'bg-dark text-white' : 'bg-white text-dark border border-dark/10 hover:border-dark/30'
-            }`}
-          >
-            {f} <span className="opacity-50">({counts[f]})</span>
-          </button>
-        ))}
-      </div>
+      {/* Custom date range inputs */}
+      {range === 'custom' && (
+        <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
+          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input max-w-[170px]" aria-label="From date" />
+          <span className="text-dark/40">→</span>
+          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input max-w-[170px]" aria-label="To date" />
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
