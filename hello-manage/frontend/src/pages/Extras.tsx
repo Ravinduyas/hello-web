@@ -73,7 +73,10 @@ export default function Extras({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
+        <div>
+          <span className="eyebrow">[ Booking extras ]</span>
+        </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setAddOpen(true)} className="btn-primary">
             <Plus className="w-4 h-4" /> Add extra
