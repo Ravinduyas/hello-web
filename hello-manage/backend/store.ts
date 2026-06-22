@@ -304,22 +304,17 @@ function getBookingRow(id: string): BookingRow | undefined {
 
 const insertBooking = db.prepare(`
   INSERT INTO bookings (
-    id, reference, status, createdAt, bikeId, bikeTitle,
+    id, reference, status, createdAt, bikeId, bikeTitle, unitId, plate,
     pickupLocation, dropoffLocation, pickupDate, dropoffDate,
     days, total, extras, renter
   ) VALUES (
-    :id, :reference, :status, :createdAt, :bikeId, :bikeTitle,
+    :id, :reference, :status, :createdAt, :bikeId, :bikeTitle, :unitId, :plate,
     :pickupLocation, :dropoffLocation, :pickupDate, :dropoffDate,
     :days, :total, :extras, :renter
   )
 `);
 
-export function listBookings(): Booking[] {
-  const rows = db.prepare('SELECT * FROM bookings ORDER BY createdAt DESC').all() as unknown as BookingRow[];
-  return rows.map(rowToBooking);
-}
-
-export function addBooking(booking: Booking): Booking {
+function runInsertBooking(booking: Booking): void {
   insertBooking.run({
     id: booking.id,
     reference: booking.reference,
@@ -327,6 +322,8 @@ export function addBooking(booking: Booking): Booking {
     createdAt: booking.createdAt,
     bikeId: booking.bikeId,
     bikeTitle: booking.bikeTitle,
+    unitId: booking.unitId,
+    plate: booking.plate,
     pickupLocation: booking.pickupLocation,
     dropoffLocation: booking.dropoffLocation,
     pickupDate: booking.pickupDate,
@@ -336,7 +333,37 @@ export function addBooking(booking: Booking): Booking {
     extras: JSON.stringify(booking.extras),
     renter: JSON.stringify(booking.renter),
   });
+}
+
+export function listBookings(): Booking[] {
+  const rows = db.prepare('SELECT * FROM bookings ORDER BY createdAt DESC').all() as unknown as BookingRow[];
+  return rows.map(rowToBooking);
+}
+
+export function addBooking(booking: Booking): Booking {
+  runInsertBooking(booking);
   return booking;
+}
+
+/** Create an already-confirmed booking against a chosen plate in one shot — for
+ *  walk-in rentals booked at the shop counter. Reserves the unit atomically.
+ *  `booking.unitId` must be set; `plate` is filled from the unit. */
+export function createConfirmedBooking(booking: Booking): Booking {
+  const unit = getUnit(booking.unitId);
+  if (!unit) throw new Error('Pick an available plate.');
+  if (unit.bikeId !== booking.bikeId) throw new Error('That plate belongs to a different model.');
+  if (unit.status !== 'available') throw new Error(`Plate ${unit.plate} is already ${unit.status}.`);
+  const confirmed: Booking = { ...booking, status: 'confirmed', plate: unit.plate };
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    runInsertBooking(confirmed);
+    db.prepare("UPDATE units SET status = 'rented' WHERE id = ?").run(confirmed.unitId);
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+  return confirmed;
 }
 
 /** Move a booking to pending/cancelled. Releases any assigned plate back to the

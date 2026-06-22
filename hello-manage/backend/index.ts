@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   addBooking,
+  createConfirmedBooking,
   listBookings,
   updateBookingStatus,
   assignAndConfirm,
@@ -208,6 +209,57 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
 /* ---- Bookings ---- */
 app.get('/api/admin/bookings', requireAuth, (_req: Request, res: Response) => {
   res.json(listBookings());
+});
+
+/** Walk-in rental booked at the shop counter — created already confirmed against
+ *  a chosen plate, which is reserved immediately. */
+app.post('/api/admin/bookings', requireAuth, (req: Request, res: Response) => {
+  const b = req.body ?? {};
+  const renter = b.renter ?? {};
+  const bike = getBikeById(String(b.bikeId ?? ''));
+  if (!bike) return res.status(400).json({ error: 'Pick a bike model.' });
+  const unitId = typeof b.unitId === 'string' ? b.unitId.trim() : '';
+  if (!unitId) return res.status(400).json({ error: 'Pick a plate.' });
+  const days = Number(b.days);
+  if (!b.pickupDate || !b.dropoffDate || !(days > 0)) {
+    return res.status(400).json({ error: 'Choose valid rental dates.' });
+  }
+  if (!renter.firstName || !renter.phone) {
+    return res.status(400).json({ error: 'Customer name and phone are required.' });
+  }
+
+  const booking: Booking = {
+    id: randomUUID(),
+    reference: makeReference(),
+    status: 'confirmed',
+    createdAt: new Date().toISOString(),
+    bikeId: bike.id,
+    bikeTitle: bike.title,
+    unitId,
+    plate: '', // filled from the unit inside createConfirmedBooking
+    pickupLocation: String(b.pickupLocation ?? 'Walk-in (shop)'),
+    dropoffLocation: String(b.dropoffLocation ?? b.pickupLocation ?? 'Walk-in (shop)'),
+    pickupDate: String(b.pickupDate),
+    dropoffDate: String(b.dropoffDate),
+    days,
+    extras: Array.isArray(b.extras)
+      ? b.extras.map((e: any) => ({ id: String(e.id), label: String(e.label), amount: Number(e.amount) || 0 }))
+      : [],
+    total: Number(b.total) || 0,
+    renter: {
+      firstName: String(renter.firstName),
+      lastName: String(renter.lastName ?? ''),
+      email: String(renter.email ?? ''),
+      phone: String(renter.phone),
+      license: renter.license ? String(renter.license) : undefined,
+    },
+  };
+
+  try {
+    res.status(201).json(createConfirmedBooking(booking));
+  } catch (err) {
+    res.status(409).json({ error: err instanceof Error ? err.message : 'Could not create rental' });
+  }
 });
 
 app.patch('/api/admin/bookings/:id', requireAuth, (req: Request, res: Response) => {

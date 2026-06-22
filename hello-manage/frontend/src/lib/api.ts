@@ -131,8 +131,27 @@ export async function login(username: string, password: string): Promise<string>
 }
 
 /* ---- Bookings ---- */
+export interface WalkInBookingInput {
+  bikeId: string;
+  unitId: string;
+  pickupLocation?: string;
+  dropoffLocation?: string;
+  pickupDate: string;
+  dropoffDate: string;
+  days: number;
+  extras: { id: string; label: string; amount: number }[];
+  total: number;
+  renter: { firstName: string; lastName: string; email: string; phone: string; license?: string };
+}
+
 export const fetchBookings = () =>
   fetch('/api/admin/bookings', { headers: authHeaders() }).then(r => handle<Booking[]>(r));
+
+/** Create a walk-in rental at the counter (confirmed + plate reserved in one shot). */
+export const createWalkInBooking = (input: WalkInBookingInput) =>
+  fetch('/api/admin/bookings', { method: 'POST', headers: authHeaders(true), body: JSON.stringify(input) }).then(r =>
+    handle<Booking>(r),
+  );
 
 export const setBookingStatus = (id: string, status: BookingStatus, unitId?: string) =>
   fetch(`/api/admin/bookings/${id}`, {
