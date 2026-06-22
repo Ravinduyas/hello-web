@@ -1,0 +1,108 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+
+  --color-brand: #B0764F;
+  --color-beige: #EFE7DB;
+  --color-dark: #2E211B;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* Bake in the client's preferred "75% zoom" density: scaling the root font
+       shrinks all rem-based type/spacing proportionally at 100% zoom. Media-query
+       breakpoints use the initial 16px (per spec), so the responsive layout is
+       unaffected. Adjust this single value to make the whole site denser/looser. */
+    font-size: 75%;
+    /* Force a light UA theme so dark-mode browsers never paint the root
+       canvas, overscroll area, or scrollbars black behind our warm design. */
+    color-scheme: light;
+    background-color: var(--color-beige);
+  }
+
+  body {
+    @apply font-sans bg-beige text-dark antialiased;
+  }
+
+  /* Visible keyboard-focus ring for all interactive elements.
+     Mouse clicks won't trigger it thanks to :focus-visible. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-beige rounded-md;
+  }
+
+  /* Respect users who prefer reduced motion. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand text-beige px-5 py-2.5 text-sm rounded-full font-medium transition-all hover:brightness-110 flex items-center gap-2;
+  }
+  .btn-dark {
+    @apply bg-dark text-beige px-5 py-2.5 text-sm rounded-full font-medium transition-all hover:brightness-125 flex items-center gap-2;
+  }
+  .btn-outline {
+    @apply border border-dark text-dark px-5 py-2.5 text-sm rounded-full font-medium transition-all hover:bg-dark hover:text-beige flex items-center gap-2;
+  }
+  /* Cream pill for use over hero imagery (mirrors the reference's white CTA). */
+  .btn-light {
+    @apply bg-beige text-dark px-5 py-2.5 text-sm rounded-full font-medium transition-all hover:bg-white flex items-center gap-2;
+  }
+  /* Oversized, tight, uppercase editorial headline treatment. */
+  .display-xl {
+    @apply font-display font-bold uppercase tracking-tight leading-[0.9];
+  }
+
+  /* Small-caps editorial eyebrow — wide tracking, clay. The bracket framing
+     is part of the house style; the class keeps tracking/size consistent. */
+  .eyebrow {
+    @apply text-[11px] font-bold uppercase tracking-[0.25em] text-brand;
+  }
+  /* Muted index numeral that rides alongside a section headline (e.g. "(02)"),
+     echoing the oversized numbers in the Stats signature grid. */
+  .section-index {
+    @apply font-display text-sm font-bold tracking-tight text-dark/30 tabular-nums shrink-0;
+  }
+  /* Editorial section header: eyebrow, then a hairline rule under a headline
+     paired with its index numeral. Reused across every homepage section so the
+     grid/rule motif reads as a through-line, not a one-off in Stats. */
+  .section-head {
+    @apply mb-12 md:mb-16;
+  }
+  .section-head .rule {
+    @apply flex items-end justify-between gap-8 border-t border-dark/15 pt-6;
+  }
+
+  /* Shared form control used across the booking wizard. */
+  .booking-input {
+    @apply w-full bg-beige border border-dark/10 rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:border-brand transition-colors;
+  }
+
+  /* Skip-to-content link: hidden until focused via keyboard. */
+  .skip-link {
+    @apply sr-only;
+  }
+  .skip-link:focus {
+    @apply not-sr-only fixed top-4 left-4 z-[200] bg-dark text-white px-5 py-3 rounded-full text-sm font-medium;
+  }
+}

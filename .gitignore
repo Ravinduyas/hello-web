@@ -1,0 +1,9 @@
+# Repo-wide ignores. Each sub-project (hello-web, hello-manage) also has its own.
+node_modules/
+dist/
+build/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
