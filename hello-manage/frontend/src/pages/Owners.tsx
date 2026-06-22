@@ -8,13 +8,18 @@ import {
   deleteOwner,
   fetchUnits,
   fetchBikes,
+  fetchBookings,
   UnauthorizedError,
   type Owner,
   type OwnerInput,
   type Unit,
   type UnitStatus,
   type Bike,
+  type Booking,
 } from '../lib/api';
+import { ownerCommission } from '../lib/commission';
+
+const money = (n: number) => `$${n.toFixed(2).replace(/\.00$/, '')}`;
 
 const unitStatusChip: Record<UnitStatus, string> = {
   available: 'bg-emerald-100 text-emerald-800',
@@ -26,6 +31,7 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [bikes, setBikes] = useState<Bike[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [addOpen, setAddOpen] = useState(false);
@@ -44,10 +50,11 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
     setLoading(true);
     setError('');
     try {
-      const [o, u, b] = await Promise.all([fetchOwners(), fetchUnits(), fetchBikes()]);
+      const [o, u, b, bk] = await Promise.all([fetchOwners(), fetchUnits(), fetchBikes(), fetchBookings()]);
       setOwners(o);
       setUnits(u);
       setBikes(b);
+      setBookings(bk);
     } catch (err) {
       fail(err, 'Failed to load owners');
     } finally {
@@ -61,6 +68,8 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
 
   const ownerUnits = (ownerId: string) => units.filter(u => u.ownerId === ownerId);
   const bikeTitle = (bikeId: string) => bikes.find(b => b.id === bikeId)?.title ?? 'Unknown model';
+  const plateRevenue = (unitId: string) =>
+    bookings.filter(b => b.status === 'confirmed' && b.unitId === unitId).reduce((s, b) => s + b.total, 0);
 
   async function handleCreate(input: OwnerInput) {
     try {
@@ -141,6 +150,7 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
               const ownersBikes = ownerUnits(owner.id);
               const count = ownersBikes.length;
               const isOpen = expanded === owner.id;
+              const c = ownerCommission(owner, units, bookings);
               return (
                 <div key={owner.id} className="px-4 md:px-6 py-4">
                   <div className="grid grid-cols-1 md:grid-cols-[2fr_1.4fr_1fr_auto] gap-2 md:gap-4 md:items-center">
@@ -159,8 +169,14 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
                           <BikeIcon className="w-3 h-3 text-brand" /> {count} {count === 1 ? 'bike' : 'bikes'}
                           {count > 0 && <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />}
                         </button>
+                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 bg-emerald-100 text-emerald-800" title="Shop commission from confirmed rentals">
+                          Comm {money(c.commission)}
+                        </span>
                       </div>
                       <p className="text-sm text-dark/50 truncate">{owner.email || '—'}</p>
+                      <p className="text-[11px] text-dark/40 mt-0.5">
+                        Rate {owner.commissionPct}% + {money(owner.commissionFlat)}/rental
+                      </p>
                     </div>
 
                     {/* Phone */}
@@ -201,11 +217,18 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
                         <div key={u.id} className="flex items-center gap-3 text-sm bg-white rounded-lg px-3 py-2">
                           <span className="font-display font-bold tracking-wide w-28 shrink-0">{u.plate}</span>
                           <span className="text-dark/60 flex-1 truncate">{bikeTitle(u.bikeId)}</span>
+                          <span className="text-dark/50 tabular-nums shrink-0" title="Revenue from confirmed rentals">{money(plateRevenue(u.id))}</span>
                           <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${unitStatusChip[u.status]}`}>
                             {u.status}
                           </span>
                         </div>
                       ))}
+                      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 px-3 pt-2 text-sm">
+                        <span className="text-dark/50">Rentals <b className="text-dark">{c.rentals}</b></span>
+                        <span className="text-dark/50">Revenue <b className="text-dark">{money(c.revenue)}</b></span>
+                        <span className="text-dark/50">Commission <b className="text-emerald-700">{money(c.commission)}</b></span>
+                        <span className="text-dark/50">Owner payout <b className="text-dark">{money(c.payout)}</b></span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -222,7 +245,7 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
 /*  Add / Edit forms (shared fields, used inside the Drawer)          */
 /* ------------------------------------------------------------------ */
 
-const EMPTY: OwnerInput = { name: '', phone: '', email: '', nic: '', notes: '' };
+const EMPTY: OwnerInput = { name: '', phone: '', email: '', nic: '', notes: '', commissionPct: 0, commissionFlat: 0 };
 
 function AddOwner({ onCreate }: { onCreate: (input: OwnerInput) => Promise<void> }) {
   const [draft, setDraft] = useState<OwnerInput>(EMPTY);
@@ -306,6 +329,35 @@ function OwnerFields({ draft, setDraft }: { draft: OwnerInput; setDraft: (d: Own
         <span className="label">Notes</span>
         <input className="input" placeholder="Payout details, bank, etc." value={draft.notes} onChange={e => setDraft({ ...draft, notes: e.target.value })} />
       </label>
+
+      <div className="md:col-span-12 grid grid-cols-2 gap-4 pt-2 mt-2 border-t border-dark/10">
+        <label className="space-y-2 block">
+          <span className="label">Commission %</span>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step="0.5"
+            className="input"
+            placeholder="15"
+            value={draft.commissionPct}
+            onChange={e => setDraft({ ...draft, commissionPct: Number(e.target.value) })}
+          />
+        </label>
+        <label className="space-y-2 block">
+          <span className="label">Flat per rental ($)</span>
+          <input
+            type="number"
+            min={0}
+            step="0.5"
+            className="input"
+            placeholder="2"
+            value={draft.commissionFlat}
+            onChange={e => setDraft({ ...draft, commissionFlat: Number(e.target.value) })}
+          />
+        </label>
+        <p className="col-span-2 text-[11px] text-dark/40">Shop commission = % of rental revenue + flat per confirmed rental. Owner is paid the rest.</p>
+      </div>
     </div>
   );
 }

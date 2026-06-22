@@ -97,6 +97,9 @@ export interface Owner {
   email: string;
   nic: string;
   notes: string;
+  /** Shop commission on this owner's rentals: a % of revenue plus a flat amount per rental. */
+  commissionPct: number;
+  commissionFlat: number;
   createdAt: string;
 }
 
@@ -244,15 +247,26 @@ if (!unitCols.some(c => c.name === 'ownerId')) {
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS owners (
-    id        TEXT PRIMARY KEY,
-    name      TEXT NOT NULL,
-    phone     TEXT NOT NULL DEFAULT '',
-    email     TEXT NOT NULL DEFAULT '',
-    nic       TEXT NOT NULL DEFAULT '',
-    notes     TEXT NOT NULL DEFAULT '',
-    createdAt TEXT NOT NULL
+    id            TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    phone         TEXT NOT NULL DEFAULT '',
+    email         TEXT NOT NULL DEFAULT '',
+    nic           TEXT NOT NULL DEFAULT '',
+    notes         TEXT NOT NULL DEFAULT '',
+    commissionPct  REAL NOT NULL DEFAULT 0,
+    commissionFlat REAL NOT NULL DEFAULT 0,
+    createdAt     TEXT NOT NULL
   );
 `);
+
+// Migration: add commission columns for owners created before commissions.
+const ownerCols = db.prepare('PRAGMA table_info(owners)').all() as unknown as { name: string }[];
+if (!ownerCols.some(c => c.name === 'commissionPct')) {
+  db.exec('ALTER TABLE owners ADD COLUMN commissionPct REAL NOT NULL DEFAULT 0');
+}
+if (!ownerCols.some(c => c.name === 'commissionFlat')) {
+  db.exec('ALTER TABLE owners ADD COLUMN commissionFlat REAL NOT NULL DEFAULT 0');
+}
 
 /* ================================================================== */
 /*  Bookings                                                          */
@@ -658,6 +672,8 @@ interface OwnerRow {
   email: string;
   nic: string;
   notes: string;
+  commissionPct: number;
+  commissionFlat: number;
   createdAt: string;
 }
 
@@ -672,8 +688,8 @@ export function getOwner(id: string): Owner | null {
 
 export function addOwner(owner: Owner): Owner {
   db.prepare(
-    'INSERT INTO owners (id, name, phone, email, nic, notes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
-  ).run(owner.id, owner.name, owner.phone, owner.email, owner.nic, owner.notes, owner.createdAt);
+    'INSERT INTO owners (id, name, phone, email, nic, notes, commissionPct, commissionFlat, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).run(owner.id, owner.name, owner.phone, owner.email, owner.nic, owner.notes, owner.commissionPct, owner.commissionFlat, owner.createdAt);
   return owner;
 }
 
@@ -681,12 +697,14 @@ export function updateOwner(id: string, patch: Partial<Omit<Owner, 'id' | 'creat
   const current = getOwner(id);
   if (!current) return null;
   const next: Owner = { ...current, ...patch, id };
-  db.prepare('UPDATE owners SET name = ?, phone = ?, email = ?, nic = ?, notes = ? WHERE id = ?').run(
+  db.prepare('UPDATE owners SET name = ?, phone = ?, email = ?, nic = ?, notes = ?, commissionPct = ?, commissionFlat = ? WHERE id = ?').run(
     next.name,
     next.phone,
     next.email,
     next.nic,
     next.notes,
+    next.commissionPct,
+    next.commissionFlat,
     id,
   );
   return next;

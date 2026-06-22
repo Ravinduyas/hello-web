@@ -76,6 +76,9 @@ export interface Owner {
   email: string;
   nic: string;
   notes: string;
+  /** Shop commission on this owner's rentals: a % of revenue plus a flat amount per rental. */
+  commissionPct: number;
+  commissionFlat: number;
   createdAt: string;
 }
 

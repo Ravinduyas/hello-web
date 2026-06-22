@@ -8,6 +8,7 @@ import Bookings from './pages/Bookings';
 import Calendar from './pages/Calendar';
 import Fleet from './pages/Fleet';
 import Owners from './pages/Owners';
+import Payouts from './pages/Payouts';
 import Extras from './pages/Extras';
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/calendar" element={<Calendar onLogout={logout} />} />
           <Route path="/fleet" element={<Fleet onLogout={logout} />} />
           <Route path="/owners" element={<Owners onLogout={logout} />} />
+          <Route path="/payouts" element={<Payouts onLogout={logout} />} />
           <Route path="/extras" element={<Extras onLogout={logout} />} />
           <Route path="*" element={<Navigate to="/bookings" replace />} />
         </Routes>

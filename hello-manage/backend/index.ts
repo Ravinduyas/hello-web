@@ -498,6 +498,8 @@ app.post('/api/admin/owners', requireAuth, (req: Request, res: Response) => {
     email: String(b.email ?? ''),
     nic: String(b.nic ?? ''),
     notes: String(b.notes ?? ''),
+    commissionPct: Number(b.commissionPct) || 0,
+    commissionFlat: Number(b.commissionFlat) || 0,
     createdAt: new Date().toISOString(),
   };
   addOwner(owner);
@@ -516,6 +518,8 @@ app.patch('/api/admin/owners/:id', requireAuth, (req: Request, res: Response) =>
   if (b.email !== undefined) patch.email = String(b.email);
   if (b.nic !== undefined) patch.nic = String(b.nic);
   if (b.notes !== undefined) patch.notes = String(b.notes);
+  if (b.commissionPct !== undefined) patch.commissionPct = Number(b.commissionPct) || 0;
+  if (b.commissionFlat !== undefined) patch.commissionFlat = Number(b.commissionFlat) || 0;
 
   const updated = updateOwner(req.params.id, patch);
   if (!updated) return res.status(404).json({ error: 'Not found' });

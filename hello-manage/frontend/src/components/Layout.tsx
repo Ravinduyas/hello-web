@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { CalendarCheck, CalendarDays, Tag, Bike, Users, LogOut, Store } from 'lucide-react';
+import { CalendarCheck, CalendarDays, Tag, Bike, Users, LogOut, Store, Wallet } from 'lucide-react';
 
 const nav = [
   { to: '/walk-in', label: 'Walk-in', icon: Store },
@@ -8,6 +8,7 @@ const nav = [
   { to: '/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/fleet', label: 'Fleet', icon: Bike },
   { to: '/owners', label: 'Owners', icon: Users },
+  { to: '/payouts', label: 'Payouts', icon: Wallet },
   { to: '/extras', label: 'Extras', icon: Tag },
 ];
 
