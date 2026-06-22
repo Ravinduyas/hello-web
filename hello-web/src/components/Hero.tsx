@@ -52,7 +52,7 @@ export default function Hero() {
         ))}
       </div>
 
-      <div className="relative z-20 h-full max-w-7xl mx-auto px-6 flex flex-col justify-center">
+      <div className="relative z-20 h-full max-w-7xl mx-auto px-6 flex flex-col justify-end pb-10">
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
@@ -89,12 +89,12 @@ export default function Hero() {
         </motion.div>
 
         {/* Editorial index bar — hairline rule + small-caps meta columns,
-            anchored to the foot of the hero like a magazine masthead. */}
+            riding beneath the headline like a magazine masthead. */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
-          className="absolute inset-x-0 bottom-0 max-w-7xl mx-auto px-6 pb-8"
+          className="mt-14"
         >
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-white/20 pt-5 text-white">
             {[
