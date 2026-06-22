@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Trash2, Save, RefreshCw, Bike as BikeIcon } from 'lucide-react';
+import { Plus, Trash2, Pencil, RefreshCw, Bike as BikeIcon } from 'lucide-react';
 import Drawer from '../components/Drawer';
 import {
   fetchOwners,
@@ -19,6 +19,7 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<Owner | null>(null);
 
   const fail = useCallback(
     (err: unknown, fallback: string) => {
@@ -63,8 +64,10 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
     try {
       const updated = await updateOwner(id, patch);
       setOwners(prev => prev.map(o => (o.id === id ? updated : o)));
+      setEditing(null);
     } catch (err) {
       fail(err, 'Save failed');
+      throw err;
     }
   }
 
@@ -97,14 +100,14 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
-      <Drawer
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        title="Add an owner"
-        subtitle="A fleet owner whose bikes you rent out."
-        widthClass="max-w-2xl"
-      >
+      {/* Add */}
+      <Drawer open={addOpen} onClose={() => setAddOpen(false)} title="Add an owner" subtitle="A fleet owner whose bikes you rent out." widthClass="max-w-2xl">
         <AddOwner onCreate={handleCreate} />
+      </Drawer>
+
+      {/* Edit */}
+      <Drawer open={!!editing} onClose={() => setEditing(null)} title="Edit owner" subtitle={editing?.name} widthClass="max-w-2xl">
+        {editing && <EditOwner key={editing.id} owner={editing} onSave={patch => handleSave(editing.id, patch)} />}
       </Drawer>
 
       {loading ? (
@@ -112,10 +115,67 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
       ) : owners.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center text-dark/50 mt-6">No owners yet. Add one above.</div>
       ) : (
-        <div className="space-y-4 mt-6">
-          {owners.map(owner => (
-            <OwnerRow key={owner.id} owner={owner} bikes={bikeCount(owner.id)} onSave={handleSave} onDelete={handleDelete} />
-          ))}
+        <div className="bg-white rounded-2xl overflow-hidden">
+          {/* Column headers (desktop) */}
+          <div className="hidden md:grid grid-cols-[2fr_1.4fr_1fr_auto] gap-4 px-6 py-3 border-b border-dark/10 text-[10px] font-bold uppercase tracking-widest text-dark/40">
+            <span>Owner</span>
+            <span>Phone</span>
+            <span>NIC / ID</span>
+            <span className="text-right">Actions</span>
+          </div>
+
+          <div className="divide-y divide-dark/5">
+            {owners.map(owner => {
+              const bikes = bikeCount(owner.id);
+              return (
+                <div
+                  key={owner.id}
+                  className="grid grid-cols-1 md:grid-cols-[2fr_1.4fr_1fr_auto] gap-2 md:gap-4 md:items-center px-4 md:px-6 py-4"
+                >
+                  {/* Owner + email + bikes */}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold truncate">{owner.name}</p>
+                      <span className="inline-flex items-center gap-1 bg-beige rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0">
+                        <BikeIcon className="w-3 h-3 text-brand" /> {bikes}
+                      </span>
+                    </div>
+                    <p className="text-sm text-dark/50 truncate">{owner.email || '—'}</p>
+                  </div>
+
+                  {/* Phone */}
+                  <div className="text-sm min-w-0 truncate">
+                    <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-dark/40 mr-2">Phone</span>
+                    {owner.phone || '—'}
+                  </div>
+
+                  {/* NIC */}
+                  <div className="text-sm min-w-0 truncate">
+                    <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-dark/40 mr-2">NIC</span>
+                    {owner.nic || '—'}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 md:justify-end mt-1 md:mt-0">
+                    <button
+                      onClick={() => setEditing(owner)}
+                      className="text-sm font-bold inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
+                    >
+                      <Pencil className="w-4 h-4" /> Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(owner.id)}
+                      aria-label={`Delete ${owner.name}`}
+                      className="text-sm font-bold inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-red-600 hover:bg-red-50 transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="md:hidden">Delete</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -123,7 +183,7 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Add-new owner                                                     */
+/*  Add / Edit forms (shared fields, used inside the Drawer)          */
 /* ------------------------------------------------------------------ */
 
 const EMPTY: OwnerInput = { name: '', phone: '', email: '', nic: '', notes: '' };
@@ -158,67 +218,34 @@ function AddOwner({ onCreate }: { onCreate: (input: OwnerInput) => Promise<void>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Editable row                                                      */
-/* ------------------------------------------------------------------ */
-
-function OwnerRow({
-  owner,
-  bikes,
-  onSave,
-  onDelete,
-}: {
-  owner: Owner;
-  bikes: number;
-  onSave: (id: string, patch: Partial<OwnerInput>) => Promise<void>;
-  onDelete: (id: string) => void;
-}) {
+function EditOwner({ owner, onSave }: { owner: Owner; onSave: (patch: Partial<OwnerInput>) => Promise<void> }) {
   const [draft, setDraft] = useState<OwnerInput>(owner);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => setDraft(owner), [owner]);
-
-  const dirty =
-    draft.name !== owner.name ||
-    draft.phone !== owner.phone ||
-    draft.email !== owner.email ||
-    draft.nic !== owner.nic ||
-    draft.notes !== owner.notes;
-
-  async function save() {
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!draft.name.trim()) return;
     setBusy(true);
-    await onSave(owner.id, { ...draft });
-    setBusy(false);
+    try {
+      await onSave(draft);
+    } catch {
+      /* surfaced by parent */
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <div className="bg-white rounded-2xl p-5 md:p-6">
+    <form onSubmit={submit}>
       <OwnerFields draft={draft} setDraft={setDraft} />
-
-      <div className="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t border-dark/10">
-        <span className="text-xs font-bold inline-flex items-center gap-1.5 bg-beige rounded-full px-3 py-1.5">
-          <BikeIcon className="w-4 h-4 text-brand" /> {bikes} bike{bikes === 1 ? '' : 's'}
-        </span>
-        <div className="ml-auto flex gap-2">
-          <button type="button" onClick={save} disabled={!dirty || busy} className="btn-primary text-sm py-2">
-            <Save className="w-4 h-4" /> {busy ? 'Saving…' : 'Save'}
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(owner.id)}
-            className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-red-600 hover:bg-red-50 transition"
-          >
-            <Trash2 className="w-4 h-4" /> Delete
-          </button>
-        </div>
+      <div className="flex justify-end mt-6">
+        <button type="submit" className="btn-primary" disabled={busy || !draft.name.trim()}>
+          {busy ? 'Saving…' : 'Save changes'}
+        </button>
       </div>
-    </div>
+    </form>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Shared fields                                                     */
-/* ------------------------------------------------------------------ */
 
 function OwnerFields({ draft, setDraft }: { draft: OwnerInput; setDraft: (d: OwnerInput) => void }) {
   return (
