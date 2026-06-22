@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { CalendarCheck, CalendarDays, Tag, Bike, Users, LogOut, Store } from 'lucide-react';
 
 const nav = [
@@ -12,6 +12,9 @@ const nav = [
 ];
 
 export default function Layout({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
+  const { pathname } = useLocation();
+  // The calendar timeline wants the full screen width; other pages read better capped.
+  const fullWidth = pathname === '/calendar';
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Sidebar */}
@@ -43,7 +46,9 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
       </aside>
 
       {/* Content */}
-      <main className="flex-1 p-6 md:p-10 max-w-5xl">{children}</main>
+      <main className="flex-1 min-w-0 p-6 md:p-10">
+        <div className={fullWidth ? '' : 'max-w-5xl'}>{children}</div>
+      </main>
     </div>
   );
 }
