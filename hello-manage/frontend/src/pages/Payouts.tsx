@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, ChevronDown } from 'lucide-react';
-import { fetchOwners, fetchUnits, fetchBookings, UnauthorizedError, type Owner, type Unit, type Booking } from '../lib/api';
+import { RefreshCw, ChevronDown, Pencil, Check, X } from 'lucide-react';
+import { fetchOwners, fetchUnits, fetchBookings, updateOwner, UnauthorizedError, type Owner, type Unit, type Booking } from '../lib/api';
 import { ownerCommission } from '../lib/commission';
 
 const money = (n: number) => `$${n.toFixed(2).replace(/\.00$/, '')}`;
@@ -65,6 +65,16 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function saveRate(id: string, commissionPct: number, commissionFlat: number) {
+    try {
+      const updated = await updateOwner(id, { commissionPct, commissionFlat });
+      setOwners(prev => prev.map(o => (o.id === id ? updated : o)));
+    } catch (err) {
+      if (err instanceof UnauthorizedError) return onLogout();
+      setError(err instanceof Error ? err.message : 'Could not save rate');
+    }
+  }
 
   const [from, to] = rangeBounds(range, customFrom, customTo);
   const periodBookings = bookings.filter(b => (!from || b.pickupDate >= from) && (!to || b.pickupDate <= to));
@@ -141,7 +151,7 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
                   <td className="px-4 py-3 font-bold whitespace-nowrap">{owner.name}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{c.rentals}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{money(c.revenue)}</td>
-                  <td className="px-4 py-3 text-dark/60 whitespace-nowrap">{owner.commissionPct}% + {money(owner.commissionFlat)}/rental</td>
+                  <td className="px-4 py-3"><RateCell owner={owner} onSave={(p, f) => saveRate(owner.id, p, f)} /></td>
                   <td className="px-4 py-3 text-right tabular-nums font-bold text-emerald-700">{money(c.commission)}</td>
                   <td className="px-4 py-3 text-right tabular-nums font-bold">{money(c.payout)}</td>
                 </tr>
@@ -162,6 +172,44 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
       )}
 
       <p className="text-[11px] text-dark/40 mt-3">Counts confirmed rentals by pickup date in the selected period. Set each owner's rate on the Owners tab.</p>
+    </div>
+  );
+}
+
+/** Inline-editable commission rate (% + flat per rental). */
+function RateCell({ owner, onSave }: { owner: Owner; onSave: (pct: number, flat: number) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [pct, setPct] = useState(owner.commissionPct);
+  const [flat, setFlat] = useState(owner.commissionFlat);
+  useEffect(() => {
+    setPct(owner.commissionPct);
+    setFlat(owner.commissionFlat);
+  }, [owner]);
+
+  const inputCls = 'w-16 bg-beige border border-dark/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand';
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2 whitespace-nowrap">
+        <span className="text-dark/60">{owner.commissionPct}% + {money(owner.commissionFlat)}/rental</span>
+        <button onClick={() => setEditing(true)} title="Edit rate" className="text-dark/50 hover:bg-dark/5 rounded-full p-1 transition">
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1 whitespace-nowrap">
+      <input type="number" min={0} max={100} step="0.5" value={pct} onChange={e => setPct(Number(e.target.value))} className={inputCls} aria-label="Commission %" />
+      <span className="text-dark/40 text-xs">%</span>
+      <span className="text-dark/30">+</span>
+      <input type="number" min={0} step="0.5" value={flat} onChange={e => setFlat(Number(e.target.value))} className={inputCls} aria-label="Flat per rental" />
+      <button onClick={() => { onSave(pct, flat); setEditing(false); }} title="Save" className="text-emerald-700 hover:bg-emerald-50 rounded-full p-1 transition">
+        <Check className="w-4 h-4" />
+      </button>
+      <button onClick={() => setEditing(false)} title="Cancel" className="text-dark/50 hover:bg-dark/5 rounded-full p-1 transition">
+        <X className="w-4 h-4" />
+      </button>
     </div>
   );
 }
