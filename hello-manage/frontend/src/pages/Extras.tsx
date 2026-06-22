@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Save, RefreshCw, GripVertical } from 'lucide-react';
+import Drawer from '../components/Drawer';
 import {
   fetchExtras,
   createExtra,
@@ -14,6 +15,7 @@ export default function Extras({ onLogout }: { onLogout: () => void }) {
   const [extras, setExtras] = useState<Extra[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
 
   const fail = useCallback(
     (err: unknown, fallback: string) => {
@@ -43,6 +45,7 @@ export default function Extras({ onLogout }: { onLogout: () => void }) {
     try {
       const created = await createExtra(input);
       setExtras(prev => [...prev, created]);
+      setAddOpen(false);
     } catch (err) {
       fail(err, 'Create failed');
       throw err; // let the form keep its values
@@ -75,19 +78,28 @@ export default function Extras({ onLogout }: { onLogout: () => void }) {
           <span className="eyebrow">[ Booking extras ]</span>
           <h1 className="display-xl text-4xl md:text-5xl mt-2">Manage extras</h1>
         </div>
-        <button onClick={load} className="btn-outline" disabled={loading}>
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setAddOpen(true)} className="btn-primary">
+            <Plus className="w-4 h-4" /> Add extra
+          </button>
+          <button onClick={load} className="btn-outline" disabled={loading} aria-label="Refresh">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
-      <AddExtra onCreate={handleCreate} />
+      <Drawer open={addOpen} onClose={() => setAddOpen(false)} title="Add an extra" subtitle="An optional add-on customers can pick at checkout." widthClass="max-w-lg">
+        <AddExtra onCreate={handleCreate} />
+      </Drawer>
 
       {loading ? (
         <p className="text-dark/50 mt-6">Loading extras…</p>
+      ) : extras.length === 0 ? (
+        <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No extras yet. Add one above.</div>
       ) : (
-        <div className="space-y-4 mt-6">
+        <div className="space-y-4">
           {extras.map(extra => (
             <ExtraRow key={extra.id} extra={extra} onSave={handleSave} onDelete={handleDelete} />
           ))}
@@ -122,25 +134,22 @@ function AddExtra({ onCreate }: { onCreate: (input: ExtraInput) => Promise<void>
   }
 
   return (
-    <form onSubmit={submit} className="bg-white rounded-2xl p-5 md:p-6 border-2 border-dashed border-dark/15">
-      <h2 className="font-display font-bold mb-4 flex items-center gap-2">
-        <Plus className="w-4 h-4 text-brand" /> Add an extra
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-        <div className="md:col-span-3 space-y-2">
-          <span className="label">Label</span>
-          <input className="input" placeholder="Surf rack" value={draft.label} onChange={e => setDraft({ ...draft, label: e.target.value })} />
-        </div>
-        <div className="md:col-span-5 space-y-2">
-          <span className="label">Description</span>
-          <input
-            className="input"
-            placeholder="Carry a surfboard safely."
-            value={draft.description}
-            onChange={e => setDraft({ ...draft, description: e.target.value })}
-          />
-        </div>
-        <div className="md:col-span-2 space-y-2">
+    <form onSubmit={submit} className="space-y-4">
+      <div className="space-y-2">
+        <span className="label">Label</span>
+        <input className="input" placeholder="Surf rack" value={draft.label} onChange={e => setDraft({ ...draft, label: e.target.value })} />
+      </div>
+      <div className="space-y-2">
+        <span className="label">Description</span>
+        <input
+          className="input"
+          placeholder="Carry a surfboard safely."
+          value={draft.description}
+          onChange={e => setDraft({ ...draft, description: e.target.value })}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4 items-end">
+        <div className="space-y-2">
           <span className="label">Price ($)</span>
           <input
             type="number"
@@ -151,11 +160,9 @@ function AddExtra({ onCreate }: { onCreate: (input: ExtraInput) => Promise<void>
             onChange={e => setDraft({ ...draft, price: Number(e.target.value) })}
           />
         </div>
-        <div className="md:col-span-2">
-          <PerDayToggle value={draft.perDay} onChange={v => setDraft({ ...draft, perDay: v })} />
-        </div>
+        <PerDayToggle value={draft.perDay} onChange={v => setDraft({ ...draft, perDay: v })} />
       </div>
-      <div className="flex justify-end mt-4">
+      <div className="flex justify-end pt-2">
         <button type="submit" className="btn-primary" disabled={busy || !draft.label.trim()}>
           {busy ? 'Adding…' : 'Add extra'}
         </button>
