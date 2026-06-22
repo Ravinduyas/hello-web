@@ -4,9 +4,11 @@ import {
   fetchBookings,
   setBookingStatus,
   deleteBooking,
+  fetchUnits,
   UnauthorizedError,
   type Booking,
   type BookingStatus,
+  type Unit,
 } from '../lib/api';
 
 const statusStyles: Record<BookingStatus, string> = {
@@ -19,6 +21,7 @@ const FILTERS: ('all' | BookingStatus)[] = ['all', 'pending', 'confirmed', 'canc
 
 export default function Bookings({ onLogout }: { onLogout: () => void }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | BookingStatus>('all');
@@ -27,7 +30,9 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     setLoading(true);
     setError('');
     try {
-      setBookings(await fetchBookings());
+      const [b, u] = await Promise.all([fetchBookings(), fetchUnits()]);
+      setBookings(b);
+      setUnits(u);
     } catch (err) {
       if (err instanceof UnauthorizedError) return onLogout();
       setError(err instanceof Error ? err.message : 'Failed to load bookings');
@@ -40,10 +45,12 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     load();
   }, [load]);
 
-  async function changeStatus(id: string, status: BookingStatus) {
+  async function changeStatus(id: string, status: BookingStatus, unitId?: string) {
     try {
-      const updated = await setBookingStatus(id, status);
+      const updated = await setBookingStatus(id, status, unitId);
       setBookings(prev => prev.map(b => (b.id === id ? updated : b)));
+      // Unit statuses change as plates are reserved/released — keep them fresh.
+      setUnits(await fetchUnits());
     } catch (err) {
       if (err instanceof UnauthorizedError) return onLogout();
       setError(err instanceof Error ? err.message : 'Update failed');
@@ -112,6 +119,11 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                     <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${statusStyles[b.status]}`}>
                       {b.status}
                     </span>
+                    {b.plate && (
+                      <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-dark/5 text-dark/70">
+                        Plate {b.plate}
+                      </span>
+                    )}
                   </div>
                   <p className="font-bold">{b.bikeTitle}</p>
                   <p className="text-sm text-dark/50">
@@ -135,14 +147,12 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                 <p className="text-xs text-dark/40 mt-3">Extras: {b.extras.map(e => e.label).join(', ')}</p>
               )}
 
-              <div className="flex flex-wrap gap-2 mt-5">
+              <div className="flex flex-wrap items-center gap-2 mt-5">
                 {b.status !== 'confirmed' && (
-                  <button
-                    onClick={() => changeStatus(b.id, 'confirmed')}
-                    className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 text-white hover:brightness-110 transition"
-                  >
-                    <Check className="w-4 h-4" /> Confirm
-                  </button>
+                  <ConfirmControl
+                    plates={units.filter(u => u.bikeId === b.bikeId && u.status === 'available')}
+                    onConfirm={unitId => changeStatus(b.id, 'confirmed', unitId)}
+                  />
                 )}
                 {b.status !== 'cancelled' && (
                   <button
@@ -164,6 +174,78 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** Confirm button that expands into a plate picker. The admin must choose an
+ *  available plate (physical unit) of the booking's model before confirming. */
+function ConfirmControl({ plates, onConfirm }: { plates: Unit[]; onConfirm: (unitId: string) => Promise<void> | void }) {
+  const [open, setOpen] = useState(false);
+  const [unitId, setUnitId] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 text-white hover:brightness-110 transition"
+      >
+        <Check className="w-4 h-4" /> Confirm
+      </button>
+    );
+  }
+
+  if (plates.length === 0) {
+    return (
+      <span className="inline-flex items-center gap-2 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
+        No available plates for this model — add one in Fleet.
+        <button onClick={() => setOpen(false)} aria-label="Cancel" className="text-amber-800/70 hover:text-amber-900">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </span>
+    );
+  }
+
+  async function confirm() {
+    if (!unitId) return;
+    setBusy(true);
+    try {
+      await onConfirm(unitId);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <select
+        value={unitId}
+        onChange={e => setUnitId(e.target.value)}
+        aria-label="Plate to assign"
+        className="text-sm rounded-full border border-dark/15 bg-white px-3 py-1.5 focus:outline-none focus:border-brand"
+      >
+        <option value="">Select plate…</option>
+        {plates.map(u => (
+          <option key={u.id} value={u.id}>
+            {u.plate}
+          </option>
+        ))}
+      </select>
+      <button
+        onClick={confirm}
+        disabled={!unitId || busy}
+        className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 text-white hover:brightness-110 transition disabled:opacity-40 disabled:pointer-events-none"
+      >
+        <Check className="w-4 h-4" /> {busy ? 'Assigning…' : 'Assign & confirm'}
+      </button>
+      <button
+        onClick={() => setOpen(false)}
+        aria-label="Cancel"
+        className="text-sm font-bold inline-flex items-center justify-center w-9 h-9 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </span>
   );
 }
 

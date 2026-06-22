@@ -9,6 +9,9 @@ export interface Booking {
   createdAt: string;
   bikeId: string;
   bikeTitle: string;
+  /** Physical unit (plate) assigned on confirm. '' = none yet. */
+  unitId: string;
+  plate: string;
   pickupLocation: string;
   dropoffLocation: string;
   pickupDate: string;
@@ -131,10 +134,12 @@ export async function login(username: string, password: string): Promise<string>
 export const fetchBookings = () =>
   fetch('/api/admin/bookings', { headers: authHeaders() }).then(r => handle<Booking[]>(r));
 
-export const setBookingStatus = (id: string, status: BookingStatus) =>
-  fetch(`/api/admin/bookings/${id}`, { method: 'PATCH', headers: authHeaders(true), body: JSON.stringify({ status }) }).then(r =>
-    handle<Booking>(r),
-  );
+export const setBookingStatus = (id: string, status: BookingStatus, unitId?: string) =>
+  fetch(`/api/admin/bookings/${id}`, {
+    method: 'PATCH',
+    headers: authHeaders(true),
+    body: JSON.stringify(unitId ? { status, unitId } : { status }),
+  }).then(r => handle<Booking>(r));
 
 export const deleteBooking = (id: string) =>
   fetch(`/api/admin/bookings/${id}`, { method: 'DELETE', headers: authHeaders() }).then(r => handle<void>(r));

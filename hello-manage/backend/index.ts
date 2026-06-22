@@ -8,6 +8,7 @@ import {
   addBooking,
   listBookings,
   updateBookingStatus,
+  assignAndConfirm,
   deleteBooking,
   listExtras,
   getExtra,
@@ -169,6 +170,8 @@ app.post('/api/bookings', (req: Request, res: Response) => {
     createdAt: new Date().toISOString(),
     bikeId: String(b.bikeId),
     bikeTitle: String(b.bikeTitle ?? ''),
+    unitId: '', // a physical plate is assigned later, by the admin, on confirm
+    plate: '',
     pickupLocation: String(b.pickupLocation ?? ''),
     dropoffLocation: String(b.dropoffLocation ?? ''),
     pickupDate: String(b.pickupDate),
@@ -212,9 +215,21 @@ app.patch('/api/admin/bookings/:id', requireAuth, (req: Request, res: Response) 
   if (!['pending', 'confirmed', 'cancelled'].includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }
-  const updated = updateBookingStatus(req.params.id, status);
-  if (!updated) return res.status(404).json({ error: 'Not found' });
-  res.json(updated);
+  try {
+    let updated: Booking | null;
+    if (status === 'confirmed') {
+      // Confirming requires picking a physical plate to assign.
+      const unitId = typeof req.body?.unitId === 'string' ? req.body.unitId.trim() : '';
+      if (!unitId) return res.status(400).json({ error: 'Select a plate to confirm this booking.' });
+      updated = assignAndConfirm(req.params.id, unitId);
+    } else {
+      updated = updateBookingStatus(req.params.id, status);
+    }
+    if (!updated) return res.status(404).json({ error: 'Not found' });
+    res.json(updated);
+  } catch (err) {
+    res.status(409).json({ error: err instanceof Error ? err.message : 'Could not update booking' });
+  }
 });
 
 app.delete('/api/admin/bookings/:id', requireAuth, (req: Request, res: Response) => {

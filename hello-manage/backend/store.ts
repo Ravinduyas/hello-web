@@ -26,6 +26,10 @@ export interface Booking {
   createdAt: string;
   bikeId: string;
   bikeTitle: string;
+  /** Physical unit (plate) assigned when the booking is confirmed. '' = none. */
+  unitId: string;
+  /** Denormalised plate of the assigned unit, for display. '' = none. */
+  plate: string;
   pickupLocation: string;
   dropoffLocation: string;
   pickupDate: string;
@@ -120,10 +124,22 @@ db.exec(`
     days            INTEGER NOT NULL,
     total           REAL NOT NULL,
     extras          TEXT NOT NULL,
-    renter          TEXT NOT NULL
+    renter          TEXT NOT NULL,
+    unitId          TEXT NOT NULL DEFAULT '',
+    plate           TEXT NOT NULL DEFAULT ''
   );
 `);
 db.exec('CREATE INDEX IF NOT EXISTS idx_bookings_createdAt ON bookings(createdAt);');
+
+// Migration: add unit assignment columns to bookings for DBs created before
+// plates were tied to bookings.
+const bookingCols = db.prepare('PRAGMA table_info(bookings)').all() as unknown as { name: string }[];
+if (!bookingCols.some(c => c.name === 'unitId')) {
+  db.exec("ALTER TABLE bookings ADD COLUMN unitId TEXT NOT NULL DEFAULT ''");
+}
+if (!bookingCols.some(c => c.name === 'plate')) {
+  db.exec("ALTER TABLE bookings ADD COLUMN plate TEXT NOT NULL DEFAULT ''");
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS extras (
@@ -257,6 +273,8 @@ interface BookingRow {
   total: number;
   extras: string;
   renter: string;
+  unitId: string;
+  plate: string;
 }
 
 function rowToBooking(r: BookingRow): Booking {
@@ -267,6 +285,8 @@ function rowToBooking(r: BookingRow): Booking {
     createdAt: r.createdAt,
     bikeId: r.bikeId,
     bikeTitle: r.bikeTitle,
+    unitId: r.unitId ?? '',
+    plate: r.plate ?? '',
     pickupLocation: r.pickupLocation,
     dropoffLocation: r.dropoffLocation,
     pickupDate: r.pickupDate,
@@ -276,6 +296,10 @@ function rowToBooking(r: BookingRow): Booking {
     extras: JSON.parse(r.extras) as BookingExtra[],
     renter: JSON.parse(r.renter) as Booking['renter'],
   };
+}
+
+function getBookingRow(id: string): BookingRow | undefined {
+  return db.prepare('SELECT * FROM bookings WHERE id = ?').get(id) as unknown as BookingRow | undefined;
 }
 
 const insertBooking = db.prepare(`
@@ -315,15 +339,71 @@ export function addBooking(booking: Booking): Booking {
   return booking;
 }
 
+/** Move a booking to pending/cancelled. Releases any assigned plate back to the
+ *  fleet (confirm is handled separately by assignAndConfirm). */
 export function updateBookingStatus(id: string, status: BookingStatus): Booking | null {
-  const res = db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status, id);
-  if (res.changes === 0) return null;
-  const row = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id) as unknown as BookingRow | undefined;
-  return row ? rowToBooking(row) : null;
+  const booking = getBookingRow(id);
+  if (!booking) return null;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    if (booking.unitId) {
+      // Leaving the confirmed state frees the physical bike.
+      db.prepare("UPDATE units SET status = 'available' WHERE id = ?").run(booking.unitId);
+      db.prepare("UPDATE bookings SET status = ?, unitId = '', plate = '' WHERE id = ?").run(status, id);
+    } else {
+      db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status, id);
+    }
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+  return rowToBooking(getBookingRow(id)!);
+}
+
+/** Confirm a booking against a specific physical unit (plate), marking that unit
+ *  rented. Throws on an invalid/unavailable/mismatched plate. Returns null if the
+ *  booking doesn't exist. */
+export function assignAndConfirm(bookingId: string, unitId: string): Booking | null {
+  const booking = getBookingRow(bookingId);
+  if (!booking) return null;
+  const unit = getUnit(unitId);
+  if (!unit) throw new Error('That plate no longer exists — refresh and try again.');
+  if (unit.bikeId !== booking.bikeId) throw new Error('That plate belongs to a different model.');
+  if (unit.status !== 'available' && unit.id !== booking.unitId) {
+    throw new Error(`Plate ${unit.plate} is already ${unit.status}.`);
+  }
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    // Release a previously assigned (different) unit before taking the new one.
+    if (booking.unitId && booking.unitId !== unitId) {
+      db.prepare("UPDATE units SET status = 'available' WHERE id = ?").run(booking.unitId);
+    }
+    db.prepare("UPDATE units SET status = 'rented' WHERE id = ?").run(unitId);
+    db.prepare("UPDATE bookings SET status = 'confirmed', unitId = ?, plate = ? WHERE id = ?").run(unitId, unit.plate, bookingId);
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+  return rowToBooking(getBookingRow(bookingId)!);
 }
 
 export function deleteBooking(id: string): boolean {
-  return db.prepare('DELETE FROM bookings WHERE id = ?').run(id).changes > 0;
+  const booking = getBookingRow(id);
+  if (!booking) return false;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    if (booking.unitId) {
+      db.prepare("UPDATE units SET status = 'available' WHERE id = ?").run(booking.unitId);
+    }
+    db.prepare('DELETE FROM bookings WHERE id = ?').run(id);
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+  return true;
 }
 
 /* ================================================================== */
