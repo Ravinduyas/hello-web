@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone } from 'lucide-react';
+import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, List, CalendarDays } from 'lucide-react';
+import BookingCalendar from '../components/BookingCalendar';
 import {
   fetchBookings,
   setBookingStatus,
@@ -25,6 +26,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | BookingStatus>('all');
+  const [view, setView] = useState<'list' | 'calendar'>('list');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,9 +85,29 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
           <span className="eyebrow">[ Bookings ]</span>
           <h1 className="display-xl text-4xl md:text-5xl mt-2">Manage bookings</h1>
         </div>
-        <button onClick={load} className="btn-outline" disabled={loading}>
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-white border border-dark/10 rounded-full p-1">
+            <button
+              onClick={() => setView('list')}
+              className={`flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-full transition-colors ${
+                view === 'list' ? 'bg-dark text-white' : 'text-dark/60 hover:text-dark'
+              }`}
+            >
+              <List className="w-4 h-4" /> List
+            </button>
+            <button
+              onClick={() => setView('calendar')}
+              className={`flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-full transition-colors ${
+                view === 'calendar' ? 'bg-dark text-white' : 'text-dark/60 hover:text-dark'
+              }`}
+            >
+              <CalendarDays className="w-4 h-4" /> Calendar
+            </button>
+          </div>
+          <button onClick={load} className="btn-outline" disabled={loading}>
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-8">
@@ -106,6 +128,8 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
 
       {loading ? (
         <p className="text-dark/50">Loading bookings…</p>
+      ) : view === 'calendar' ? (
+        <BookingCalendar bookings={visible} />
       ) : visible.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No bookings here yet.</div>
       ) : (
