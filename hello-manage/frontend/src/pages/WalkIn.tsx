@@ -36,7 +36,7 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
   const [bikeId, setBikeId] = useState('');
   const [unitId, setUnitId] = useState('');
   const [pickupDate, setPickupDate] = useState(todayISO());
-  const [dropoffDate, setDropoffDate] = useState('');
+  const [dropoffDate, setDropoffDate] = useState(todayISO()); // defaults to the pickup date
   const [chosen, setChosen] = useState<string[]>([]);
   const [customer, setCustomer] = useState(EMPTY_CUSTOMER);
 
@@ -101,7 +101,7 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
     setBikeId('');
     setUnitId('');
     setPickupDate(todayISO());
-    setDropoffDate('');
+    setDropoffDate(todayISO());
     setChosen([]);
     setCustomer(EMPTY_CUSTOMER);
   }
@@ -220,7 +220,8 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
                     value={pickupDate}
                     onChange={e => {
                       setPickupDate(e.target.value);
-                      if (dropoffDate && e.target.value > dropoffDate) setDropoffDate(e.target.value);
+                      // Keep drop-off on/after pickup (and fill it if empty).
+                      if (!dropoffDate || e.target.value > dropoffDate) setDropoffDate(e.target.value);
                     }}
                   />
                 </label>
