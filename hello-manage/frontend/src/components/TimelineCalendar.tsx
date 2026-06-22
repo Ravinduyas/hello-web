@@ -1,16 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Booking, Bike, BookingStatus } from '../lib/api';
 
 /* Resource-timeline calendar: one row per bike model, each booking a bar
-   spanning its rental days, stacked into lanes when they overlap. */
+   spanning its rental days, stacked into lanes when they overlap. The day
+   columns fit the container width (no horizontal scroll). */
 
 const DAY = 86_400_000;
-const COL = 52; // px per day column
-const LABEL_W = 168; // px, left resource column
 const BAR_H = 34;
 const LANE_GAP = 4;
-const WIN = 28; // days visible
+const IDEAL_COL = 46; // px target per day; column count derives from width
 
 const WD = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -33,12 +32,27 @@ export default function TimelineCalendar({ bookings, bikes }: { bookings: Bookin
   const today = midnight(new Date());
   const [start, setStart] = useState(() => mondayOf(today));
 
-  const days = useMemo(() => Array.from({ length: WIN }, (_, i) => start + i * DAY), [start]);
+  // Measure available width and fit the columns to it.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => setWidth(entries[0].contentRect.width));
+    ro.observe(el);
+    setWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  const labelW = width && width < 560 ? 116 : 160;
+  const trackW = Math.max(240, (width || 900) - labelW);
+  const WIN = Math.min(31, Math.max(7, Math.floor(trackW / IDEAL_COL)));
+  const COL = trackW / WIN; // exact fill → no horizontal scroll
+
+  const days = useMemo(() => Array.from({ length: WIN }, (_, i) => start + i * DAY), [start, WIN]);
   const windowEnd = start + (WIN - 1) * DAY;
   const todayIso = isoOf(today);
 
-  // Rows: every model (so empty rows still read as "free"). Falls back to any
-  // models referenced by bookings but missing from the fleet list.
   const models = useMemo(() => {
     const map = new Map<string, string>();
     for (const b of bikes) map.set(b.id, b.title);
@@ -46,7 +60,6 @@ export default function TimelineCalendar({ bookings, bikes }: { bookings: Bookin
     return [...map].map(([id, title]) => ({ id, title }));
   }, [bikes, bookings]);
 
-  // Lay bookings out per model into non-overlapping lanes within the window.
   const rows = useMemo(() => {
     return models.map(model => {
       const items = bookings
@@ -85,66 +98,61 @@ export default function TimelineCalendar({ bookings, bikes }: { bookings: Bookin
         <h2 className="font-display text-xl font-bold">{monthLabel}</h2>
         <div className="flex items-center gap-2">
           <button onClick={() => setStart(mondayOf(today))} className="text-sm font-bold px-3 py-1.5 rounded-full bg-dark/5 hover:bg-dark/10 transition-colors">Today</button>
-          <button onClick={() => shift(-7)} aria-label="Previous week" className="w-9 h-9 rounded-full border border-dark/10 flex items-center justify-center hover:bg-dark/5 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-          <button onClick={() => shift(7)} aria-label="Next week" className="w-9 h-9 rounded-full border border-dark/10 flex items-center justify-center hover:bg-dark/5 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+          <button onClick={() => shift(-WIN)} aria-label="Previous" className="w-9 h-9 rounded-full border border-dark/10 flex items-center justify-center hover:bg-dark/5 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+          <button onClick={() => shift(WIN)} aria-label="Next" className="w-9 h-9 rounded-full border border-dark/10 flex items-center justify-center hover:bg-dark/5 transition-colors"><ChevronRight className="w-4 h-4" /></button>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-dark/10 bg-white">
-        <div style={{ width: LABEL_W + WIN * COL, minWidth: '100%' }}>
-          {/* Day header */}
-          <div className="flex border-b border-dark/10">
-            <div className="sticky left-0 z-20 bg-white shrink-0 border-r border-dark/10" style={{ width: LABEL_W }}>
-              <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-dark/40">Model</div>
-            </div>
-            <div className="flex">
-              {days.map(t => {
-                const d = new Date(t);
-                const weekend = d.getDay() === 0 || d.getDay() === 6;
-                const isToday = isoOf(t) === todayIso;
-                return (
-                  <div key={t} style={{ width: COL }} className={`shrink-0 text-center py-1.5 ${weekend ? 'bg-beige/50' : ''}`}>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-dark/40">{WD[d.getDay()]}</div>
-                    <div className={`text-xs font-bold mx-auto w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-brand text-white' : 'text-dark/70'}`}>{d.getDate()}</div>
-                  </div>
-                );
-              })}
-            </div>
+      <div ref={wrapRef} className="rounded-2xl border border-dark/10 bg-white overflow-hidden">
+        {/* Day header */}
+        <div className="flex border-b border-dark/10">
+          <div className="shrink-0 border-r border-dark/10" style={{ width: labelW }}>
+            <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-dark/40">Model</div>
           </div>
-
-          {/* Resource rows */}
-          {rows.map(({ model, placed, lanes }) => {
-            const h = lanes * (BAR_H + LANE_GAP) + LANE_GAP;
-            return (
-              <div key={model.id} className="flex border-b border-dark/5 last:border-b-0">
-                <div className="sticky left-0 z-10 bg-white shrink-0 border-r border-dark/10 flex items-center px-4" style={{ width: LABEL_W }}>
-                  <p className="font-bold text-sm leading-tight">{model.title}</p>
+          <div className="flex">
+            {days.map(t => {
+              const d = new Date(t);
+              const weekend = d.getDay() === 0 || d.getDay() === 6;
+              const isToday = isoOf(t) === todayIso;
+              return (
+                <div key={t} style={{ width: COL }} className={`shrink-0 text-center py-1.5 ${weekend ? 'bg-beige/50' : ''}`}>
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-dark/40">{WD[d.getDay()]}</div>
+                  <div className={`text-xs font-bold mx-auto w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-brand text-white' : 'text-dark/70'}`}>{d.getDate()}</div>
                 </div>
-                <div className="relative shrink-0" style={{ width: WIN * COL, height: h, backgroundImage: gridBg }}>
-                  {/* today column highlight */}
-                  {days.map((t, i) => isoOf(t) === todayIso && (
-                    <div key={t} className="absolute top-0 bottom-0 bg-brand/5 pointer-events-none" style={{ left: i * COL, width: COL }} />
-                  ))}
-                  {/* booking bars */}
-                  {placed.map(({ booking: b, startIdx, endIdx, lane }) => (
-                    <div
-                      key={b.id}
-                      title={`${b.reference} · ${b.bikeTitle}${b.plate ? ' · ' + b.plate : ''} · ${b.renter.firstName} ${b.renter.lastName} · ${b.pickupDate} → ${b.dropoffDate}`.trim()}
-                      className={`absolute rounded-lg border-l-4 px-2 py-1 overflow-hidden shadow-sm ${barStyle[b.status]}`}
-                      style={{ left: startIdx * COL + 2, width: (endIdx - startIdx + 1) * COL - 4, top: lane * (BAR_H + LANE_GAP) + LANE_GAP, height: BAR_H }}
-                    >
-                      <p className="text-[11px] font-bold leading-tight truncate">{b.reference}{b.plate ? ` · ${b.plate}` : ''}</p>
-                      <p className="text-[10px] leading-tight truncate opacity-80">{b.renter.firstName} {b.renter.lastName}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
+
+        {/* Resource rows */}
+        {rows.map(({ model, placed, lanes }) => {
+          const h = lanes * (BAR_H + LANE_GAP) + LANE_GAP;
+          return (
+            <div key={model.id} className="flex border-b border-dark/5 last:border-b-0">
+              <div className="shrink-0 border-r border-dark/10 flex items-center px-4" style={{ width: labelW }}>
+                <p className="font-bold text-sm leading-tight">{model.title}</p>
+              </div>
+              <div className="relative shrink-0" style={{ width: trackW, height: h, backgroundImage: gridBg }}>
+                {days.map((t, i) => isoOf(t) === todayIso && (
+                  <div key={t} className="absolute top-0 bottom-0 bg-brand/5 pointer-events-none" style={{ left: i * COL, width: COL }} />
+                ))}
+                {placed.map(({ booking: b, startIdx, endIdx, lane }) => (
+                  <div
+                    key={b.id}
+                    title={`${b.reference} · ${b.bikeTitle}${b.plate ? ' · ' + b.plate : ''} · ${b.renter.firstName} ${b.renter.lastName} · ${b.pickupDate} → ${b.dropoffDate}`.trim()}
+                    className={`absolute rounded-lg border-l-4 px-2 py-1 overflow-hidden shadow-sm ${barStyle[b.status]}`}
+                    style={{ left: startIdx * COL + 2, width: (endIdx - startIdx + 1) * COL - 4, top: lane * (BAR_H + LANE_GAP) + LANE_GAP, height: BAR_H }}
+                  >
+                    <p className="text-[11px] font-bold leading-tight truncate">{b.reference}{b.plate ? ` · ${b.plate}` : ''}</p>
+                    <p className="text-[10px] leading-tight truncate opacity-80">{b.renter.firstName} {b.renter.lastName}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Legend */}
       <div className="flex flex-wrap items-center gap-4 mt-4">
         {(['pending', 'confirmed', 'cancelled'] as BookingStatus[]).map(s => (
           <span key={s} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-dark/50">
