@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './env.ts'; // must be first: loads backend/.env before any env var is read
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { dirname, join } from 'node:path';
