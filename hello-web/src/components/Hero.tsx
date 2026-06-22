@@ -68,7 +68,7 @@ export default function Hero() {
           </h1>
 
           <div className="flex flex-col md:flex-row md:items-center gap-8 mt-12">
-            <Link to="/fleet" className="btn-light group w-fit">
+            <Link to="/fleet" className="btn-light group w-fit text-base px-7 py-3.5 tracking-wide">
               BOOK YOUR RIDE
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
