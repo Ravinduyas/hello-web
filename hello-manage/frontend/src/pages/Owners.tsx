@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Trash2, Pencil, RefreshCw, Bike as BikeIcon } from 'lucide-react';
+import { Plus, Trash2, Pencil, RefreshCw, Bike as BikeIcon, ChevronDown } from 'lucide-react';
 import Drawer from '../components/Drawer';
 import {
   fetchOwners,
@@ -7,19 +7,30 @@ import {
   updateOwner,
   deleteOwner,
   fetchUnits,
+  fetchBikes,
   UnauthorizedError,
   type Owner,
   type OwnerInput,
   type Unit,
+  type UnitStatus,
+  type Bike,
 } from '../lib/api';
+
+const unitStatusChip: Record<UnitStatus, string> = {
+  available: 'bg-emerald-100 text-emerald-800',
+  rented: 'bg-amber-100 text-amber-800',
+  maintenance: 'bg-dark/10 text-dark/50',
+};
 
 export default function Owners({ onLogout }: { onLogout: () => void }) {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [bikes, setBikes] = useState<Bike[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Owner | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const fail = useCallback(
     (err: unknown, fallback: string) => {
@@ -33,9 +44,10 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
     setLoading(true);
     setError('');
     try {
-      const [o, u] = await Promise.all([fetchOwners(), fetchUnits()]);
+      const [o, u, b] = await Promise.all([fetchOwners(), fetchUnits(), fetchBikes()]);
       setOwners(o);
       setUnits(u);
+      setBikes(b);
     } catch (err) {
       fail(err, 'Failed to load owners');
     } finally {
@@ -47,7 +59,8 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
     load();
   }, [load]);
 
-  const bikeCount = (ownerId: string) => units.filter(u => u.ownerId === ownerId).length;
+  const ownerUnits = (ownerId: string) => units.filter(u => u.ownerId === ownerId);
+  const bikeTitle = (bikeId: string) => bikes.find(b => b.id === bikeId)?.title ?? 'Unknown model';
 
   async function handleCreate(input: OwnerInput) {
     try {
@@ -126,52 +139,76 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
 
           <div className="divide-y divide-dark/5">
             {owners.map(owner => {
-              const bikes = bikeCount(owner.id);
+              const ownersBikes = ownerUnits(owner.id);
+              const count = ownersBikes.length;
+              const isOpen = expanded === owner.id;
               return (
-                <div
-                  key={owner.id}
-                  className="grid grid-cols-1 md:grid-cols-[2fr_1.4fr_1fr_auto] gap-2 md:gap-4 md:items-center px-4 md:px-6 py-4"
-                >
-                  {/* Owner + email + bikes */}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold truncate">{owner.name}</p>
-                      <span className="inline-flex items-center gap-1 bg-beige rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0">
-                        <BikeIcon className="w-3 h-3 text-brand" /> {bikes}
-                      </span>
+                <div key={owner.id} className="px-4 md:px-6 py-4">
+                  <div className="grid grid-cols-1 md:grid-cols-[2fr_1.4fr_1fr_auto] gap-2 md:gap-4 md:items-center">
+                    {/* Owner + email + bikes toggle */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold truncate">{owner.name}</p>
+                        <button
+                          onClick={() => setExpanded(prev => (prev === owner.id ? null : owner.id))}
+                          disabled={count === 0}
+                          aria-expanded={isOpen}
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 transition-colors ${
+                            count === 0 ? 'bg-beige text-dark/40' : 'bg-beige hover:bg-brand/15 text-dark'
+                          }`}
+                        >
+                          <BikeIcon className="w-3 h-3 text-brand" /> {count} {count === 1 ? 'bike' : 'bikes'}
+                          {count > 0 && <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />}
+                        </button>
+                      </div>
+                      <p className="text-sm text-dark/50 truncate">{owner.email || '—'}</p>
                     </div>
-                    <p className="text-sm text-dark/50 truncate">{owner.email || '—'}</p>
+
+                    {/* Phone */}
+                    <div className="text-sm min-w-0 truncate">
+                      <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-dark/40 mr-2">Phone</span>
+                      {owner.phone || '—'}
+                    </div>
+
+                    {/* NIC */}
+                    <div className="text-sm min-w-0 truncate">
+                      <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-dark/40 mr-2">NIC</span>
+                      {owner.nic || '—'}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 md:justify-end mt-1 md:mt-0">
+                      <button
+                        onClick={() => setEditing(owner)}
+                        className="text-sm font-bold inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
+                      >
+                        <Pencil className="w-4 h-4" /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(owner.id)}
+                        aria-label={`Delete ${owner.name}`}
+                        className="text-sm font-bold inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-red-600 hover:bg-red-50 transition"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span className="md:hidden">Delete</span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Phone */}
-                  <div className="text-sm min-w-0 truncate">
-                    <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-dark/40 mr-2">Phone</span>
-                    {owner.phone || '—'}
-                  </div>
-
-                  {/* NIC */}
-                  <div className="text-sm min-w-0 truncate">
-                    <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-dark/40 mr-2">NIC</span>
-                    {owner.nic || '—'}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 md:justify-end mt-1 md:mt-0">
-                    <button
-                      onClick={() => setEditing(owner)}
-                      className="text-sm font-bold inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
-                    >
-                      <Pencil className="w-4 h-4" /> Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(owner.id)}
-                      aria-label={`Delete ${owner.name}`}
-                      className="text-sm font-bold inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-red-600 hover:bg-red-50 transition"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span className="md:hidden">Delete</span>
-                    </button>
-                  </div>
+                  {/* Per-owner bikes (plates) */}
+                  {isOpen && count > 0 && (
+                    <div className="mt-3 bg-beige/60 rounded-xl p-3 space-y-1.5">
+                      {ownersBikes.map(u => (
+                        <div key={u.id} className="flex items-center gap-3 text-sm bg-white rounded-lg px-3 py-2">
+                          <span className="font-display font-bold tracking-wide w-28 shrink-0">{u.plate}</span>
+                          <span className="text-dark/60 flex-1 truncate">{bikeTitle(u.bikeId)}</span>
+                          <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${unitStatusChip[u.status]}`}>
+                            {u.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
