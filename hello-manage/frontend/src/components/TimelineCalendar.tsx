@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { Booking, Bike, BookingStatus } from '../lib/api';
+import type { Booking, Bike, Unit, UnitStatus, BookingStatus } from '../lib/api';
 
-/* Resource-timeline calendar: one row per bike model, each booking a bar
-   spanning its rental days, stacked into lanes when they overlap. The day
-   columns fit the container width (no horizontal scroll). */
+/* Resource-timeline calendar: rows are number plates grouped under their model.
+   Each booking is a bar spanning its rental days on its assigned plate's row
+   (pending bookings without a plate sit in the model's "Unassigned" row).
+   Day columns fit the container width — no horizontal scroll. */
 
 const DAY = 86_400_000;
-const BAR_H = 34;
+const BAR_H = 30;
 const LANE_GAP = 4;
-const IDEAL_COL = 46; // px target per day; column count derives from width
+const IDEAL_COL = 46;
 
 const WD = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -25,14 +26,22 @@ const barStyle: Record<BookingStatus, string> = {
   pending: 'bg-amber-400 text-amber-950 border-amber-600',
   cancelled: 'bg-dark/15 text-dark/50 border-dark/20 line-through',
 };
+const unitDot: Record<UnitStatus, string> = {
+  available: 'bg-emerald-500',
+  rented: 'bg-amber-500',
+  maintenance: 'bg-dark/30',
+};
 
 interface Placed { booking: Booking; startIdx: number; endIdx: number; lane: number; }
+type Line =
+  | { type: 'group'; key: string; title: string }
+  | { type: 'plate'; key: string; unit: Unit; placed: Placed[]; lanes: number }
+  | { type: 'unassigned'; key: string; placed: Placed[]; lanes: number };
 
-export default function TimelineCalendar({ bookings, bikes }: { bookings: Booking[]; bikes: Bike[] }) {
+export default function TimelineCalendar({ bookings, bikes, units }: { bookings: Booking[]; bikes: Bike[]; units: Unit[] }) {
   const today = midnight(new Date());
   const [start, setStart] = useState(() => mondayOf(today));
 
-  // Measure available width and fit the columns to it.
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -44,33 +53,25 @@ export default function TimelineCalendar({ bookings, bikes }: { bookings: Bookin
     return () => ro.disconnect();
   }, []);
 
-  const labelW = width && width < 560 ? 116 : 160;
+  const labelW = width && width < 560 ? 120 : 168;
   const trackW = Math.max(240, (width || 900) - labelW);
   const WIN = Math.min(31, Math.max(7, Math.floor(trackW / IDEAL_COL)));
-  const COL = trackW / WIN; // exact fill → no horizontal scroll
+  const COL = trackW / WIN;
 
   const days = useMemo(() => Array.from({ length: WIN }, (_, i) => start + i * DAY), [start, WIN]);
   const windowEnd = start + (WIN - 1) * DAY;
   const todayIso = isoOf(today);
 
-  const models = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const b of bikes) map.set(b.id, b.title);
-    for (const bk of bookings) if (!map.has(bk.bikeId)) map.set(bk.bikeId, bk.bikeTitle);
-    return [...map].map(([id, title]) => ({ id, title }));
-  }, [bikes, bookings]);
-
-  const rows = useMemo(() => {
-    return models.map(model => {
-      const items = bookings
-        .filter(b => b.bikeId === model.id && parseISO(b.dropoffDate) >= start && parseISO(b.pickupDate) <= windowEnd)
+  const lines = useMemo<Line[]>(() => {
+    const place = (list: Booking[]): { placed: Placed[]; lanes: number } => {
+      const items = list
+        .filter(b => parseISO(b.dropoffDate) >= start && parseISO(b.pickupDate) <= windowEnd)
         .map(b => {
           const s = Math.max(parseISO(b.pickupDate), start);
           const e = Math.min(parseISO(b.dropoffDate), windowEnd);
           return { booking: b, startIdx: Math.round((s - start) / DAY), endIdx: Math.round((e - start) / DAY) };
         })
         .sort((a, b) => a.startIdx - b.startIdx);
-
       const laneEnds: number[] = [];
       const placed: Placed[] = [];
       for (const it of items) {
@@ -78,19 +79,61 @@ export default function TimelineCalendar({ bookings, bikes }: { bookings: Bookin
         if (lane === -1) { lane = laneEnds.length; laneEnds.push(it.endIdx); } else { laneEnds[lane] = it.endIdx; }
         placed.push({ ...it, lane });
       }
-      return { model, placed, lanes: Math.max(1, laneEnds.length) };
-    });
-  }, [models, bookings, start, windowEnd]);
+      return { placed, lanes: Math.max(1, laneEnds.length) };
+    };
 
-  const shift = (deltaDays: number) => setStart(s => s + deltaDays * DAY);
+    // Models in fleet order, plus any referenced by units/bookings but missing.
+    const titles = new Map<string, string>();
+    for (const b of bikes) titles.set(b.id, b.title);
+    for (const u of units) if (!titles.has(u.bikeId)) titles.set(u.bikeId, u.bikeId);
+    for (const bk of bookings) if (!titles.has(bk.bikeId)) titles.set(bk.bikeId, bk.bikeTitle);
+
+    const out: Line[] = [];
+    for (const [bikeId, title] of titles) {
+      const plates = units.filter(u => u.bikeId === bikeId).sort((a, b) => a.plate.localeCompare(b.plate));
+      const unassigned = bookings.filter(b => b.bikeId === bikeId && !b.unitId);
+      if (plates.length === 0 && unassigned.length === 0) continue; // nothing to show for this model
+      out.push({ type: 'group', key: 'g-' + bikeId, title });
+      for (const unit of plates) {
+        const { placed, lanes } = place(bookings.filter(b => b.unitId === unit.id));
+        out.push({ type: 'plate', key: unit.id, unit, placed, lanes });
+      }
+      if (unassigned.length) {
+        const { placed, lanes } = place(unassigned);
+        out.push({ type: 'unassigned', key: 'u-' + bikeId, placed, lanes });
+      }
+    }
+    return out;
+  }, [bikes, units, bookings, start, windowEnd]);
+
+  const shift = (d: number) => setStart(s => s + d * DAY);
   const monthLabel = (() => {
     const a = new Date(start), b = new Date(windowEnd);
-    return a.getMonth() === b.getMonth()
-      ? `${MONTHS[a.getMonth()]} ${a.getFullYear()}`
-      : `${MONTHS[a.getMonth()]} – ${MONTHS[b.getMonth()]} ${b.getFullYear()}`;
+    return a.getMonth() === b.getMonth() ? `${MONTHS[a.getMonth()]} ${a.getFullYear()}` : `${MONTHS[a.getMonth()]} – ${MONTHS[b.getMonth()]} ${b.getFullYear()}`;
   })();
-
   const gridBg = `repeating-linear-gradient(to right, transparent 0, transparent ${COL - 1}px, rgba(46,33,27,0.07) ${COL - 1}px, rgba(46,33,27,0.07) ${COL}px)`;
+
+  const Track = ({ placed, lanes }: { placed: Placed[]; lanes: number }) => {
+    const h = lanes * (BAR_H + LANE_GAP) + LANE_GAP;
+    return (
+      <div className="relative shrink-0" style={{ width: trackW, height: h, backgroundImage: gridBg }}>
+        {days.map((t, i) => isoOf(t) === todayIso && (
+          <div key={t} className="absolute top-0 bottom-0 bg-brand/5 pointer-events-none" style={{ left: i * COL, width: COL }} />
+        ))}
+        {placed.map(({ booking: b, startIdx, endIdx, lane }) => (
+          <div
+            key={b.id}
+            title={`${b.reference} · ${b.bikeTitle}${b.plate ? ' · ' + b.plate : ''} · ${b.renter.firstName} ${b.renter.lastName} · ${b.pickupDate} → ${b.dropoffDate}`.trim()}
+            className={`absolute rounded-md border-l-4 px-2 flex flex-col justify-center overflow-hidden shadow-sm ${barStyle[b.status]}`}
+            style={{ left: startIdx * COL + 2, width: (endIdx - startIdx + 1) * COL - 4, top: lane * (BAR_H + LANE_GAP) + LANE_GAP, height: BAR_H }}
+          >
+            <p className="text-[11px] font-bold leading-tight truncate">{b.reference}</p>
+            <p className="text-[10px] leading-tight truncate opacity-80">{b.renter.firstName} {b.renter.lastName}</p>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -107,7 +150,7 @@ export default function TimelineCalendar({ bookings, bikes }: { bookings: Bookin
         {/* Day header */}
         <div className="flex border-b border-dark/10">
           <div className="shrink-0 border-r border-dark/10" style={{ width: labelW }}>
-            <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-dark/40">Model</div>
+            <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-dark/40">Plate</div>
           </div>
           <div className="flex">
             {days.map(t => {
@@ -124,33 +167,37 @@ export default function TimelineCalendar({ bookings, bikes }: { bookings: Bookin
           </div>
         </div>
 
-        {/* Resource rows */}
-        {rows.map(({ model, placed, lanes }) => {
-          const h = lanes * (BAR_H + LANE_GAP) + LANE_GAP;
+        {/* Grouped rows */}
+        {lines.map(line => {
+          if (line.type === 'group') {
+            return (
+              <div key={line.key} className="flex bg-beige/60 border-b border-dark/10">
+                <div className="shrink-0 border-r border-dark/10 px-4 py-1.5" style={{ width: labelW }}>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-dark/60 truncate">{line.title}</p>
+                </div>
+                <div style={{ width: trackW }} />
+              </div>
+            );
+          }
+          const h = line.lanes * (BAR_H + LANE_GAP) + LANE_GAP;
           return (
-            <div key={model.id} className="flex border-b border-dark/5 last:border-b-0">
-              <div className="shrink-0 border-r border-dark/10 flex items-center px-4" style={{ width: labelW }}>
-                <p className="font-bold text-sm leading-tight">{model.title}</p>
+            <div key={line.key} className="flex border-b border-dark/5">
+              <div className="shrink-0 border-r border-dark/10 flex items-center gap-2 px-4" style={{ width: labelW, height: h }}>
+                {line.type === 'plate' ? (
+                  <>
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${unitDot[line.unit.status]}`} title={line.unit.status} />
+                    <p className="font-display font-bold text-sm tracking-wide truncate">{line.unit.plate}</p>
+                  </>
+                ) : (
+                  <p className="text-sm italic text-dark/40 truncate">Unassigned</p>
+                )}
               </div>
-              <div className="relative shrink-0" style={{ width: trackW, height: h, backgroundImage: gridBg }}>
-                {days.map((t, i) => isoOf(t) === todayIso && (
-                  <div key={t} className="absolute top-0 bottom-0 bg-brand/5 pointer-events-none" style={{ left: i * COL, width: COL }} />
-                ))}
-                {placed.map(({ booking: b, startIdx, endIdx, lane }) => (
-                  <div
-                    key={b.id}
-                    title={`${b.reference} · ${b.bikeTitle}${b.plate ? ' · ' + b.plate : ''} · ${b.renter.firstName} ${b.renter.lastName} · ${b.pickupDate} → ${b.dropoffDate}`.trim()}
-                    className={`absolute rounded-lg border-l-4 px-2 py-1 overflow-hidden shadow-sm ${barStyle[b.status]}`}
-                    style={{ left: startIdx * COL + 2, width: (endIdx - startIdx + 1) * COL - 4, top: lane * (BAR_H + LANE_GAP) + LANE_GAP, height: BAR_H }}
-                  >
-                    <p className="text-[11px] font-bold leading-tight truncate">{b.reference}{b.plate ? ` · ${b.plate}` : ''}</p>
-                    <p className="text-[10px] leading-tight truncate opacity-80">{b.renter.firstName} {b.renter.lastName}</p>
-                  </div>
-                ))}
-              </div>
+              <Track placed={line.placed} lanes={line.lanes} />
             </div>
           );
         })}
+
+        {lines.length === 0 && <div className="p-10 text-center text-dark/50">No plates or bookings to show.</div>}
       </div>
 
       <div className="flex flex-wrap items-center gap-4 mt-4">
@@ -159,6 +206,10 @@ export default function TimelineCalendar({ bookings, bikes }: { bookings: Bookin
             <span className={`w-3 h-3 rounded ${barStyle[s].split(' ')[0]}`} /> {s}
           </span>
         ))}
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-dark/50 ml-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" /> plate free
+          <span className="w-2 h-2 rounded-full bg-amber-500 ml-3" /> plate rented
+        </span>
       </div>
     </div>
   );
