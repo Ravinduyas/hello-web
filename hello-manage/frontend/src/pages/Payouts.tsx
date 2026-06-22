@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, ChevronDown, Pencil, Check, X } from 'lucide-react';
+import { RefreshCw, ChevronDown, Pencil, Percent, DollarSign } from 'lucide-react';
+import Drawer from '../components/Drawer';
 import { fetchOwners, fetchUnits, fetchBookings, updateOwner, UnauthorizedError, type Owner, type Unit, type Booking } from '../lib/api';
 import { ownerCommission } from '../lib/commission';
 
@@ -45,6 +46,7 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
   const [range, setRange] = useState<DateRange>('month');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [editing, setEditing] = useState<Owner | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,6 +87,7 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
     (t, r) => ({ rentals: t.rentals + r.c.rentals, revenue: t.revenue + r.c.revenue, commission: t.commission + r.c.commission, payout: t.payout + r.c.payout }),
     { rentals: 0, revenue: 0, commission: 0, payout: 0 },
   );
+  const editRow = editing ? rows.find(r => r.owner.id === editing.id) : null;
 
   return (
     <div>
@@ -120,6 +123,18 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
+      <Drawer open={!!editing} onClose={() => setEditing(null)} title="Commission rate" subtitle={editing?.name} widthClass="max-w-md">
+        {editing && (
+          <CommissionForm
+            owner={editing}
+            rentals={editRow?.c.rentals ?? 0}
+            revenue={editRow?.c.revenue ?? 0}
+            periodLabel={RANGES.find(r => r.key === range)?.label ?? ''}
+            onSave={async (pct, flat) => { await saveRate(editing.id, pct, flat); setEditing(null); }}
+          />
+        )}
+      </Drawer>
+
       {/* Totals */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <Stat label="Rentals" value={String(totals.rentals)} />
@@ -151,7 +166,16 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
                   <td className="px-4 py-3 font-bold whitespace-nowrap">{owner.name}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{c.rentals}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{money(c.revenue)}</td>
-                  <td className="px-4 py-3"><RateCell owner={owner} onSave={(p, f) => saveRate(owner.id, p, f)} /></td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => setEditing(owner)}
+                      title="Edit commission rate"
+                      className="group inline-flex items-center gap-2 rounded-full -ml-2 px-2 py-1 hover:bg-dark/5 transition"
+                    >
+                      <span className="text-dark/60 whitespace-nowrap">{owner.commissionPct}% + {money(owner.commissionFlat)}/rental</span>
+                      <Pencil className="w-3.5 h-3.5 text-dark/40 group-hover:text-brand" />
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-right tabular-nums font-bold text-emerald-700">{money(c.commission)}</td>
                   <td className="px-4 py-3 text-right tabular-nums font-bold">{money(c.payout)}</td>
                 </tr>
@@ -176,41 +200,70 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-/** Inline-editable commission rate (% + flat per rental). */
-function RateCell({ owner, onSave }: { owner: Owner; onSave: (pct: number, flat: number) => void }) {
-  const [editing, setEditing] = useState(false);
+/** Polished commission-rate editor (drawer body) with a live payout preview. */
+function CommissionForm({
+  owner,
+  rentals,
+  revenue,
+  periodLabel,
+  onSave,
+}: {
+  owner: Owner;
+  rentals: number;
+  revenue: number;
+  periodLabel: string;
+  onSave: (pct: number, flat: number) => Promise<void>;
+}) {
   const [pct, setPct] = useState(owner.commissionPct);
   const [flat, setFlat] = useState(owner.commissionFlat);
-  useEffect(() => {
-    setPct(owner.commissionPct);
-    setFlat(owner.commissionFlat);
-  }, [owner]);
+  const [busy, setBusy] = useState(false);
+  const commission = revenue * (pct / 100) + flat * rentals;
+  const payout = revenue - commission;
 
-  const inputCls = 'w-16 bg-beige border border-dark/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand';
-
-  if (!editing) {
-    return (
-      <div className="flex items-center gap-2 whitespace-nowrap">
-        <span className="text-dark/60">{owner.commissionPct}% + {money(owner.commissionFlat)}/rental</span>
-        <button onClick={() => setEditing(true)} title="Edit rate" className="text-dark/50 hover:bg-dark/5 rounded-full p-1 transition">
-          <Pencil className="w-3.5 h-3.5" />
-        </button>
-      </div>
-    );
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await onSave(pct, flat);
+    } finally {
+      setBusy(false);
+    }
   }
+
   return (
-    <div className="flex items-center gap-1 whitespace-nowrap">
-      <input type="number" min={0} max={100} step="0.5" value={pct} onChange={e => setPct(Number(e.target.value))} className={inputCls} aria-label="Commission %" />
-      <span className="text-dark/40 text-xs">%</span>
-      <span className="text-dark/30">+</span>
-      <input type="number" min={0} step="0.5" value={flat} onChange={e => setFlat(Number(e.target.value))} className={inputCls} aria-label="Flat per rental" />
-      <button onClick={() => { onSave(pct, flat); setEditing(false); }} title="Save" className="text-emerald-700 hover:bg-emerald-50 rounded-full p-1 transition">
-        <Check className="w-4 h-4" />
-      </button>
-      <button onClick={() => setEditing(false)} title="Cancel" className="text-dark/50 hover:bg-dark/5 rounded-full p-1 transition">
-        <X className="w-4 h-4" />
-      </button>
-    </div>
+    <form onSubmit={submit} className="space-y-5">
+      <div className="grid grid-cols-2 gap-4">
+        <label className="space-y-2 block">
+          <span className="label">Commission %</span>
+          <div className="relative">
+            <Percent className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-dark/30 pointer-events-none" />
+            <input type="number" min={0} max={100} step="0.5" value={pct} onChange={e => setPct(Number(e.target.value))} className="input pl-9" />
+          </div>
+        </label>
+        <label className="space-y-2 block">
+          <span className="label">Flat per rental</span>
+          <div className="relative">
+            <DollarSign className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-dark/30 pointer-events-none" />
+            <input type="number" min={0} step="0.5" value={flat} onChange={e => setFlat(Number(e.target.value))} className="input pl-9" />
+          </div>
+        </label>
+      </div>
+
+      <div className="bg-dark text-beige rounded-2xl p-5">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-beige/50 mb-3">
+          {periodLabel} · {rentals} rental{rentals === 1 ? '' : 's'}
+        </p>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between"><span className="text-beige/70">Revenue</span><span className="tabular-nums">{money(revenue)}</span></div>
+          <div className="flex justify-between"><span className="text-beige/70">Shop commission</span><span className="tabular-nums font-bold text-emerald-300">{money(commission)}</span></div>
+          <div className="flex justify-between border-t border-beige/15 pt-2 mt-1"><span className="font-bold">Owner payout</span><span className="tabular-nums font-bold">{money(payout)}</span></div>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save rate'}</button>
+      </div>
+    </form>
   );
 }
 
