@@ -19,12 +19,53 @@ const statusStyles: Record<BookingStatus, string> = {
 
 const FILTERS: ('all' | BookingStatus)[] = ['all', 'pending', 'confirmed', 'cancelled'];
 
+type DateRange = 'all' | 'today' | 'week' | 'month' | 'custom';
+const RANGES: { key: DateRange; label: string }[] = [
+  { key: 'all', label: 'All dates' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This week' },
+  { key: 'month', label: 'This month' },
+  { key: 'custom', label: 'Custom' },
+];
+
+const pad = (n: number) => String(n).padStart(2, '0');
+const isoLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+/** Inclusive [from, to] ISO bounds for a range; '' means unbounded. Pickup date is matched against these. */
+function rangeBounds(range: DateRange, from: string, to: string): [string, string] {
+  const now = new Date();
+  switch (range) {
+    case 'today': {
+      const s = isoLocal(now);
+      return [s, s];
+    }
+    case 'week': {
+      const off = (now.getDay() + 6) % 7; // Monday-first
+      const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - off);
+      const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
+      return [isoLocal(mon), isoLocal(sun)];
+    }
+    case 'month': {
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return [isoLocal(first), isoLocal(last)];
+    }
+    case 'custom':
+      return [from, to];
+    default:
+      return ['', ''];
+  }
+}
+
 export default function Bookings({ onLogout }: { onLogout: () => void }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | BookingStatus>('all');
+  const [range, setRange] = useState<DateRange>('all');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,12 +109,16 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     }
   }
 
-  const visible = filter === 'all' ? bookings : bookings.filter(b => b.status === filter);
+  const [rangeFrom, rangeTo] = rangeBounds(range, customFrom, customTo);
+  const dateFiltered = bookings.filter(
+    b => (!rangeFrom || b.pickupDate >= rangeFrom) && (!rangeTo || b.pickupDate <= rangeTo),
+  );
+  const visible = filter === 'all' ? dateFiltered : dateFiltered.filter(b => b.status === filter);
   const counts = {
-    all: bookings.length,
-    pending: bookings.filter(b => b.status === 'pending').length,
-    confirmed: bookings.filter(b => b.status === 'confirmed').length,
-    cancelled: bookings.filter(b => b.status === 'cancelled').length,
+    all: dateFiltered.length,
+    pending: dateFiltered.filter(b => b.status === 'pending').length,
+    confirmed: dateFiltered.filter(b => b.status === 'confirmed').length,
+    cancelled: dateFiltered.filter(b => b.status === 'cancelled').length,
   };
 
   return (
@@ -87,6 +132,29 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
         </button>
       </div>
 
+      {/* Date-range filter (by pickup date) */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        {RANGES.map(r => (
+          <button
+            key={r.key}
+            onClick={() => setRange(r.key)}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+              range === r.key ? 'bg-brand text-white' : 'bg-white text-dark border border-dark/10 hover:border-dark/30'
+            }`}
+          >
+            {r.label}
+          </button>
+        ))}
+        {range === 'custom' && (
+          <div className="flex items-center gap-2 ml-1">
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input max-w-[160px]" aria-label="From date" />
+            <span className="text-dark/40">→</span>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input max-w-[160px]" aria-label="To date" />
+          </div>
+        )}
+      </div>
+
+      {/* Status filter */}
       <div className="flex flex-wrap gap-2 mb-8">
         {FILTERS.map(f => (
           <button
