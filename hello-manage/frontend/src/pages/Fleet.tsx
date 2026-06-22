@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Trash2, Save, RefreshCw, X, ChevronDown, ChevronRight, Tag, LayoutGrid, List, Pencil } from 'lucide-react';
+import { Plus, Trash2, Save, RefreshCw, X, Check, ChevronDown, ChevronRight, Tag, LayoutGrid, List, Pencil } from 'lucide-react';
 import Drawer from '../components/Drawer';
 import {
   fetchBikes,
@@ -660,37 +660,7 @@ function UnitsPanel({
             <p className="text-dark/40 text-sm">No bikes yet. Add each physical bike by its number plate below.</p>
           )}
           {units.map(u => (
-            <div key={u.id} className="flex flex-wrap items-center gap-3 bg-beige rounded-xl px-4 py-2.5">
-              <span className="font-mono font-bold tracking-wide">{u.plate}</span>
-              <select
-                value={u.status}
-                onChange={e => onUpdate(u.id, { status: e.target.value as UnitStatus })}
-                className={`text-xs font-bold rounded-full px-3 py-1.5 appearance-none cursor-pointer ${STATUS_STYLE[u.status]}`}
-              >
-                {STATUS_OPTIONS.map(s => (
-                  <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-                ))}
-              </select>
-              <select
-                value={owners.some(o => o.id === u.ownerId) ? u.ownerId : ''}
-                onChange={e => onUpdate(u.id, { ownerId: e.target.value })}
-                title="Owner"
-                className="text-xs bg-white border border-dark/10 rounded-full px-3 py-1.5 max-w-[160px]"
-              >
-                <option value="">— no owner —</option>
-                {owners.map(o => (
-                  <option key={o.id} value={o.id}>{o.name}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => onDelete(u.id)}
-                title="Remove this bike"
-                className="ml-auto text-red-600 hover:bg-red-50 rounded-full p-1.5 transition"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+            <PlateRow key={u.id} u={u} owners={owners} onUpdate={onUpdate} onDelete={onDelete} />
           ))}
 
           <form onSubmit={submit} className="flex flex-wrap gap-2 items-center pt-1">
@@ -717,6 +687,92 @@ function UnitsPanel({
           </form>
         </div>
       )}
+    </div>
+  );
+}
+
+/** One plate row: status & owner are editable inline; the Edit button makes the
+ *  plate number editable too. */
+function PlateRow({
+  u,
+  owners,
+  onUpdate,
+  onDelete,
+}: {
+  u: Unit;
+  owners: Owner[];
+  onUpdate: (id: string, patch: Partial<Pick<Unit, 'plate' | 'status' | 'ownerId' | 'notes'>>) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [plate, setPlate] = useState(u.plate);
+  useEffect(() => setPlate(u.plate), [u.plate]);
+
+  function save() {
+    const p = plate.trim();
+    if (p && p !== u.plate) onUpdate(u.id, { plate: p });
+    setEditing(false);
+  }
+  function cancel() {
+    setPlate(u.plate);
+    setEditing(false);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 bg-beige rounded-xl px-4 py-2.5">
+      {editing ? (
+        <input
+          className="input max-w-[160px] font-mono"
+          value={plate}
+          autoFocus
+          onChange={e => setPlate(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') save();
+            if (e.key === 'Escape') cancel();
+          }}
+        />
+      ) : (
+        <span className="font-mono font-bold tracking-wide">{u.plate}</span>
+      )}
+      <select
+        value={u.status}
+        onChange={e => onUpdate(u.id, { status: e.target.value as UnitStatus })}
+        className={`text-xs font-bold rounded-full px-3 py-1.5 appearance-none cursor-pointer ${STATUS_STYLE[u.status]}`}
+      >
+        {STATUS_OPTIONS.map(s => (
+          <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+        ))}
+      </select>
+      <select
+        value={owners.some(o => o.id === u.ownerId) ? u.ownerId : ''}
+        onChange={e => onUpdate(u.id, { ownerId: e.target.value })}
+        title="Owner"
+        className="text-xs bg-white border border-dark/10 rounded-full px-3 py-1.5 max-w-[160px]"
+      >
+        <option value="">— no owner —</option>
+        {owners.map(o => (
+          <option key={o.id} value={o.id}>{o.name}</option>
+        ))}
+      </select>
+      <div className="ml-auto flex items-center gap-1">
+        {editing ? (
+          <>
+            <button type="button" onClick={save} title="Save plate" className="text-emerald-700 hover:bg-emerald-50 rounded-full p-1.5 transition">
+              <Check className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={cancel} title="Cancel" className="text-dark/50 hover:bg-dark/5 rounded-full p-1.5 transition">
+              <X className="w-4 h-4" />
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={() => setEditing(true)} title="Edit plate" className="text-dark/60 hover:bg-dark/5 rounded-full p-1.5 transition">
+            <Pencil className="w-4 h-4" />
+          </button>
+        )}
+        <button type="button" onClick={() => onDelete(u.id)} title="Remove this bike" className="text-red-600 hover:bg-red-50 rounded-full p-1.5 transition">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 }
