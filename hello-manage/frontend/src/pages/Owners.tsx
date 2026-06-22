@@ -96,11 +96,7 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-        <div>
-          <span className="eyebrow">[ Owners ]</span>
-          <h1 className="display-xl text-4xl md:text-5xl mt-2">Fleet owners</h1>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setAddOpen(true)} className="btn-primary">
             <Plus className="w-4 h-4" /> Add owner

@@ -78,11 +78,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-        <div>
-          <span className="eyebrow">[ Bookings ]</span>
-          <h1 className="display-xl text-4xl md:text-5xl mt-2">Manage bookings</h1>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
         <button onClick={load} className="btn-outline" disabled={loading}>
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </button>

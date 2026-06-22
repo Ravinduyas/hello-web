@@ -32,11 +32,7 @@ export default function Calendar({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-        <div>
-          <span className="eyebrow">[ Calendar ]</span>
-          <h1 className="display-xl text-4xl md:text-5xl mt-2">Bookings calendar</h1>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
         <button onClick={load} className="btn-outline" disabled={loading} aria-label="Refresh">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>

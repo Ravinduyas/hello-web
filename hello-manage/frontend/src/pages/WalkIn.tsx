@@ -328,17 +328,12 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
 /* ------------------------------------------------------------------ */
 
 function Header({ onRefresh, loading }: { onRefresh?: () => void; loading?: boolean } = {}) {
+  if (!onRefresh) return null;
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-      <div>
-        <span className="eyebrow">[ Walk-in ]</span>
-        <h1 className="display-xl text-4xl md:text-5xl mt-2">Rent at the shop</h1>
-      </div>
-      {onRefresh && (
-        <button onClick={onRefresh} className="btn-outline" disabled={loading} aria-label="Refresh">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
-      )}
+    <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
+      <button onClick={onRefresh} className="btn-outline" disabled={loading} aria-label="Refresh">
+        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+      </button>
     </div>
   );
 }

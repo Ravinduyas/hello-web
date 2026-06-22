@@ -145,11 +145,7 @@ export default function Fleet({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-        <div>
-          <span className="eyebrow">[ Fleet ]</span>
-          <h1 className="display-xl text-4xl md:text-5xl mt-2">Manage fleet</h1>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
         <div className="flex flex-wrap items-center gap-2">
           {/* View toggle: models (cards) vs plates (flat list) */}
           <div className="flex rounded-full border border-dark/15 overflow-hidden text-sm font-bold">
