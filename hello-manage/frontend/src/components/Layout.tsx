@@ -17,8 +17,8 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
   const fullWidth = pathname === '/calendar';
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Sidebar */}
-      <aside className="md:w-64 bg-dark text-beige md:min-h-screen flex md:flex-col">
+      {/* Sidebar — pinned on desktop so it stays put while the content scrolls */}
+      <aside className="md:w-64 md:shrink-0 bg-dark text-beige flex md:flex-col md:sticky md:top-0 md:h-screen md:overflow-y-auto">
         <div className="p-6 flex items-center font-display font-bold text-xl tracking-tight uppercase">
           Hello Manage<span className="text-brand">.</span>
         </div>
