@@ -26,23 +26,27 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | BookingStatus>('all');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
+  // `silent` polls update data without the spinner or clobbering the UI with
+  // a transient error if a single background fetch fails.
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [b, u] = await Promise.all([fetchBookings(), fetchUnits()]);
       setBookings(b);
       setUnits(u);
+      setError('');
     } catch (err) {
       if (err instanceof UnauthorizedError) return onLogout();
-      setError(err instanceof Error ? err.message : 'Failed to load bookings');
+      if (!silent) setError(err instanceof Error ? err.message : 'Failed to load bookings');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [onLogout]);
 
   useEffect(() => {
     load();
+    const id = setInterval(() => load(true), 15000); // auto-refresh every 15s
+    return () => clearInterval(id);
   }, [load]);
 
   async function changeStatus(id: string, status: BookingStatus, unitId?: string) {
@@ -79,7 +83,10 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
-        <button onClick={load} className="btn-outline" disabled={loading}>
+        <span className="mr-auto flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-dark/40">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Live · auto-refresh
+        </span>
+        <button onClick={() => load()} className="btn-outline" disabled={loading}>
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </button>
       </div>
