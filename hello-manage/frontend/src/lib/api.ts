@@ -178,6 +178,25 @@ export const updateBilling = (
 export const paidOf = (b: Booking) => b.payments.reduce((s, p) => s + p.amount, 0);
 export const dueOf = (b: Booking) => Math.max(0, b.total - paidOf(b));
 
+/* ---- Transactions (manual business payments: income / expense) ---- */
+export interface Transaction {
+  id: string;
+  kind: 'in' | 'out';
+  category: string;
+  amount: number;
+  at: string;
+  note: string;
+}
+
+export const fetchTransactions = () =>
+  fetch('/api/admin/transactions', { headers: authHeaders() }).then(r => handle<Transaction[]>(r));
+
+export const createTransaction = (input: { kind: 'in' | 'out'; category: string; amount: number; at?: string; note?: string }) =>
+  fetch('/api/admin/transactions', { method: 'POST', headers: authHeaders(true), body: JSON.stringify(input) }).then(r => handle<Transaction>(r));
+
+export const deleteTransaction = (id: string) =>
+  fetch(`/api/admin/transactions/${id}`, { method: 'DELETE', headers: authHeaders() }).then(r => handle<void>(r));
+
 export const setBookingStatus = (id: string, status: BookingStatus, unitId?: string) =>
   fetch(`/api/admin/bookings/${id}`, {
     method: 'PATCH',

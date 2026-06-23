@@ -1,7 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, ChevronDown, Pencil, Percent, DollarSign } from 'lucide-react';
+import { RefreshCw, ChevronDown, Pencil, Percent, DollarSign, Plus, Trash2 } from 'lucide-react';
 import Drawer from '../components/Drawer';
-import { fetchOwners, fetchUnits, fetchBookings, updateOwner, paidOf, dueOf, UnauthorizedError, type Owner, type Unit, type Booking } from '../lib/api';
+import {
+  fetchOwners, fetchUnits, fetchBookings, updateOwner, paidOf, dueOf,
+  fetchTransactions, createTransaction, deleteTransaction,
+  UnauthorizedError, type Owner, type Unit, type Booking, type Transaction,
+} from '../lib/api';
 import { ownerCommission } from '../lib/commission';
 
 const money = (n: number) => `$${n.toFixed(2).replace(/\.00$/, '')}`;
@@ -15,10 +19,11 @@ const RANGES: { key: DateRange; label: string }[] = [
   { key: 'custom', label: 'Custom' },
 ];
 
-type SubTab = 'payouts' | 'payments';
+type SubTab = 'payouts' | 'payments' | 'transactions';
 const SUBTABS: { key: SubTab; label: string }[] = [
   { key: 'payouts', label: 'Owner payouts' },
   { key: 'payments', label: 'Customer payments' },
+  { key: 'transactions', label: 'Transactions' },
 ];
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -48,6 +53,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [range, setRange] = useState<DateRange>('month');
@@ -55,14 +61,23 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
   const [customTo, setCustomTo] = useState('');
   const [editing, setEditing] = useState<Owner | null>(null);
 
+  // Add-transaction form
+  const [txnKind, setTxnKind] = useState<'in' | 'out'>('out');
+  const [txnCategory, setTxnCategory] = useState('');
+  const [txnAmount, setTxnAmount] = useState('');
+  const [txnDate, setTxnDate] = useState(isoLocal(new Date()));
+  const [txnNote, setTxnNote] = useState('');
+  const [txnBusy, setTxnBusy] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [o, u, b] = await Promise.all([fetchOwners(), fetchUnits(), fetchBookings()]);
+      const [o, u, b, tx] = await Promise.all([fetchOwners(), fetchUnits(), fetchBookings(), fetchTransactions()]);
       setOwners(o);
       setUnits(u);
       setBookings(b);
+      setTransactions(tx);
     } catch (err) {
       if (err instanceof UnauthorizedError) return onLogout();
       setError(err instanceof Error ? err.message : 'Failed to load finance');
@@ -82,6 +97,35 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
     } catch (err) {
       if (err instanceof UnauthorizedError) return onLogout();
       setError(err instanceof Error ? err.message : 'Could not save rate');
+    }
+  }
+
+  async function addTxn(e: React.FormEvent) {
+    e.preventDefault();
+    const amount = Number(txnAmount) || 0;
+    if (amount <= 0) return;
+    setTxnBusy(true);
+    try {
+      const created = await createTransaction({ kind: txnKind, category: txnCategory.trim(), amount, at: txnDate, note: txnNote.trim() });
+      setTransactions(prev => [created, ...prev]);
+      setTxnCategory('');
+      setTxnAmount('');
+      setTxnNote('');
+    } catch (err) {
+      if (err instanceof UnauthorizedError) return onLogout();
+      setError(err instanceof Error ? err.message : 'Could not add transaction');
+    } finally {
+      setTxnBusy(false);
+    }
+  }
+
+  async function removeTxn(id: string) {
+    try {
+      await deleteTransaction(id);
+      setTransactions(prev => prev.filter(t => t.id !== id));
+    } catch (err) {
+      if (err instanceof UnauthorizedError) return onLogout();
+      setError(err instanceof Error ? err.message : 'Could not delete transaction');
     }
   }
 
@@ -107,6 +151,29 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
     (t, r) => ({ revenue: t.revenue + r.b.total, paid: t.paid + r.paid, due: t.due + r.due, deposits: t.deposits + (r.b.depositReturned ? 0 : r.b.deposit) }),
     { revenue: 0, paid: 0, due: 0, deposits: 0 },
   );
+
+  /* ---- Transactions ledger (rental payments auto + manual entries), by entry date ---- */
+  type Entry = { id: string; at: string; kind: 'in' | 'out'; category: string; desc: string; amount: number; manual: boolean };
+  const ledger: Entry[] = [
+    ...bookings
+      .filter(b => b.status !== 'cancelled')
+      .flatMap(b =>
+        b.payments.map(p => ({
+          id: p.id,
+          at: p.at,
+          kind: 'in' as const,
+          category: 'Rental payment',
+          desc: `${b.renter.firstName} ${b.renter.lastName}${b.plate ? ' · ' + b.plate : ''}`.trim(),
+          amount: p.amount,
+          manual: false,
+        })),
+      ),
+    ...transactions.map(t => ({ id: t.id, at: t.at, kind: t.kind, category: t.category || 'Uncategorized', desc: t.note, amount: t.amount, manual: true })),
+  ]
+    .filter(e => { const d = e.at.slice(0, 10); return (!from || d >= from) && (!to || d <= to); })
+    .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  const ledgerTotals = ledger.reduce((t, e) => ({ in: t.in + (e.kind === 'in' ? e.amount : 0), out: t.out + (e.kind === 'out' ? e.amount : 0) }), { in: 0, out: 0 });
+  const net = ledgerTotals.in - ledgerTotals.out;
 
   return (
     <div>
@@ -227,7 +294,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
           )}
           <p className="text-[11px] text-dark/40 mt-3">Counts confirmed rentals by pickup date in the selected period. Set each owner's rate on the Owners tab.</p>
         </>
-      ) : (
+      ) : tab === 'payments' ? (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <Stat label="Revenue" value={money(billTotals.revenue)} />
@@ -276,6 +343,80 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
             </div>
           )}
           <p className="text-[11px] text-dark/40 mt-3">Non-cancelled rentals by pickup date in the selected period. ↩ = deposit returned. Record payments on the Bookings tab.</p>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+            <Stat label="Money in" value={money(ledgerTotals.in)} accent />
+            <Stat label="Money out" value={money(ledgerTotals.out)} />
+            <Stat label="Net" value={money(net)} />
+          </div>
+
+          <form onSubmit={addTxn} className="bg-white rounded-2xl p-4 mb-4 flex flex-wrap items-end gap-2">
+            <div className="flex rounded-full border border-dark/15 overflow-hidden text-sm font-bold">
+              <button type="button" onClick={() => setTxnKind('in')} className={`px-3 py-2 transition ${txnKind === 'in' ? 'bg-emerald-600 text-white' : 'bg-white text-dark/60'}`}>Money in</button>
+              <button type="button" onClick={() => setTxnKind('out')} className={`px-3 py-2 transition ${txnKind === 'out' ? 'bg-dark text-white' : 'bg-white text-dark/60'}`}>Money out</button>
+            </div>
+            <input className="input max-w-[120px]" type="number" min={0} step="0.5" placeholder="Amount" value={txnAmount} onChange={e => setTxnAmount(e.target.value)} />
+            <input className="input max-w-[180px]" placeholder="Category" list="txn-cats" value={txnCategory} onChange={e => setTxnCategory(e.target.value)} />
+            <datalist id="txn-cats">
+              <option value="Owner payout" /><option value="Fuel" /><option value="Repair" /><option value="Maintenance" /><option value="Salary" /><option value="Rent" /><option value="Insurance" /><option value="Other income" />
+            </datalist>
+            <input className="input flex-1 min-w-[140px]" placeholder="Note (optional)" value={txnNote} onChange={e => setTxnNote(e.target.value)} />
+            <input className="input max-w-[150px]" type="date" value={txnDate} onChange={e => setTxnDate(e.target.value)} />
+            <button type="submit" className="btn-primary shrink-0" disabled={txnBusy || !(Number(txnAmount) > 0)}>
+              <Plus className="w-4 h-4" /> Add
+            </button>
+          </form>
+
+          {ledger.length === 0 ? (
+            <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No payments in this period.</div>
+          ) : (
+            <div className="bg-white rounded-2xl overflow-x-auto">
+              <table className="w-full text-sm min-w-[640px]">
+                <thead className="text-dark/40 text-[10px] uppercase tracking-widest border-b border-dark/10">
+                  <tr>
+                    <th className="text-left font-bold px-4 py-3">Date</th>
+                    <th className="text-left font-bold px-4 py-3">Category</th>
+                    <th className="text-left font-bold px-4 py-3">Detail</th>
+                    <th className="text-right font-bold px-4 py-3">In</th>
+                    <th className="text-right font-bold px-4 py-3">Out</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {ledger.map(e => (
+                    <tr key={e.id} className="border-b border-dark/5 last:border-0">
+                      <td className="px-4 py-3 whitespace-nowrap text-dark/60">{new Date(e.at).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 font-bold whitespace-nowrap">
+                        {e.category}
+                        {!e.manual && <span className="ml-2 text-[9px] font-bold uppercase tracking-widest text-dark/30">auto</span>}
+                      </td>
+                      <td className="px-4 py-3 text-dark/50 truncate max-w-[220px]">{e.desc || '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{e.kind === 'in' ? money(e.amount) : ''}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-dark">{e.kind === 'out' ? money(e.amount) : ''}</td>
+                      <td className="px-4 py-3 text-right">
+                        {e.manual && (
+                          <button onClick={() => removeTxn(e.id)} title="Delete" className="text-red-600 hover:bg-red-50 rounded-full p-1.5 transition">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-dark/10 font-bold">
+                    <td className="px-4 py-3" colSpan={3}>Net {money(net)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{money(ledgerTotals.in)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{money(ledgerTotals.out)}</td>
+                    <td className="px-4 py-3" />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+          <p className="text-[11px] text-dark/40 mt-3">Rental payments are pulled in automatically (“auto”). Add other income &amp; expenses above. Filtered by payment date.</p>
         </>
       )}
     </div>

@@ -103,6 +103,16 @@ export interface Unit {
   createdAt: string;
 }
 
+/** A manually-recorded business payment: money in (income) or out (expense). */
+export interface Transaction {
+  id: string;
+  kind: 'in' | 'out';
+  category: string;
+  amount: number;
+  at: string;
+  note: string;
+}
+
 /** A fleet owner — a person whose bikes the company rents out. */
 export interface Owner {
   id: string;
@@ -285,6 +295,18 @@ if (!ownerCols.some(c => c.name === 'commissionPct')) {
 if (!ownerCols.some(c => c.name === 'commissionFlat')) {
   db.exec('ALTER TABLE owners ADD COLUMN commissionFlat REAL NOT NULL DEFAULT 0');
 }
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS transactions (
+    id       TEXT PRIMARY KEY,
+    kind     TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT '',
+    amount   REAL NOT NULL,
+    at       TEXT NOT NULL,
+    note     TEXT NOT NULL DEFAULT ''
+  );
+`);
+db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_at ON transactions(at);');
 
 /* ================================================================== */
 /*  Bookings                                                          */
@@ -768,4 +790,31 @@ export function deleteOwner(id: string): boolean {
 /** How many physical bikes are assigned to an owner — used to block deletion. */
 export function bikesOwnedBy(id: string): number {
   return (db.prepare('SELECT COUNT(*) AS n FROM units WHERE ownerId = ?').get(id) as { n: number }).n;
+}
+
+/* ================================================================== */
+/*  Transactions — manual business payments (income / expense)        */
+/* ================================================================== */
+
+export function listTransactions(): Transaction[] {
+  return (db.prepare('SELECT * FROM transactions ORDER BY at DESC').all() as unknown as Transaction[]).map(t => ({
+    ...t,
+    kind: t.kind === 'out' ? 'out' : 'in',
+  }));
+}
+
+export function addTransaction(t: Transaction): Transaction {
+  db.prepare('INSERT INTO transactions (id, kind, category, amount, at, note) VALUES (?, ?, ?, ?, ?, ?)').run(
+    t.id,
+    t.kind,
+    t.category,
+    t.amount,
+    t.at,
+    t.note,
+  );
+  return t;
+}
+
+export function deleteTransaction(id: string): boolean {
+  return db.prepare('DELETE FROM transactions WHERE id = ?').run(id).changes > 0;
 }

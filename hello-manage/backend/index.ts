@@ -38,6 +38,10 @@ import {
   updateOwner,
   deleteOwner,
   bikesOwnedBy,
+  listTransactions,
+  addTransaction,
+  deleteTransaction,
+  type Transaction,
   type Booking,
   type BookingStatus,
   type Extra,
@@ -565,6 +569,32 @@ app.delete('/api/admin/owners/:id', requireAuth, (req: Request, res: Response) =
 app.delete('/api/admin/units/:id', requireAuth, (req: Request, res: Response) => {
   if (!getUnit(req.params.id)) return res.status(404).json({ error: 'Not found' });
   deleteUnit(req.params.id);
+  res.status(204).end();
+});
+
+/* ---- Transactions (manual business payments) ---- */
+app.get('/api/admin/transactions', requireAuth, (_req: Request, res: Response) => {
+  res.json(listTransactions());
+});
+
+app.post('/api/admin/transactions', requireAuth, (req: Request, res: Response) => {
+  const b = req.body ?? {};
+  const kind = b.kind === 'out' ? 'out' : 'in';
+  const amount = Number(b.amount) || 0;
+  if (amount <= 0) return res.status(400).json({ error: 'Amount must be greater than zero.' });
+  const transaction: Transaction = {
+    id: randomUUID(),
+    kind,
+    category: String(b.category ?? '').trim(),
+    amount,
+    at: b.at ? String(b.at) : new Date().toISOString(),
+    note: String(b.note ?? ''),
+  };
+  res.status(201).json(addTransaction(transaction));
+});
+
+app.delete('/api/admin/transactions/:id', requireAuth, (req: Request, res: Response) => {
+  if (!deleteTransaction(req.params.id)) return res.status(404).json({ error: 'Not found' });
   res.status(204).end();
 });
 
