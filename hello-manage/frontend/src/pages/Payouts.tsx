@@ -19,11 +19,12 @@ const RANGES: { key: DateRange; label: string }[] = [
   { key: 'custom', label: 'Custom' },
 ];
 
-type SubTab = 'payouts' | 'payments' | 'transactions';
+type SubTab = 'payouts' | 'payments' | 'transactions' | 'reports';
 const SUBTABS: { key: SubTab; label: string }[] = [
   { key: 'payouts', label: 'Owner payouts' },
   { key: 'payments', label: 'Customer payments' },
   { key: 'transactions', label: 'Transactions' },
+  { key: 'reports', label: 'Reports' },
 ];
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -60,6 +61,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [editing, setEditing] = useState<Owner | null>(null);
+  const [reportBy, setReportBy] = useState<'plate' | 'customer'>('plate');
 
   // Add-transaction form
   const [txnKind, setTxnKind] = useState<'in' | 'out'>('out');
@@ -174,6 +176,30 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
     .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   const ledgerTotals = ledger.reduce((t, e) => ({ in: t.in + (e.kind === 'in' ? e.amount : 0), out: t.out + (e.kind === 'out' ? e.amount : 0) }), { in: 0, out: 0 });
   const net = ledgerTotals.in - ledgerTotals.out;
+
+  /* ---- Reports: collected payments only, grouped by plate / by customer ---- */
+  const collected = bookings
+    .filter(b => b.status !== 'cancelled')
+    .flatMap(b => b.payments.map(p => ({ at: p.at, amount: p.amount, b })))
+    .filter(e => { const d = e.at.slice(0, 10); return (!from || d >= from) && (!to || d <= to); });
+  const totalCollected = collected.reduce((s, e) => s + e.amount, 0);
+
+  const plateMap = new Map<string, { label: string; sub: string; count: number; total: number }>();
+  for (const e of collected) {
+    const key = e.b.plate || '—';
+    const cur = plateMap.get(key) ?? { label: e.b.plate || '— no plate —', sub: e.b.bikeTitle, count: 0, total: 0 };
+    cur.count++; cur.total += e.amount; cur.sub = e.b.bikeTitle;
+    plateMap.set(key, cur);
+  }
+  const customerMap = new Map<string, { label: string; sub: string; count: number; total: number }>();
+  for (const e of collected) {
+    const name = `${e.b.renter.firstName} ${e.b.renter.lastName}`.trim();
+    const key = `${name}|${e.b.renter.phone}`;
+    const cur = customerMap.get(key) ?? { label: name || '—', sub: e.b.renter.phone, count: 0, total: 0 };
+    cur.count++; cur.total += e.amount;
+    customerMap.set(key, cur);
+  }
+  const reportRows = [...(reportBy === 'plate' ? plateMap : customerMap).values()].sort((a, b) => b.total - a.total);
 
   return (
     <div>
@@ -344,7 +370,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
           )}
           <p className="text-[11px] text-dark/40 mt-3">Non-cancelled rentals by pickup date in the selected period. ↩ = deposit returned. Record payments on the Bookings tab.</p>
         </>
-      ) : (
+      ) : tab === 'transactions' ? (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
             <Stat label="Money in" value={money(ledgerTotals.in)} accent />
@@ -417,6 +443,56 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
             </div>
           )}
           <p className="text-[11px] text-dark/40 mt-3">Rental payments are pulled in automatically (“auto”). Add other income &amp; expenses above. Filtered by payment date.</p>
+        </>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="flex rounded-full border border-dark/15 overflow-hidden text-sm font-bold">
+              <button onClick={() => setReportBy('plate')} className={`px-4 py-2 transition ${reportBy === 'plate' ? 'bg-dark text-white' : 'bg-white text-dark/60 hover:text-dark'}`}>By plate</button>
+              <button onClick={() => setReportBy('customer')} className={`px-4 py-2 transition ${reportBy === 'customer' ? 'bg-dark text-white' : 'bg-white text-dark/60 hover:text-dark'}`}>By customer</button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+            <Stat label="Collected" value={money(totalCollected)} accent />
+            <Stat label={reportBy === 'plate' ? 'Plates' : 'Customers'} value={String(reportRows.length)} />
+            <Stat label="Payments" value={String(collected.length)} />
+          </div>
+
+          {reportRows.length === 0 ? (
+            <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No collected payments in this period.</div>
+          ) : (
+            <div className="bg-white rounded-2xl overflow-x-auto">
+              <table className="w-full text-sm min-w-[560px]">
+                <thead className="text-dark/40 text-[10px] uppercase tracking-widest border-b border-dark/10">
+                  <tr>
+                    <th className="text-left font-bold px-4 py-3">{reportBy === 'plate' ? 'Plate' : 'Customer'}</th>
+                    <th className="text-left font-bold px-4 py-3">{reportBy === 'plate' ? 'Model' : 'Phone'}</th>
+                    <th className="text-right font-bold px-4 py-3">Payments</th>
+                    <th className="text-right font-bold px-4 py-3">Collected</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportRows.map((r, i) => (
+                    <tr key={i} className="border-b border-dark/5 last:border-0">
+                      <td className="px-4 py-3 font-bold whitespace-nowrap">{r.label}</td>
+                      <td className="px-4 py-3 text-dark/60 whitespace-nowrap">{r.sub || '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{r.count}</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-bold text-emerald-700">{money(r.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-dark/10 font-bold">
+                    <td className="px-4 py-3" colSpan={2}>Total</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{collected.length}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{money(totalCollected)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+          <p className="text-[11px] text-dark/40 mt-3">From collected payments only (recorded on bookings), by payment date in the selected period.</p>
         </>
       )}
     </div>
