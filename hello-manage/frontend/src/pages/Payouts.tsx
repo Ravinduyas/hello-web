@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, ChevronDown, Pencil, Percent, DollarSign } from 'lucide-react';
 import Drawer from '../components/Drawer';
-import { fetchOwners, fetchUnits, fetchBookings, updateOwner, UnauthorizedError, type Owner, type Unit, type Booking } from '../lib/api';
+import { fetchOwners, fetchUnits, fetchBookings, updateOwner, paidOf, dueOf, UnauthorizedError, type Owner, type Unit, type Booking } from '../lib/api';
 import { ownerCommission } from '../lib/commission';
 
 const money = (n: number) => `$${n.toFixed(2).replace(/\.00$/, '')}`;
@@ -13,6 +13,12 @@ const RANGES: { key: DateRange; label: string }[] = [
   { key: 'week', label: 'This week' },
   { key: 'month', label: 'This month' },
   { key: 'custom', label: 'Custom' },
+];
+
+type SubTab = 'payouts' | 'payments';
+const SUBTABS: { key: SubTab; label: string }[] = [
+  { key: 'payouts', label: 'Owner payouts' },
+  { key: 'payments', label: 'Customer payments' },
 ];
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -37,7 +43,8 @@ function rangeBounds(range: DateRange, from: string, to: string): [string, strin
   }
 }
 
-export default function Payouts({ onLogout }: { onLogout: () => void }) {
+export default function Finance({ onLogout }: { onLogout: () => void }) {
+  const [tab, setTab] = useState<SubTab>('payouts');
   const [owners, setOwners] = useState<Owner[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -58,7 +65,7 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
       setBookings(b);
     } catch (err) {
       if (err instanceof UnauthorizedError) return onLogout();
-      setError(err instanceof Error ? err.message : 'Failed to load payouts');
+      setError(err instanceof Error ? err.message : 'Failed to load finance');
     } finally {
       setLoading(false);
     }
@@ -80,18 +87,30 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
 
   const [from, to] = rangeBounds(range, customFrom, customTo);
   const periodBookings = bookings.filter(b => (!from || b.pickupDate >= from) && (!to || b.pickupDate <= to));
-  const rows = owners
+
+  /* ---- Owner payouts ---- */
+  const payoutRows = owners
     .map(o => ({ owner: o, c: ownerCommission(o, units, periodBookings) }))
     .sort((a, b) => b.c.commission - a.c.commission);
-  const totals = rows.reduce(
+  const payoutTotals = payoutRows.reduce(
     (t, r) => ({ rentals: t.rentals + r.c.rentals, revenue: t.revenue + r.c.revenue, commission: t.commission + r.c.commission, payout: t.payout + r.c.payout }),
     { rentals: 0, revenue: 0, commission: 0, payout: 0 },
   );
-  const editRow = editing ? rows.find(r => r.owner.id === editing.id) : null;
+  const editRow = editing ? payoutRows.find(r => r.owner.id === editing.id) : null;
+
+  /* ---- Customer payments ---- */
+  const billRows = periodBookings
+    .filter(b => b.status !== 'cancelled')
+    .map(b => ({ b, paid: paidOf(b), due: dueOf(b) }))
+    .sort((a, b) => b.due - a.due || b.b.total - a.b.total);
+  const billTotals = billRows.reduce(
+    (t, r) => ({ revenue: t.revenue + r.b.total, paid: t.paid + r.paid, due: t.due + r.due, deposits: t.deposits + (r.b.depositReturned ? 0 : r.b.deposit) }),
+    { revenue: 0, paid: 0, due: 0, deposits: 0 },
+  );
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <span className="eyebrow">[ Finance ]</span>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
@@ -111,6 +130,21 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {SUBTABS.map(s => (
+          <button
+            key={s.key}
+            onClick={() => setTab(s.key)}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+              tab === s.key ? 'bg-dark text-white' : 'bg-white text-dark border border-dark/10 hover:border-dark/30'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
 
       {range === 'custom' && (
@@ -135,67 +169,115 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
         )}
       </Drawer>
 
-      {/* Totals */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <Stat label="Rentals" value={String(totals.rentals)} />
-        <Stat label="Revenue" value={money(totals.revenue)} />
-        <Stat label="Shop commission" value={money(totals.commission)} accent />
-        <Stat label="Owner payouts" value={money(totals.payout)} />
-      </div>
-
       {loading ? (
-        <p className="text-dark/50">Loading payouts…</p>
-      ) : rows.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No owners yet.</div>
-      ) : (
-        <div className="bg-white rounded-2xl overflow-x-auto">
-          <table className="w-full text-sm min-w-[680px]">
-            <thead className="text-dark/40 text-[10px] uppercase tracking-widest border-b border-dark/10">
-              <tr>
-                <th className="text-left font-bold px-4 py-3">Owner</th>
-                <th className="text-right font-bold px-4 py-3">Rentals</th>
-                <th className="text-right font-bold px-4 py-3">Revenue</th>
-                <th className="text-left font-bold px-4 py-3">Rate</th>
-                <th className="text-right font-bold px-4 py-3">Commission</th>
-                <th className="text-right font-bold px-4 py-3">Owner payout</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ owner, c }) => (
-                <tr key={owner.id} className="border-b border-dark/5 last:border-0">
-                  <td className="px-4 py-3 font-bold whitespace-nowrap">{owner.name}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{c.rentals}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{money(c.revenue)}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => setEditing(owner)}
-                      title="Edit commission rate"
-                      className="group inline-flex items-center gap-2 rounded-full -ml-2 px-2 py-1 hover:bg-dark/5 transition"
-                    >
-                      <span className="text-dark/60 whitespace-nowrap">{owner.commissionPct}% + {money(owner.commissionFlat)}/rental</span>
-                      <Pencil className="w-3.5 h-3.5 text-dark/40 group-hover:text-brand" />
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums font-bold text-emerald-700">{money(c.commission)}</td>
-                  <td className="px-4 py-3 text-right tabular-nums font-bold">{money(c.payout)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-dark/10 font-bold">
-                <td className="px-4 py-3">Total</td>
-                <td className="px-4 py-3 text-right tabular-nums">{totals.rentals}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{money(totals.revenue)}</td>
-                <td className="px-4 py-3" />
-                <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{money(totals.commission)}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{money(totals.payout)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      )}
+        <p className="text-dark/50">Loading…</p>
+      ) : tab === 'payouts' ? (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <Stat label="Rentals" value={String(payoutTotals.rentals)} />
+            <Stat label="Revenue" value={money(payoutTotals.revenue)} />
+            <Stat label="Shop commission" value={money(payoutTotals.commission)} accent />
+            <Stat label="Owner payouts" value={money(payoutTotals.payout)} />
+          </div>
 
-      <p className="text-[11px] text-dark/40 mt-3">Counts confirmed rentals by pickup date in the selected period. Set each owner's rate on the Owners tab.</p>
+          {payoutRows.length === 0 ? (
+            <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No owners yet.</div>
+          ) : (
+            <div className="bg-white rounded-2xl overflow-x-auto">
+              <table className="w-full text-sm min-w-[680px]">
+                <thead className="text-dark/40 text-[10px] uppercase tracking-widest border-b border-dark/10">
+                  <tr>
+                    <th className="text-left font-bold px-4 py-3">Owner</th>
+                    <th className="text-right font-bold px-4 py-3">Rentals</th>
+                    <th className="text-right font-bold px-4 py-3">Revenue</th>
+                    <th className="text-left font-bold px-4 py-3">Rate</th>
+                    <th className="text-right font-bold px-4 py-3">Commission</th>
+                    <th className="text-right font-bold px-4 py-3">Owner payout</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payoutRows.map(({ owner, c }) => (
+                    <tr key={owner.id} className="border-b border-dark/5 last:border-0">
+                      <td className="px-4 py-3 font-bold whitespace-nowrap">{owner.name}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{c.rentals}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{money(c.revenue)}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => setEditing(owner)} title="Edit commission rate" className="group inline-flex items-center gap-2 rounded-full -ml-2 px-2 py-1 hover:bg-dark/5 transition">
+                          <span className="text-dark/60 whitespace-nowrap">{owner.commissionPct}% + {money(owner.commissionFlat)}/rental</span>
+                          <Pencil className="w-3.5 h-3.5 text-dark/40 group-hover:text-brand" />
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-bold text-emerald-700">{money(c.commission)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-bold">{money(c.payout)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-dark/10 font-bold">
+                    <td className="px-4 py-3">Total</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{payoutTotals.rentals}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{money(payoutTotals.revenue)}</td>
+                    <td className="px-4 py-3" />
+                    <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{money(payoutTotals.commission)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{money(payoutTotals.payout)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+          <p className="text-[11px] text-dark/40 mt-3">Counts confirmed rentals by pickup date in the selected period. Set each owner's rate on the Owners tab.</p>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <Stat label="Revenue" value={money(billTotals.revenue)} />
+            <Stat label="Collected" value={money(billTotals.paid)} accent />
+            <Stat label="Outstanding due" value={money(billTotals.due)} />
+            <Stat label="Deposits held" value={money(billTotals.deposits)} />
+          </div>
+
+          {billRows.length === 0 ? (
+            <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No rentals in this period.</div>
+          ) : (
+            <div className="bg-white rounded-2xl overflow-x-auto">
+              <table className="w-full text-sm min-w-[720px]">
+                <thead className="text-dark/40 text-[10px] uppercase tracking-widest border-b border-dark/10">
+                  <tr>
+                    <th className="text-left font-bold px-4 py-3">Customer</th>
+                    <th className="text-left font-bold px-4 py-3">Bike</th>
+                    <th className="text-right font-bold px-4 py-3">Total</th>
+                    <th className="text-right font-bold px-4 py-3">Paid</th>
+                    <th className="text-right font-bold px-4 py-3">Due</th>
+                    <th className="text-right font-bold px-4 py-3">Deposit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {billRows.map(({ b, paid, due }) => (
+                    <tr key={b.id} className="border-b border-dark/5 last:border-0">
+                      <td className="px-4 py-3 font-bold whitespace-nowrap">{b.renter.firstName} {b.renter.lastName}</td>
+                      <td className="px-4 py-3 text-dark/60 whitespace-nowrap">{b.bikeTitle}{b.plate ? ` · ${b.plate}` : ''}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{money(b.total)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{money(paid)}</td>
+                      <td className={`px-4 py-3 text-right tabular-nums font-bold ${due > 0 ? 'text-red-600' : 'text-dark/40'}`}>{money(due)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{b.deposit > 0 ? money(b.deposit) + (b.depositReturned ? ' ↩' : '') : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-dark/10 font-bold">
+                    <td className="px-4 py-3" colSpan={2}>Total</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{money(billTotals.revenue)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{money(billTotals.paid)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-red-600">{money(billTotals.due)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{money(billTotals.deposits)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+          <p className="text-[11px] text-dark/40 mt-3">Non-cancelled rentals by pickup date in the selected period. ↩ = deposit returned. Record payments on the Bookings tab.</p>
+        </>
+      )}
     </div>
   );
 }
