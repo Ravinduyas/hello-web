@@ -48,7 +48,7 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
 
       {/* Content */}
       <main className="flex-1 min-w-0 p-6 md:p-10">
-        <div className={fullWidth ? '' : 'max-w-5xl'}>{children}</div>
+        <div className={`pt-2.5 ${fullWidth ? '' : 'max-w-5xl'}`}>{children}</div>
       </main>
     </div>
   );
