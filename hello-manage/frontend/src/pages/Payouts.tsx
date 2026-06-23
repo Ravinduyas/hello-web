@@ -92,7 +92,7 @@ export default function Payouts({ onLogout }: { onLogout: () => void }) {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <span className="eyebrow">[ Payouts ]</span>
+        <span className="eyebrow">[ Finance ]</span>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <select

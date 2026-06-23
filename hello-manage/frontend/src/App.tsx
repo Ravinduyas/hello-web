@@ -31,7 +31,8 @@ export default function App() {
           <Route path="/calendar" element={<Calendar onLogout={logout} />} />
           <Route path="/fleet" element={<Fleet onLogout={logout} />} />
           <Route path="/owners" element={<Owners onLogout={logout} />} />
-          <Route path="/payouts" element={<Payouts onLogout={logout} />} />
+          <Route path="/finance" element={<Payouts onLogout={logout} />} />
+          <Route path="/payouts" element={<Navigate to="/finance" replace />} />
           <Route path="/extras" element={<Extras onLogout={logout} />} />
           <Route path="*" element={<Navigate to="/bookings" replace />} />
         </Routes>

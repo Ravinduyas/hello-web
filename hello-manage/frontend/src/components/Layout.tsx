@@ -8,7 +8,7 @@ const nav = [
   { to: '/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/fleet', label: 'Fleet', icon: Bike },
   { to: '/owners', label: 'Owners', icon: Users },
-  { to: '/payouts', label: 'Payouts', icon: Wallet },
+  { to: '/finance', label: 'Finance', icon: Wallet },
   { to: '/extras', label: 'Extras', icon: Tag },
 ];
 
