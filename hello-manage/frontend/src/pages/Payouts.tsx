@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+﻿import { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, ChevronDown, Pencil, Percent, DollarSign, Plus, Trash2 } from 'lucide-react';
 import Drawer from '../components/Drawer';
 import {
@@ -8,7 +8,7 @@ import {
 } from '../lib/api';
 import { ownerCommission } from '../lib/commission';
 
-const money = (n: number) => `$${n.toFixed(2).replace(/\.00$/, '')}`;
+import { money } from '../lib/money';
 
 type DateRange = 'all' | 'today' | 'week' | 'month' | 'custom';
 const RANGES: { key: DateRange; label: string }[] = [

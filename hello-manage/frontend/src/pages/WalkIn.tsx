@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+﻿import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Check, Bike as BikeIcon, Calendar, Store, RefreshCw, ArrowRight } from 'lucide-react';
 import {
   fetchBikes,
@@ -155,7 +155,7 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
             <SummaryRow icon={Store} label="Customer" value={`${done.renter.firstName} ${done.renter.lastName}`.trim() + ` · ${done.renter.phone}`} />
             <div className="flex items-center justify-between border-t border-dark/10 pt-3">
               <span className="font-bold">Total</span>
-              <span className="font-display text-2xl font-black text-brand">${done.total}</span>
+              <span className="font-display text-2xl font-black text-brand">{money(done.total)}</span>
             </div>
             <p className="text-xs text-dark/40">Collected at the counter. The plate is now marked rented.</p>
           </div>
@@ -190,7 +190,7 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
                     <option value="">Select a model…</option>
                     {bikes.map(b => (
                       <option key={b.id} value={b.id}>
-                        {b.title} — ${b.pricePerDay}/day
+                        {b.title} — {money(b.pricePerDay)}/day
                       </option>
                     ))}
                   </select>
@@ -258,7 +258,7 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
                           {active && <Check className="w-3.5 h-3.5 text-white" />}
                         </span>
                         <span className="flex-1 text-sm font-bold">{ex.label}</span>
-                        <span className="font-display font-bold text-brand text-sm">${amount}</span>
+                        <span className="font-display font-bold text-brand text-sm">{money(amount)}</span>
                       </button>
                     );
                   })}
@@ -313,7 +313,7 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
               <div className="mb-4">
                 <p className="font-bold leading-tight">{bike.title}</p>
                 <p className="text-beige/50 text-sm">
-                  {unitId ? `Plate ${plates.find(u => u.id === unitId)?.plate}` : 'No plate selected'} · ${bike.pricePerDay}/day
+                  {unitId ? `Plate ${plates.find(u => u.id === unitId)?.plate}` : 'No plate selected'} · {money(bike.pricePerDay)}/day
                 </p>
               </div>
             ) : (
@@ -325,26 +325,26 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
               {summary.lines.map(line => (
                 <div key={line.label} className="flex justify-between gap-4">
                   <span className="text-beige/70">{line.label}</span>
-                  <span className="font-medium tabular-nums">${line.amount}</span>
+                  <span className="font-medium tabular-nums">{money(line.amount)}</span>
                 </div>
               ))}
             </div>
 
             <div className="flex items-end justify-between border-t border-beige/15 mt-4 pt-4">
               <span className="font-bold">Total</span>
-              <span className="font-display text-3xl font-black text-brand tabular-nums">${summary.total}</span>
+              <span className="font-display text-3xl font-black text-brand tabular-nums">{money(summary.total)}</span>
             </div>
 
             {(Number(paidNow) > 0 || Number(deposit) > 0) && (
               <div className="space-y-1 text-sm mt-3">
                 {Number(paidNow) > 0 && (
                   <>
-                    <div className="flex justify-between"><span className="text-beige/70">Paid now</span><span className="tabular-nums text-emerald-300">${Number(paidNow)}</span></div>
-                    <div className="flex justify-between"><span className="text-beige/70">Balance due</span><span className="tabular-nums">${Math.max(0, summary.total - Number(paidNow))}</span></div>
+                    <div className="flex justify-between"><span className="text-beige/70">Paid now</span><span className="tabular-nums text-emerald-300">{money(Number(paidNow))}</span></div>
+                    <div className="flex justify-between"><span className="text-beige/70">Balance due</span><span className="tabular-nums">{money(Math.max(0, summary.total - Number(paidNow)))}</span></div>
                   </>
                 )}
                 {Number(deposit) > 0 && (
-                  <div className="flex justify-between"><span className="text-beige/70">Deposit (held)</span><span className="tabular-nums">${Number(deposit)}</span></div>
+                  <div className="flex justify-between"><span className="text-beige/70">Deposit (held)</span><span className="tabular-nums">{money(Number(deposit))}</span></div>
                 )}
               </div>
             )}

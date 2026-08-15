@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+﻿import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Save, RefreshCw, X, Check, ChevronDown, ChevronRight, Tag, LayoutGrid, List, Pencil } from 'lucide-react';
 import Drawer from '../components/Drawer';
 import {
@@ -526,7 +526,7 @@ function BikeRow({
               <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-dark/10 text-dark/50 shrink-0">Inactive</span>
             )}
           </div>
-          <p className="text-sm text-dark/50">{bike.category} · ${bike.pricePerDay}/day</p>
+          <p className="text-sm text-dark/50">{bike.category} · {money(bike.pricePerDay)}/day</p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button

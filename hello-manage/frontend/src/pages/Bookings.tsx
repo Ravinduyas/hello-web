@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+﻿import { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus } from 'lucide-react';
 import Drawer from '../components/Drawer';
 import {
@@ -15,7 +15,7 @@ import {
   type Unit,
 } from '../lib/api';
 
-const money = (n: number) => `$${n.toFixed(2).replace(/\.00$/, '')}`;
+import { money } from '../lib/money';
 
 const statusStyles: Record<BookingStatus, string> = {
   pending: 'bg-amber-100 text-amber-800',
@@ -225,7 +225,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-display text-2xl font-black text-brand">${b.total}</p>
+                  <p className="font-display text-2xl font-black text-brand">{money(b.total)}</p>
                   <p className="text-[10px] text-dark/40 uppercase tracking-wide">{new Date(b.createdAt).toLocaleDateString()}</p>
                 </div>
               </div>
