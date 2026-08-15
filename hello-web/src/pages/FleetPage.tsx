@@ -68,20 +68,20 @@ function SpecPanel({ bikeId }: { bikeId: string }) {
   if (!spec) return null;
 
   return (
-    <details className="group/spec mb-6 border-t border-dark/10 pt-4">
-      <summary className="flex items-center justify-between gap-3 cursor-pointer list-none text-sm font-medium text-brand hover:text-dark transition-colors">
-        <span>
-          {spec.headline} · specs &amp; honest verdict
-        </span>
-        <ChevronDown className="w-4 h-4 shrink-0 transition-transform group-open/spec:rotate-180" />
+    <details className="group/spec mb-4 border-t border-dark/10 pt-3">
+      <summary className="flex items-center justify-between gap-2 cursor-pointer list-none text-[10px] font-bold uppercase tracking-widest text-dark/40 hover:text-brand transition-colors">
+        <span>Specs &amp; honest verdict</span>
+        <ChevronDown className="w-3.5 h-3.5 shrink-0 transition-transform group-open/spec:rotate-180" />
       </summary>
 
-      <div className="mt-5 space-y-5">
+      <div className="mt-4 space-y-4">
         <div>
           <p className="text-[10px] font-bold text-dark/40 uppercase tracking-widest mb-1">
             Best for
           </p>
-          <p className="text-sm text-dark/70">{spec.bestFor}</p>
+          <p className="text-sm text-dark/70">
+            {spec.headline} — {spec.bestFor}
+          </p>
         </div>
 
         <dl className="divide-y divide-dark/10 border-y border-dark/10">
@@ -93,7 +93,9 @@ function SpecPanel({ bikeId }: { bikeId: string }) {
           ))}
         </dl>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {/* Single column — the card is only ~280px wide, so a viewport-based
+            two-column split would cramp both lists. */}
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-2">
               What's good
@@ -307,34 +309,44 @@ export default function FleetPage() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: (idx % 3) * 0.07 }}
-                      className="snap-start shrink-0 w-[288px] sm:w-[340px] bg-white rounded-3xl overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                      className="snap-start shrink-0 w-[264px] sm:w-[284px] bg-white rounded-2xl overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
                     >
-                      <div className="aspect-[4/3] overflow-hidden">
+                      {/* Transmission rides on the photo rather than taking a
+                          line of its own above the title. */}
+                      <div className="relative aspect-[3/2] overflow-hidden bg-beige">
                         <img
                           src={bike.image}
                           alt={bike.title}
                           loading="lazy"
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
+                        <span className="absolute top-3 left-3 rounded-full bg-white/85 backdrop-blur-sm px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-dark/70">
+                          {meta.transmission ?? bike.category}
+                        </span>
                       </div>
-                      <div className="p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <span className="text-[10px] font-bold text-brand uppercase tracking-widest">
-                              {meta.transmission ?? bike.category}
-                            </span>
-                            <h3 className="font-display text-xl font-bold mt-1">{bike.title}</h3>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-display text-2xl font-black text-brand">{formatPrice(bike.pricePerDay)}</span>
-                            <span className="text-dark/40 text-xs">/day</span>
-                          </div>
+
+                      <div className="p-5">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <h3 className="font-display text-base font-bold leading-tight">
+                            {bike.title}
+                          </h3>
+                          <span className="font-display text-lg font-black text-brand shrink-0">
+                            {formatPrice(bike.pricePerDay)}
+                            <span className="text-dark/40 text-[10px] font-medium">/day</span>
+                          </span>
                         </div>
-                        <ul className="space-y-1 mb-6">
-                          {bike.features.map(f => (
-                            <li key={f} className="text-sm text-dark/60 flex items-center gap-2">
-                              <span className="w-1 h-1 rounded-full bg-brand inline-block" />
-                              {f}
+
+                        {/* Two lines only — the rest lives behind the specs
+                            disclosure, so every card is the same height. */}
+                        <ul className="mt-3 mb-4 space-y-1">
+                          {bike.features.slice(0, 2).map(f => (
+                            <li
+                              key={f}
+                              title={f}
+                              className="text-xs text-dark/55 flex items-center gap-2 min-w-0"
+                            >
+                              <span className="w-1 h-1 rounded-full bg-brand shrink-0" />
+                              <span className="truncate">{f}</span>
                             </li>
                           ))}
                         </ul>
@@ -344,10 +356,10 @@ export default function FleetPage() {
                         <Link
                           to={`/book?bike=${bike.id}`}
                           aria-label={`Rent the ${bike.title}`}
-                          className="btn-primary w-full justify-center group"
+                          className="flex items-center justify-center gap-2 w-full bg-brand text-beige rounded-full py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all hover:brightness-110"
                         >
-                          RENT NOW
-                          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                          Rent now
+                          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                         </Link>
                       </div>
                     </motion.div>
