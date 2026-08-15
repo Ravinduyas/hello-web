@@ -122,6 +122,23 @@
     @apply flex items-end justify-between gap-8 border-t border-dark/15 pt-6;
   }
 
+  /* Horizontal card track (fleet listings). A slim scrollbar in the palette,
+     rather than the OS default, so the rail reads as part of the layout. */
+  .fleet-track {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-dark) 22%, transparent) transparent;
+  }
+  .fleet-track::-webkit-scrollbar {
+    height: 6px;
+  }
+  .fleet-track::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .fleet-track::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--color-dark) 22%, transparent);
+    border-radius: 999px;
+  }
+
   /* Shared form control used across the booking wizard. */
   .booking-input {
     @apply w-full bg-beige border border-dark/10 rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:border-brand transition-colors;

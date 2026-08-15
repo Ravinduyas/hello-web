@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ArrowRight, Check, ChevronDown, Minus, Route } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Minus, Route } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { bikes as defaultBikes, formatPrice, getCategoryMeta, type Bike } from '../data/fleet';
@@ -129,6 +129,82 @@ function SpecPanel({ bikeId }: { bikeId: string }) {
   );
 }
 
+/**
+ * One category's vehicles as a horizontal, snapping track rather than a grid
+ * that wraps and leaves an orphan card on its own row.
+ *
+ * The arrows exist because a mouse-wheel user cannot scroll a horizontal track;
+ * they hide once there is nothing further to scroll in that direction, and are
+ * skipped by screen readers since the track itself is keyboard-scrollable.
+ */
+function CardRow({ children }: { children: ReactNode }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const sync = useCallback(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    // A 1px tolerance — fractional scroll positions never land exactly on the edge.
+    setCanScrollLeft(el.scrollLeft > 1);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  }, []);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [sync]);
+
+  const page = (direction: 1 | -1) => {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * el.clientWidth * 0.85, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="relative">
+      <div
+        ref={trackRef}
+        onScroll={sync}
+        tabIndex={0}
+        role="group"
+        aria-label="Vehicles — scroll horizontally"
+        className="fleet-track flex gap-8 overflow-x-auto snap-x snap-mandatory
+                   focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4
+                   rounded-3xl py-2"
+      >
+        {children}
+      </div>
+
+      {[-1, 1].map(direction => {
+        const isLeft = direction === -1;
+        const enabled = isLeft ? canScrollLeft : canScrollRight;
+        if (!enabled) return null;
+        const Icon = isLeft ? ChevronLeft : ChevronRight;
+        return (
+          <button
+            key={direction}
+            type="button"
+            aria-hidden="true"
+            tabIndex={-1}
+            onClick={() => page(direction as 1 | -1)}
+            className={`hidden md:grid place-items-center absolute top-1/2 -translate-y-1/2 z-10
+                        w-11 h-11 rounded-full bg-white text-dark shadow-lg
+                        hover:bg-dark hover:text-beige transition-colors
+                        ${isLeft ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2'}`}
+          >
+            <Icon className="w-5 h-5" strokeWidth={1.5} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function FleetPage() {
   const [active, setActive] = useState('All');
   // Fleet is admin-managed; fall back to bundled defaults if the API is unreachable.
@@ -223,7 +299,7 @@ export default function FleetPage() {
                   </div>
                 </header>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <CardRow>
                   {group.items.map((bike, idx) => (
                     <motion.div
                       key={bike.id}
@@ -231,7 +307,7 @@ export default function FleetPage() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: (idx % 3) * 0.07 }}
-                      className="bg-white rounded-3xl overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                      className="snap-start shrink-0 w-[288px] sm:w-[340px] bg-white rounded-3xl overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                     >
                       <div className="aspect-[4/3] overflow-hidden">
                         <img
@@ -276,7 +352,7 @@ export default function FleetPage() {
                       </div>
                     </motion.div>
                   ))}
-                </div>
+                </CardRow>
               </section>
             );
           })}
