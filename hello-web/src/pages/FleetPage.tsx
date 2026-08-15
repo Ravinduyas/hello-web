@@ -239,7 +239,7 @@ export default function FleetPage() {
   return (
     <div className="bg-beige min-h-screen">
 
-      <div className="relative h-screen min-h-[600px] w-full overflow-hidden bg-dark" style={{ height: '100dvh' }}>
+      <div className="relative h-[58vh] min-h-[420px] max-h-[620px] w-full overflow-hidden bg-dark">
         <div className="absolute inset-0 bg-dark/55 z-10" />
         <img
           src="https://images.unsplash.com/photo-1706766958001-176b3d7800ff?auto=format&fit=crop&q=80&w=2600"
