@@ -19,8 +19,11 @@ export default function Hero() {
     return () => clearInterval(id);
   }, []);
 
+  // Not full-height: 80vh trims the photo without crowding the stack inside it —
+  // headline, CTA and the index bar pinned to the foot. The floor keeps those
+  // clear of each other on a short laptop.
   return (
-    <section className="relative h-screen min-h-[600px] w-full overflow-hidden bg-dark" style={{ height: '100dvh' }}>
+    <section className="relative h-[80vh] min-h-[560px] max-h-[860px] w-full overflow-hidden bg-dark">
       {/* Crossfading slideshow with a slow Ken Burns zoom. */}
       <AnimatePresence>
         <motion.img
