@@ -1,94 +1,144 @@
-import { Plus } from 'lucide-react';
+import {
+  ArrowRight,
+  FileText,
+  HeartHandshake,
+  KeyRound,
+  LifeBuoy,
+  PlaneTakeoff,
+  ShieldCheck,
+  Signpost,
+  Truck,
+  Users,
+  Waves,
+  Wrench,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 
-export default function WhyChooseUs() {
-  const sections = [
-    {
-      title: 'Rates From $9 a Day',
-      category: 'Pricing',
-      label: 'No Hidden Fees',
-      image: 'https://images.unsplash.com/photo-1704797390325-b057758d8c3d?auto=format&fit=crop&q=80&w=1000',
-      span: 'col-span-1 md:col-span-1'
-    },
-    {
-      title: 'GPS Mount on Every Bike',
-      category: 'Navigation',
-      label: 'Navigate Sri Lanka Freely',
-      image: 'https://images.unsplash.com/photo-1612862862126-865765df2ded?auto=format&fit=crop&q=80&w=1000',
-      span: 'col-span-1 md:col-span-1'
-    },
-    {
-      title: '24/7 Island-Wide Support',
-      category: 'Support',
-      label: 'Never Stranded',
-      image: 'https://images.unsplash.com/photo-1491497895121-1334fc14d8c9?auto=format&fit=crop&q=80&w=1000',
-      span: 'col-span-1 md:col-span-1'
-    },
-    {
-      title: '5 Pickup Locations',
-      category: 'Locations',
-      label: 'Colombo · Galle · Kandy · Negombo · Mirissa',
-      image: 'https://images.unsplash.com/photo-1734279135136-dcaca9fdffaf?auto=format&fit=crop&q=80&w=1000',
-      span: 'col-span-1 md:col-span-1'
-    },
-    {
-      title: 'Helmets Always Included',
-      category: 'Safety',
-      label: 'Ride Legal, Ride Safe',
-      image: 'https://images.unsplash.com/photo-1623343559257-1f3aef3a77e5?auto=format&fit=crop&q=80&w=1500',
-      span: 'col-span-2 md:col-span-2'
-    }
-  ];
+// The client's "Why Choose Hello Rent" promises, in their order. Kept as data
+// so the copy stays editable without touching layout.
+const promises = [
+  {
+    Icon: HeartHandshake,
+    title: 'Honest & Transparent Service',
+    copy: 'No hidden charges, no unfair pricing, no taking advantage of travelers. We look for a fair solution for our customers and our vehicle owners alike.',
+  },
+  {
+    Icon: Wrench,
+    title: 'Carefully Maintained Vehicles',
+    copy: 'Every scooter and tuk-tuk is inspected before it goes out — brakes, tyres, lights, indicators, suspension, mirrors, engine and battery.',
+  },
+  {
+    Icon: ShieldCheck,
+    title: 'Fair Damage Policy',
+    copy: 'Small scratches happen. If a plastic part is damaged we ask only for the part at normal market price. No invented labour fees, and never a commission from the spare parts shop.',
+  },
+  {
+    Icon: LifeBuoy,
+    title: 'Emergency Assistance',
+    copy: 'Breakdown, puncture, accident or anything unexpected — our team does everything possible to reach you quickly. You are never alone on the road with us.',
+  },
+  {
+    Icon: Signpost,
+    title: 'Driving Guidance',
+    copy: "Sri Lanka's roads work differently. Before you set off we explain local traffic rules, riding on the left, road conditions and the safety tips that matter most.",
+  },
+  {
+    Icon: FileText,
+    title: 'Driving Permit Assistance',
+    copy: 'No need to spend your holiday queueing in government offices. We help eligible travelers arrange the proper Sri Lankan driving permit.',
+    to: '/driving-permit',
+  },
+  {
+    Icon: KeyRound,
+    title: 'Flexible Deposit Policy',
+    copy: 'We respect your privacy and never ask you to leave your passport as a deposit. We offer fair alternatives instead, under our rental policy.',
+  },
+  {
+    Icon: Truck,
+    title: 'Island-Wide Delivery & Collection',
+    copy: 'Airport, hotel, railway station or another city — wherever possible we bring the vehicle to you and collect it when you are done.',
+  },
+  {
+    Icon: Waves,
+    title: 'Surf Tips from Lucky',
+    copy: 'Before Hello Rent, Bhagya ("Lucky") taught surfing in Weligama for years. Beginner guidance, safety advice and local surf knowledge, free of charge.',
+  },
+  {
+    Icon: PlaneTakeoff,
+    title: 'Special Transport Benefits',
+    copy: 'Airport pickup, airport drop-off and private shuttles with experienced drivers and comfortable air-conditioned vehicles.',
+  },
+  {
+    Icon: Users,
+    title: 'More Than a Rental Company',
+    copy: 'Restaurants, beaches, surf, transport, local customs, shopping, hospitals — just ask. Our wish is that you find a local brother and sister in Sri Lanka.',
+  },
+];
 
+export default function WhyChooseUs() {
   return (
     <section className="bg-white py-16 md:py-24">
       <div className="max-w-7xl mx-auto px-6">
         <header className="section-head">
-          <span className="eyebrow">[ Why Rent With Us ]</span>
+          <span className="eyebrow">[ Why Choose Hello Rent ]</span>
           <div className="rule mt-5">
             <h2 className="display-xl text-4xl md:text-6xl max-w-3xl">
-              The smarter way to explore Sri Lanka
+              Renting should be simple, honest and stress-free
             </h2>
-            <span className="section-index">(01)</span>
+            <span className="section-index">(03)</span>
           </div>
+          <p className="text-dark/60 leading-relaxed max-w-2xl mt-8">
+            We are not here just to rent scooters and tuk-tuks. We are here to help you enjoy Sri
+            Lanka safely, comfortably and with complete confidence.
+          </p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 gap-y-16">
-          {sections.map((item, idx) => (
+        {/* Bordered cell grid — the same rule motif used in the Stats signature block. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border-t border-l border-dark/15">
+          {promises.map(({ Icon, title, copy, to }, idx) => (
             <motion.div
-              key={idx}
-              initial={{ opacity: 0, y: 40 }}
+              key={title}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className={`${item.span} group overflow-hidden`}
+              transition={{ delay: (idx % 3) * 0.08 }}
+              className="group border-r border-b border-dark/15 p-8 md:p-10 flex flex-col gap-4"
             >
-              <div className="relative aspect-[16/9] md:aspect-[4/3] rounded-2xl overflow-hidden mb-6">
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  loading="lazy"
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                />
+              <Icon className="w-6 h-6 text-brand shrink-0" strokeWidth={1.5} />
+              <h3 className="font-display text-lg md:text-xl font-bold leading-tight group-hover:text-brand transition-colors">
+                {title}
+              </h3>
+              <p className="text-sm text-dark/55 leading-relaxed">{copy}</p>
+              {to && (
                 <Link
-                  to="/fleet"
-                  aria-label={`Learn more: ${item.title}`}
-                  className="absolute bottom-6 right-6 w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 hover:bg-brand hover:border-brand transition-all"
+                  to={to}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-brand hover:gap-3 transition-all mt-auto pt-2"
                 >
-                  <Plus className="w-5 h-5" />
+                  How it works
+                  <ArrowRight className="w-4 h-4" />
                 </Link>
-              </div>
-              <div className="flex justify-between items-start gap-4">
-                <div>
-                  <span className="text-[10px] font-bold text-dark/30 uppercase tracking-tight">{item.label}</span>
-                  <h3 className="font-display text-xl md:text-2xl font-bold mt-1 group-hover:text-brand transition-colors">
-                    {item.title}
-                  </h3>
-                </div>
-                <span className="text-[10px] font-bold text-dark/30 uppercase tracking-tight">{item.category}</span>
-              </div>
+              )}
             </motion.div>
           ))}
+
+          {/* Filled espresso statement cell closes the grid on the philosophy line. */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="border-r border-b border-dark/15 bg-dark text-beige p-8 md:p-10 flex flex-col justify-between gap-8"
+          >
+            <p className="font-display text-xl md:text-2xl font-bold leading-snug tracking-tight">
+              Service comes before profit. Humanity comes before business.
+            </p>
+            <Link
+              to="/about"
+              className="self-start inline-flex items-center gap-2 border border-beige/30 text-beige px-5 py-2.5 rounded-full text-sm font-medium hover:bg-beige hover:text-dark transition-all"
+            >
+              Read our story
+            </Link>
+          </motion.div>
         </div>
       </div>
     </section>

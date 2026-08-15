@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   ArrowLeft,
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { bikes as defaultBikes, extras as defaultExtras, shopLocation, type Bike, type Extra } from '../data/fleet';
+import { bikes as defaultBikes, extras as defaultExtras, formatPrice, shopLocation, type Bike, type Extra } from '../data/fleet';
 import { createBooking, fetchExtras, fetchBikes } from '../lib/api';
 
 /* ------------------------------------------------------------------ */
@@ -184,7 +184,7 @@ export default function BookingPage() {
             <Row icon={MapPin} label="Pickup & return" value={shopLocation.address} />
             <div className="flex items-center justify-between border-t border-dark/10 pt-3">
               <span className="font-bold">Total</span>
-              <span className="font-display text-2xl font-black text-brand">${summary.total}</span>
+              <span className="font-display text-2xl font-black text-brand">{formatPrice(summary.total)}</span>
             </div>
             <p className="text-xs text-dark/40">Pay at pickup — no card needed to reserve.</p>
           </div>
@@ -311,7 +311,7 @@ export default function BookingPage() {
                 <img src={bike.image} alt={bike.title} className="w-20 h-16 object-cover rounded-xl" />
                 <div>
                   <p className="font-bold leading-tight">{bike.title}</p>
-                  <p className="text-beige/50 text-sm">{bike.category} · ${bike.pricePerDay}/day</p>
+                  <p className="text-beige/50 text-sm">{bike.category} · {formatPrice(bike.pricePerDay)}/day</p>
                 </div>
               </div>
             ) : (
@@ -323,14 +323,14 @@ export default function BookingPage() {
               {summary.lines.map(line => (
                 <div key={line.label} className="flex justify-between gap-4">
                   <span className="text-beige/70">{line.label}</span>
-                  <span className="font-medium tabular-nums">${line.amount}</span>
+                  <span className="font-medium tabular-nums">{formatPrice(line.amount)}</span>
                 </div>
               ))}
             </div>
 
             <div className="flex items-end justify-between border-t border-beige/15 mt-5 pt-5">
               <span className="font-bold">Total</span>
-              <span className="font-display text-3xl font-black text-brand tabular-nums">${summary.total}</span>
+              <span className="font-display text-3xl font-black text-brand tabular-nums">{formatPrice(summary.total)}</span>
             </div>
             <p className="text-beige/40 text-xs mt-3">Pay at pickup. Free cancellation up to 24h before.</p>
           </aside>
@@ -374,7 +374,7 @@ function StepRide({ bikes, selected, onSelect }: { bikes: Bike[]; selected: stri
                   <span className="text-[10px] font-bold text-brand uppercase tracking-widest">{b.category}</span>
                   <p className="font-display font-bold">{b.title}</p>
                 </div>
-                <span className="font-display text-lg font-black text-brand">${b.pricePerDay}</span>
+                <span className="font-display text-lg font-black text-brand">{formatPrice(b.pricePerDay)}</span>
               </div>
             </button>
           );
@@ -470,7 +470,7 @@ function StepExtras({ extras, chosen, onToggle, days }: { extras: Extra[]; chose
                 <p className="text-dark/50 text-sm">{ex.description}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="font-display font-bold text-brand">${total}</p>
+                <p className="font-display font-bold text-brand">{formatPrice(total)}</p>
                 <p className="text-dark/40 text-[10px] uppercase tracking-wide">{ex.perDay ? 'for trip' : 'flat'}</p>
               </div>
             </button>

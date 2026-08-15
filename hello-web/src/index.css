@@ -28,6 +28,35 @@
     @apply font-sans bg-beige text-dark antialiased;
   }
 
+  /* Scrollbar: the track disappears into the page and only the white thumb
+     reads against it. Firefox takes the two-value shorthand; WebKit needs the
+     pseudo-elements below. */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: #fff transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #fff;
+    border-radius: 9999px;
+    /* Transparent border + content-box clip insets the thumb off the page
+       edge, so it floats as a pill instead of filling the gutter. */
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  /* Drop the little stepper arrows at each end of the bar. */
+  ::-webkit-scrollbar-button {
+    display: none;
+  }
+
   /* Visible keyboard-focus ring for all interactive elements.
      Mouse clicks won't trigger it thanks to :focus-visible. */
   a:focus-visible,

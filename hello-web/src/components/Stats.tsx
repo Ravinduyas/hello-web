@@ -6,7 +6,7 @@ export default function Stats() {
   const stats = [
     { value: '10K+', copy: 'happy renters who have explored the island on two wheels.' },
     { value: '50+',  copy: 'scooters and motorbikes kept road-ready across our fleet.' },
-    { value: '5',    copy: 'pickup locations, from Colombo’s coast to Mirissa’s beaches.' },
+    { value: '1',    copy: 'easy pickup point in Weligama, right on Sri Lanka’s south coast.' },
   ];
 
   return (
@@ -19,7 +19,7 @@ export default function Stats() {
             viewport={{ once: true }}
             className="space-y-8"
           >
-            <span className="eyebrow">[ Rent · Ride · Explore Sri Lanka ]</span>
+            <span className="eyebrow">[ Hello Rent · Explore Sri Lanka ]</span>
             <h2 className="display-xl text-4xl md:text-6xl">
               Your island <br /> adventure <br /> starts here
             </h2>
@@ -27,22 +27,35 @@ export default function Stats() {
               BROWSE OUR FLEET
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
-            <div className="pt-12 border-t border-dark/10 max-w-md">
-              <p className="text-dark/70 text-sm italic leading-relaxed">
-                "Renting from Hello Rent was the best thing we did in Sri Lanka. The bike was spotless, pickup was effortless in Colombo, and riding down the coast to Galle was absolutely breathtaking. We added three extra days — couldn't bring ourselves to stop."
+            {/* The founder's own words, not a customer review — the verified
+                Google reviews have their own section further down the page. */}
+            <figure className="pt-12 border-t border-dark/10 max-w-md">
+              <blockquote className="font-display text-xl md:text-2xl font-bold leading-snug tracking-tight text-dark">
+                “I started with one scooter my father bought me and a signboard I painted by hand.
+                Today around a hundred families earn their living from this fleet.”
+              </blockquote>
+              <p className="text-dark/70 text-sm leading-relaxed mt-5">
+                If the other person is happy, I’m happy. That has always been my way.
               </p>
-              <div className="flex items-center gap-3 mt-6">
-                <img
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"
-                  alt="Sarah & Tom K."
-                  className="w-10 h-10 rounded-full object-cover"
-                />
+              <figcaption className="flex items-center gap-3 mt-6">
+                <span className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center font-display font-bold shrink-0">
+                  L
+                </span>
                 <div>
-                  <h4 className="text-sm font-bold">Sarah & Tom K.</h4>
-                  <p className="text-[10px] text-dark/50 uppercase font-bold tracking-tight">Travelers from Australia</p>
+                  <h4 className="text-sm font-bold">Bhagya “Lucky”</h4>
+                  <p className="text-[10px] text-dark/50 uppercase font-bold tracking-tight">
+                    Founder, Hello Rent
+                  </p>
                 </div>
-              </div>
-            </div>
+              </figcaption>
+              <Link
+                to="/about#story"
+                className="inline-flex items-center gap-2 text-sm font-medium text-brand hover:gap-3 transition-all mt-6"
+              >
+                Read Lucky’s story
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </figure>
           </motion.div>
 
           <motion.div
@@ -52,8 +65,8 @@ export default function Stats() {
             className="relative aspect-square lg:aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl"
           >
             <img
-              src="/couple-tuktuk-sigiriya.jpg"
-              alt="A couple exploring Sri Lanka past Sigiriya Rock"
+              src="/riders-scooter-temple.jpg"
+              alt="Two travelers on a scooter in front of a temple in Sri Lanka"
               loading="lazy"
               className="w-full h-full object-cover"
             />

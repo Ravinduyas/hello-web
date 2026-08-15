@@ -26,7 +26,7 @@ export default function Footer() {
               Hello Rent<span className="text-brand">.</span>
             </span>
             <p className="text-dark/60 text-sm leading-relaxed max-w-xs">
-              Explore Sri Lanka on two wheels. Scooter and motorbike rentals from $9/day across Colombo, Galle, Kandy, Negombo, and Mirissa.
+              Explore Sri Lanka your way. Scooters, motorbikes, tuk-tuks and cars from €5/day, picked up from our store in Weligama on the south coast.
             </p>
             <div className="flex items-center gap-2">
               {socials.map(({ Icon, label }) => (
@@ -48,7 +48,8 @@ export default function Footer() {
               <ul className="space-y-3 text-sm font-medium">
                 <li><Link to="/" className="hover:text-brand transition-colors">Home</Link></li>
                 <li><Link to="/fleet" className="hover:text-brand transition-colors">Our Fleet</Link></li>
-                <li><Link to="/locations" className="hover:text-brand transition-colors">Locations</Link></li>
+                <li><Link to="/about" className="hover:text-brand transition-colors">About Us</Link></li>
+                <li><Link to="/contact#store" className="hover:text-brand transition-colors">Find Our Store</Link></li>
                 <li><Link to="/blog" className="hover:text-brand transition-colors">Blog</Link></li>
                 <li><Link to="/contact" className="hover:text-brand transition-colors">Contact Us</Link></li>
               </ul>
@@ -56,10 +57,10 @@ export default function Footer() {
             <div className="space-y-4">
               <h4 className="font-bold text-sm uppercase tracking-wider text-dark/40">Support</h4>
               <ul className="space-y-3 text-sm font-medium">
-                <li className="hover:text-brand cursor-pointer transition-colors">How It Works</li>
-                <li className="hover:text-brand cursor-pointer transition-colors">FAQs</li>
+                <li><Link to="/driving-permit" className="hover:text-brand transition-colors">Driving Permit</Link></li>
+                <li><Link to="/tours" className="hover:text-brand transition-colors">Day Trips</Link></li>
+                <li><Link to="/about#safety" className="hover:text-brand transition-colors">Safety Guide</Link></li>
                 <li className="hover:text-brand cursor-pointer transition-colors">Rental Terms</li>
-                <li className="hover:text-brand cursor-pointer transition-colors">Safety Guide</li>
                 <li><Link to="/fleet" className="hover:text-brand transition-colors">Book Now</Link></li>
               </ul>
             </div>

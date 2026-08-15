@@ -5,19 +5,22 @@ import { Link } from 'react-router-dom';
 export function Blog() {
   const posts = [
     {
+      title: 'How far can you get in one day?',
+      date: 'Featured · Day Trips',
+      image: '/ride-hill-road.jpg',
+      to: '/tours',
+    },
+    {
       title: 'Top Scenic Routes to Ride in Sri Lanka',
       date: '02 May 2026',
-      image: '/tea-country-ride.jpg'
+      image: '/tea-country-ride.jpg',
+      to: '/blog',
     },
     {
       title: 'The Coastal Ride: Colombo to Galle',
       date: '18 Apr 2026',
-      image: '/ride-misty-forest.jpg'
-    },
-    {
-      title: 'Riding Through the Hill Country: Kandy to Ella',
-      date: '10 Apr 2026',
-      image: '/ride-hill-road.jpg'
+      image: '/ride-misty-forest.jpg',
+      to: '/blog',
     }
   ];
 
@@ -30,7 +33,7 @@ export function Blog() {
             <h2 className="display-xl text-4xl md:text-6xl max-w-3xl">
               Sri Lanka riding guides &amp; routes
             </h2>
-            <span className="section-index">(04)</span>
+            <span className="section-index">(06)</span>
           </div>
         </header>
 
@@ -43,7 +46,7 @@ export function Blog() {
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1 }}
             >
-              <Link to="/blog" className="group block">
+              <Link to={post.to} className="group block">
                 <div className="aspect-[4/3] rounded-3xl overflow-hidden mb-6">
                   <img
                     src={post.image}

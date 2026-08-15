@@ -1,6 +1,7 @@
-import { MapPin, Phone, Mail, Clock } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Navigation } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState } from 'react';
+import { CONTACT } from '../data/contact';
 
 export default function ContactPage() {
   const [sent, setSent] = useState(false);
@@ -115,10 +116,10 @@ export default function ContactPage() {
             className="space-y-6"
           >
             {[
-              { icon: MapPin, label: 'Main Location', value: 'No. 45, Galle Road, Colombo 03, Sri Lanka' },
-              { icon: Phone, label: 'Call Us', value: '+94 77 123 4567' },
-              { icon: Mail, label: 'Email Us', value: 'hello@hellorent.co' },
-              { icon: Clock, label: 'Opening Hours', value: 'Mon – Sun: 07:00 – 21:00' },
+              { icon: MapPin, label: 'Main Location', value: CONTACT.address },
+              { icon: Phone, label: 'Call Us', value: CONTACT.phone },
+              { icon: Mail, label: 'Email Us', value: CONTACT.email },
+              { icon: Clock, label: 'Opening Hours', value: CONTACT.hours },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="bg-white rounded-2xl p-6 flex items-start gap-4">
                 <div className="w-10 h-10 bg-brand/10 rounded-full flex items-center justify-center shrink-0">
@@ -131,16 +132,90 @@ export default function ContactPage() {
               </div>
             ))}
 
-            <div className="bg-white rounded-2xl overflow-hidden h-64">
-              <img
-                src="https://images.unsplash.com/photo-1703588866434-3ce7163742ed?auto=format&fit=crop&q=80&w=800"
-                alt="Galle Fort, Sri Lanka"
-                loading="lazy"
-                className="w-full h-full object-cover"
-              />
-            </div>
+            <a
+              href={CONTACT.directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary w-fit text-sm py-3 px-6"
+            >
+              GET DIRECTIONS
+              <Navigation className="w-4 h-4" />
+            </a>
           </motion.div>
         </div>
+
+        {/* ── Our store ───────────────────────────────────────────────────
+            Formerly the standalone /locations page. Hello Rent has a single
+            home base, so it lives here rather than on a page of its own. */}
+        <section id="store" className="scroll-mt-24 mt-16 md:mt-24">
+          <header className="section-head">
+            <span className="eyebrow">[ Find Us ]</span>
+            <div className="rule mt-5">
+              <h2 className="display-xl text-4xl md:text-6xl max-w-3xl">
+                Find us in Weligama
+              </h2>
+              <span className="section-index">(01)</span>
+            </div>
+            <p className="text-dark/60 leading-relaxed max-w-2xl mt-8">
+              One home base on Sri Lanka's south coast. Pick up your scooter or tuk-tuk and explore
+              the island your way — or ask us to deliver it to your hotel, the airport, or another
+              city.
+            </p>
+          </header>
+
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white rounded-3xl overflow-hidden shadow-sm"
+          >
+            <div className="relative min-h-[320px] lg:min-h-[420px]">
+              <iframe
+                title="Hello Rent — Weligama location"
+                src={CONTACT.mapSrc}
+                className="absolute inset-0 w-full h-full border-0"
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            </div>
+
+            <div className="p-8 md:p-12 flex flex-col justify-center space-y-6">
+              <div>
+                <span className="eyebrow">[ Our Store ]</span>
+                <h3 className="font-display text-3xl md:text-4xl font-bold mt-2">
+                  {CONTACT.storeName}
+                </h3>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 text-dark/70">
+                  <MapPin className="w-5 h-5 text-brand mt-0.5 shrink-0" />
+                  <span>{CONTACT.address}</span>
+                </div>
+                <div className="flex items-center gap-3 text-dark/70">
+                  <Clock className="w-5 h-5 text-brand shrink-0" />
+                  <span>Open daily · 07:00 – 21:00</span>
+                </div>
+                <div className="flex items-center gap-3 text-dark/70">
+                  <Phone className="w-5 h-5 text-brand shrink-0" />
+                  <span>{CONTACT.phone}</span>
+                </div>
+              </div>
+
+              <a
+                href={CONTACT.directionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary w-fit text-sm py-3 px-6"
+              >
+                GET DIRECTIONS
+                <Navigation className="w-4 h-4" />
+              </a>
+            </div>
+          </motion.div>
+        </section>
       </div>
     </div>
   );

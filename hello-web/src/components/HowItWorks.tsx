@@ -5,13 +5,13 @@ export default function HowItWorks() {
     {
       num: '01',
       title: 'Choose Your Bike',
-      description: 'Browse our scooters and motorbikes online. Lightweight automatics from $9/day are ideal for beach roads and city streets, while manual sport bikes are built for Ella\'s mountain passes.',
+      description: 'Browse our scooters, motorbikes, tuk-tuks and cars online. Automatics from €5/day are ideal for beach roads and city streets, while manual bikes are built for Ella\'s mountain passes.',
       image: '/bikes-ready.png',
     },
     {
       num: '02',
       title: 'Book Online',
-      description: 'Reserve in minutes. Pick your dates and choose a pickup point — Colombo, Galle, Kandy, Negombo, or Mirissa. Return to any location with no extra charge.',
+      description: 'Reserve in minutes. Pick your dates and collect your ride from our Weligama store on the south coast — return it there when your trip wraps up.',
       image: '/rider-checking-phone.jpg',
     },
     {

@@ -7,26 +7,34 @@ export default function ProductGrid() {
     {
       name: 'Scooters',
       tagline: 'Automatic & easy',
-      price: 'From $9 / day',
-      copy: 'Lightweight automatics for beach roads and city streets — twist and go, no gears.',
+      price: 'From €5 / day',
+      copy: 'Honda Dio, Navi, Yamaha Ray ZR and the TVS Ntorq — twist and go, no gears.',
       image: '/hero-couple-scooter.jpg',
       alt: 'Travelers riding an automatic scooter in Sri Lanka',
     },
     {
       name: 'Bikes',
       tagline: 'Manual & capable',
-      price: 'From $15 / day',
-      copy: 'Manual sport and touring bikes built for Ella’s mountain passes and hill-country rides.',
+      price: 'From €10 / day',
+      copy: 'Pulsar, FZ, Apache and Hunk — manual bikes built for Ella’s mountain passes.',
       image: '/bike-tea-plantation.png',
       alt: 'A motorbike parked among Sri Lankan tea fields',
     },
     {
       name: 'Three Wheelers',
       tagline: 'Covered & comfy',
-      price: 'From $20 / day',
-      copy: 'The classic tuk-tuk — shaded, roomy, and the most fun way to road-trip the island.',
+      price: 'From €15 / day',
+      copy: 'The Bajaj RE tuk-tuk — shaded, seats three, and the most fun way to road-trip.',
       image: '/couple-tuktuk-sigiriya.jpg',
       alt: 'Travelers in a tuk-tuk with Sigiriya rock behind',
+    },
+    {
+      name: 'Cars & Vans',
+      tagline: 'Automatic & air-con',
+      price: 'From €31 / day',
+      copy: 'Wagon R, Spacia, Roomy, Raize, Prius and the KDH van — for families, rain and long drives.',
+      image: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=1000',
+      alt: 'A driver at the wheel of an automatic car at dusk',
     },
   ];
 
@@ -43,7 +51,7 @@ export default function ProductGrid() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
           {categories.map((cat, idx) => (
             <motion.div
               key={cat.name}
@@ -55,7 +63,7 @@ export default function ProductGrid() {
               <Link
                 to="/fleet"
                 aria-label={`Browse ${cat.name}`}
-                className="group relative block h-[440px] lg:h-[520px] rounded-3xl overflow-hidden"
+                className="group relative block h-[440px] lg:h-[500px] rounded-3xl overflow-hidden"
               >
                 <img
                   src={cat.image}

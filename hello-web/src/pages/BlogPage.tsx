@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
+import { Link } from 'react-router-dom';
 
 const posts = [
   {
@@ -71,6 +72,49 @@ export default function BlogPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 pb-24 pt-16">
+
+        {/* Featured post — the real day-trip guide, written from Lucky's notes. */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mb-16"
+        >
+          <Link
+            to="/tours"
+            className="group grid grid-cols-1 lg:grid-cols-2 bg-white rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-xl"
+          >
+            <div className="aspect-[16/10] lg:aspect-auto lg:min-h-[420px] overflow-hidden">
+              <img
+                src="/ride-hill-road.jpg"
+                alt="A winding road through the Sri Lankan hills"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+            </div>
+            <div className="p-8 md:p-12 flex flex-col justify-center">
+              <div className="flex items-center gap-3 mb-5">
+                <span className="text-[10px] font-bold uppercase tracking-widest bg-brand text-beige px-3 py-1 rounded-full">
+                  Featured
+                </span>
+                <span className="text-[10px] font-bold text-dark/40 uppercase tracking-widest">
+                  Day Trips
+                </span>
+              </div>
+              <h2 className="display-xl text-3xl md:text-5xl">
+                How far can you get in one day?
+              </h2>
+              <p className="text-dark/60 leading-relaxed mt-5 max-w-lg">
+                Ride twenty kilometres in any direction from Weligama and the island changes
+                completely — beaches one way, rainforest the other, wildlife parks inland and a
+                colonial fort down the coast. Here is everywhere you can reach and get back the
+                same day.
+              </p>
+              <span className="inline-flex items-center gap-2 text-sm font-bold text-brand group-hover:gap-3 transition-all mt-8">
+                Read the guide <ArrowRight className="w-4 h-4" />
+              </span>
+            </div>
+          </Link>
+        </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {posts.map((post, idx) => (
