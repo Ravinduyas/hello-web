@@ -86,7 +86,7 @@ export default function WhyChooseUs() {
             <h2 className="display-xl text-4xl md:text-6xl max-w-3xl">
               Renting should be simple, honest and stress-free
             </h2>
-            <span className="section-index">(03)</span>
+            <span className="section-index">(04)</span>
           </div>
           <p className="text-dark/60 leading-relaxed max-w-2xl mt-8">
             We are not here just to rent scooters and tuk-tuks. We are here to help you enjoy Sri

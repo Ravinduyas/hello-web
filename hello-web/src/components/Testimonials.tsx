@@ -75,7 +75,7 @@ export default function Testimonials() {
           <div className="max-w-md">
             <div className="flex items-center justify-between gap-4">
               <span className="eyebrow">[ What Renters Say ]</span>
-              <span className="section-index">(05)</span>
+              <span className="section-index">(06)</span>
             </div>
             <h2 className="display-xl text-4xl md:text-6xl mt-5 pt-6 border-t border-dark/15">
               Real stories from <br /> real riders

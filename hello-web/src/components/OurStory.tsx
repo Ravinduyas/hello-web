@@ -41,7 +41,7 @@ export default function OurStory() {
             <h2 className="display-xl text-4xl md:text-6xl max-w-3xl">
               The people behind the scooters
             </h2>
-            <span className="section-index">(04)</span>
+            <span className="section-index">(05)</span>
           </div>
           <p className="text-dark/60 leading-relaxed max-w-2xl mt-8">
             Hello Rent started on Weligama Beach with one scooter and a few borrowed from friends.

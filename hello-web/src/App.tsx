@@ -12,6 +12,7 @@ import Hero from './components/Hero';
 import Stats from './components/Stats';
 import HowItWorks from './components/HowItWorks';
 import ProductGrid from './components/ProductGrid';
+import Services from './components/Services';
 import WhyChooseUs from './components/WhyChooseUs';
 import OurStory from './components/OurStory';
 import Testimonials from './components/Testimonials';
@@ -32,6 +33,7 @@ function HomePage() {
       <Stats />
       <HowItWorks />
       <ProductGrid />
+      <Services />
       <WhyChooseUs />
       <OurStory />
       <Testimonials />

@@ -34,7 +34,7 @@ export function Blog() {
             <h2 className="display-xl text-4xl md:text-6xl max-w-3xl">
               Sri Lanka riding guides &amp; routes
             </h2>
-            <span className="section-index">(06)</span>
+            <span className="section-index">(07)</span>
           </div>
         </header>
 
