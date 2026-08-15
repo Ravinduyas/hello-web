@@ -2,11 +2,12 @@ import { ArrowRight, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { asset } from '../lib/asset';
 
 const slides = [
-  { src: '/hero-couple-scooter.jpg', alt: 'A foreign couple riding a scooter together with helmets in Sri Lanka' },
-  { src: '/hero-hill-riders.jpg', alt: 'Travelers riding adventure motorbikes through Sri Lanka’s hill country' },
-  { src: '/hero-group-ride.jpg', alt: 'A group of riders with their motorbikes on a Sri Lankan mountain ridge' },
+  { src: asset('/hero-couple-scooter.jpg'), alt: 'A foreign couple riding a scooter together with helmets in Sri Lanka' },
+  { src: asset('/hero-hill-riders.jpg'), alt: 'Travelers riding adventure motorbikes through Sri Lanka’s hill country' },
+  { src: asset('/hero-group-ride.jpg'), alt: 'A group of riders with their motorbikes on a Sri Lankan mountain ridge' },
 ];
 
 export default function Hero() {

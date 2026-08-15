@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { asset } from '../lib/asset';
 
 export default function HowItWorks() {
   const steps = [
@@ -6,13 +7,13 @@ export default function HowItWorks() {
       num: '01',
       title: 'Choose Your Bike',
       description: 'Browse our scooters, motorbikes, tuk-tuks and cars online. Automatics from €5/day are ideal for beach roads and city streets, while manual bikes are built for Ella\'s mountain passes.',
-      image: '/bikes-ready.png',
+      image: asset('/bikes-ready.png'),
     },
     {
       num: '02',
       title: 'Book Online',
       description: 'Reserve in minutes. Pick your dates and collect your ride from our Weligama store on the south coast — return it there when your trip wraps up.',
-      image: '/rider-checking-phone.jpg',
+      image: asset('/rider-checking-phone.jpg'),
     },
     {
       num: '03',

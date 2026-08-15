@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, Quote, Star } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
+import { asset } from '../lib/asset';
 
 // Real, verified customer reviews. Avatars + trip photos live in
 // /public/reviews. Star ratings default to 5.0 — the source screenshots
@@ -12,8 +13,8 @@ const reviews = [
       'We rented a scooter for 8 days and a tuk tuk for 1 day. The experience was 100% positive. Excellent service, good vibes and 0 problems. Lucky even gave me a free tuk tuk driving lesson. Thank you for making the most of our trip. I totally recommend Hello Rent.',
     name: 'Alexander Artamonov',
     location: 'Google review · Weligama',
-    avatar: '/reviews/avatars/alexander.png',
-    photo: '/reviews/photos/alexander.jpg',
+    avatar: asset('/reviews/avatars/alexander.png'),
+    photo: asset('/reviews/photos/alexander.jpg'),
   },
   {
     rating: '5.0',
@@ -21,8 +22,8 @@ const reviews = [
       "Great experience with Hello Rent in Weligama! Friendly service, highly recommended if you're looking to rent a scooter in Weligama!",
     name: 'Sandaru Jayasinghe',
     location: 'Google review · Weligama',
-    avatar: '/reviews/avatars/sandaru.png',
-    photo: '/reviews/photos/sandaru.jpg',
+    avatar: asset('/reviews/avatars/sandaru.png'),
+    photo: asset('/reviews/photos/sandaru.jpg'),
   },
   {
     rating: '5.0',
@@ -30,8 +31,8 @@ const reviews = [
       'Very good rental, super friendly and scooters are in good condition. Totally recommended.',
     name: 'Andrew Zolotaryov',
     location: 'Google review · Weligama',
-    avatar: '/reviews/avatars/andrew.png',
-    photo: '/reviews/photos/andrew.jpg',
+    avatar: asset('/reviews/avatars/andrew.png'),
+    photo: asset('/reviews/photos/andrew.jpg'),
   },
   {
     rating: '5.0',
@@ -39,8 +40,8 @@ const reviews = [
       'Very good rental, super friendly and scooters are in good condition. Totally recommended.',
     name: 'Pablo',
     location: 'Google review · Weligama',
-    avatar: '/reviews/avatars/pablo.png',
-    photo: '/reviews/photos/pablo.jpg',
+    avatar: asset('/reviews/avatars/pablo.png'),
+    photo: asset('/reviews/photos/pablo.jpg'),
   },
 ];
 

@@ -1,6 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { asset } from '../lib/asset';
 
 export default function Stats() {
   const stats = [
@@ -65,7 +66,7 @@ export default function Stats() {
             className="relative aspect-square lg:aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl"
           >
             <img
-              src="/riders-scooter-temple.jpg"
+              src={asset('/riders-scooter-temple.jpg')}
               alt="Two travelers on a scooter in front of a temple in Sri Lanka"
               loading="lazy"
               className="w-full h-full object-cover"

@@ -4,6 +4,7 @@
  */
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BASE_URL } from './lib/asset';
 import ScrollToTop from './components/ScrollToTop';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -42,7 +43,9 @@ function HomePage() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    // basename keeps routing correct when the site is served from a sub-path
+    // (a GitHub Pages project site). It is '/' in dev.
+    <BrowserRouter basename={BASE_URL}>
       <ScrollToTop />
       <a href="#main-content" className="skip-link">
         Skip to content

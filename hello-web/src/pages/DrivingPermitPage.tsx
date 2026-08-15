@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { whatsappLink } from '../data/contact';
 import { extras, formatPrice } from '../data/fleet';
+import { asset } from '../lib/asset';
 
 const permitExtra = extras.find(e => e.id === 'driving-permit');
 
@@ -57,7 +58,7 @@ export default function DrivingPermitPage() {
       >
         <div className="absolute inset-0 bg-dark/65 z-10" />
         <img
-          src="/rider-checking-phone.jpg"
+          src={asset('/rider-checking-phone.jpg')}
           alt="A rider checking their phone beside a scooter in Sri Lanka"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />

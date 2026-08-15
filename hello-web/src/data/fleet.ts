@@ -11,6 +11,7 @@
  * by engine capacity exactly as the notes group them: every 110cc scooter is €5
  * (the Dio's rate) and the 125cc Ntorq is €6. Every automatic car is €31.
  */
+import { asset } from '../lib/asset';
 
 /** Rates are quoted in euros. */
 export const CURRENCY = '€';
@@ -38,7 +39,7 @@ export const bikes: Bike[] = [
     title: 'Honda Dio 110cc',
     category: 'Scooter',
     pricePerDay: 5,
-    image: '/fleet/dio.png',
+    image: asset('/fleet/dio.png'),
     features: [
       'Automatic — twist and go',
       'Low 765mm seat, petite to average riders',
@@ -51,7 +52,7 @@ export const bikes: Bike[] = [
     title: 'Honda Navi 110cc',
     category: 'Scooter',
     pricePerDay: 5,
-    image: '/fleet/navi.png',
+    image: asset('/fleet/navi.png'),
     features: [
       'Automatic with a mini-bike look',
       'True motorcycle riding posture',
@@ -64,7 +65,7 @@ export const bikes: Bike[] = [
     title: 'Yamaha Ray ZR',
     category: 'Scooter',
     pricePerDay: 5,
-    image: '/fleet/rayzr.png',
+    image: asset('/fleet/rayzr.png'),
     features: [
       'Automatic hybrid engine',
       'Lightest in the fleet at 99kg',
@@ -77,7 +78,7 @@ export const bikes: Bike[] = [
     title: 'TVS Ntorq 125',
     category: 'Scooter',
     pricePerDay: 6,
-    image: '/fleet/ntorq.png',
+    image: asset('/fleet/ntorq.png'),
     features: [
       '124.8cc, the most powerful scooter we rent',
       'Best for average to tall riders',
@@ -150,7 +151,7 @@ export const bikes: Bike[] = [
     title: 'Bajaj RE 4-Stroke Tuk-Tuk',
     category: 'Tuk Tuk',
     pricePerDay: 15,
-    image: '/couple-tuktuk-sigiriya.jpg',
+    image: asset('/couple-tuktuk-sigiriya.jpg'),
     features: [
       'Manual transmission (handlebar clutch)',
       'Bench seats three adults',

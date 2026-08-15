@@ -2,6 +2,7 @@ import { ArrowRight, Compass, MessageCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { whatsappLink } from '../data/contact';
+import { asset } from '../lib/asset';
 
 // Lucky's own "where can I reach in one day from Weligama" list.
 const destinations = [
@@ -66,7 +67,7 @@ export default function TourPlansPage() {
       >
         <div className="absolute inset-0 bg-dark/60 z-10" />
         <img
-          src="/ride-hill-road.jpg"
+          src={asset('/ride-hill-road.jpg')}
           alt="A winding road through the Sri Lankan hills"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />

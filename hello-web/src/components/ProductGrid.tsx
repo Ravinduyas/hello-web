@@ -1,6 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { asset } from '../lib/asset';
 
 export default function ProductGrid() {
   const categories = [
@@ -9,7 +10,7 @@ export default function ProductGrid() {
       tagline: 'Automatic & easy',
       price: 'From €5 / day',
       copy: 'Honda Dio, Navi, Yamaha Ray ZR and the TVS Ntorq — twist and go, no gears.',
-      image: '/hero-couple-scooter.jpg',
+      image: asset('/hero-couple-scooter.jpg'),
       alt: 'Travelers riding an automatic scooter in Sri Lanka',
     },
     {
@@ -17,7 +18,7 @@ export default function ProductGrid() {
       tagline: 'Manual & capable',
       price: 'From €10 / day',
       copy: 'Pulsar, FZ, Apache and Hunk — manual bikes built for Ella’s mountain passes.',
-      image: '/bike-tea-plantation.png',
+      image: asset('/bike-tea-plantation.png'),
       alt: 'A motorbike parked among Sri Lankan tea fields',
     },
     {
@@ -25,7 +26,7 @@ export default function ProductGrid() {
       tagline: 'Covered & comfy',
       price: 'From €15 / day',
       copy: 'The Bajaj RE tuk-tuk — shaded, seats three, and the most fun way to road-trip.',
-      image: '/couple-tuktuk-sigiriya.jpg',
+      image: asset('/couple-tuktuk-sigiriya.jpg'),
       alt: 'Travelers in a tuk-tuk with Sigiriya rock behind',
     },
     {

@@ -1,25 +1,26 @@
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { asset } from '../lib/asset';
 
 export function Blog() {
   const posts = [
     {
       title: 'How far can you get in one day?',
       date: 'Featured · Day Trips',
-      image: '/ride-hill-road.jpg',
+      image: asset('/ride-hill-road.jpg'),
       to: '/tours',
     },
     {
       title: 'Top Scenic Routes to Ride in Sri Lanka',
       date: '02 May 2026',
-      image: '/tea-country-ride.jpg',
+      image: asset('/tea-country-ride.jpg'),
       to: '/blog',
     },
     {
       title: 'The Coastal Ride: Colombo to Galle',
       date: '18 Apr 2026',
-      image: '/ride-misty-forest.jpg',
+      image: asset('/ride-misty-forest.jpg'),
       to: '/blog',
     }
   ];
@@ -74,7 +75,7 @@ export function CTASection() {
   return (
     <section className="relative h-[600px] w-full overflow-hidden flex items-center justify-center">
       <img
-        src="/tea-country-ride.jpg"
+        src={asset('/tea-country-ride.jpg')}
         className="absolute inset-0 w-full h-full object-cover"
         alt="Motorbike riders in Sri Lanka's tea country"
         loading="lazy"

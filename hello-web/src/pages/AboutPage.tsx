@@ -1,6 +1,7 @@
 import { ArrowRight, Heart, ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { asset } from '../lib/asset';
 
 // The closing promise, one line at a time — the client's copy reads as a list.
 const promise = [
@@ -21,7 +22,7 @@ export default function AboutPage() {
       >
         <div className="absolute inset-0 bg-dark/60 z-10" />
         <img
-          src="/hero-hill-riders.jpg"
+          src={asset('/hero-hill-riders.jpg')}
           alt="Riders stopped together on a hill road in Sri Lanka"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />
@@ -93,7 +94,7 @@ export default function AboutPage() {
             className="relative aspect-square lg:aspect-[4/5] rounded-3xl overflow-hidden bg-white flex items-center justify-center p-12"
           >
             <img
-              src="/hello-rental.jpg"
+              src={asset('/hello-rental.jpg')}
               alt="Hello Rent — scooter and bike rental, Weligama"
               loading="lazy"
               className="w-full h-full object-contain"
