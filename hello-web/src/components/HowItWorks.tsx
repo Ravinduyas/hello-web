@@ -1,8 +1,19 @@
+import type { ReactNode } from 'react';
 import { motion } from 'motion/react';
+import { Link } from 'react-router-dom';
 import { asset } from '../lib/asset';
 
+// Descriptions are nodes rather than strings so a step can link out to the
+// page that explains it — see the permit in step 03.
+interface Step {
+  num: string;
+  title: string;
+  description: ReactNode;
+  image: string;
+}
+
 export default function HowItWorks() {
-  const steps = [
+  const steps: Step[] = [
     {
       num: '01',
       title: 'Choose Your Bike',
@@ -18,7 +29,19 @@ export default function HowItWorks() {
     {
       num: '03',
       title: 'Collect & Hit the Road',
-      description: 'Show your booking, grab your helmet, and go. Our team will brief you on the best Sri Lankan routes. An International Driving Permit is required for manual motorbikes.',
+      description: (
+        <>
+          Show your booking, grab your helmet, and go. Our team will brief you on the best Sri
+          Lankan routes. An{' '}
+          <Link
+            to="/driving-permit"
+            className="text-brand font-medium underline underline-offset-2 hover:no-underline"
+          >
+            International Driving Permit
+          </Link>{' '}
+          is required for manual motorbikes.
+        </>
+      ),
       image: 'https://images.unsplash.com/photo-1691673366849-a393a424fa19?auto=format&fit=crop&q=80&w=600',
     },
   ];
