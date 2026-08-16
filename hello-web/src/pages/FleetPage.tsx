@@ -211,7 +211,8 @@ function CardRow({ children }: { children: ReactNode }) {
 }
 
 export default function FleetPage() {
-  const [active, setActive] = useState('All');
+  // null = nothing filtered, every category listed.
+  const [active, setActive] = useState<string | null>(null);
   // Fleet is admin-managed; fall back to bundled defaults if the API is unreachable.
   const [bikes, setBikes] = useState<Bike[]>(defaultBikes);
 
@@ -229,15 +230,18 @@ export default function FleetPage() {
     };
   }, []);
 
-  // Filters follow the categories actually present in the fleet (admin-managed).
-  const categories = Array.from(new Set(bikes.map(b => b.category)));
-  const filters = ['All', ...categories];
+  // Filters follow the categories actually present in the fleet (admin-managed),
+  // easiest to ride first, so a visitor who doesn't know the model names can
+  // still tell automatic from manual at a glance. The bar carries the vehicle
+  // types and nothing else — no "All" pill.
+  const categories = Array.from(new Set(bikes.map(b => b.category))).sort(
+    (a, b) => orderOf(a) - orderOf(b),
+  );
 
-  // Presented as groups, easiest-to-ride first, so a visitor who doesn't know
-  // the model names can still tell automatic from manual at a glance.
-  const groups = (active === 'All' ? categories : [active])
-    .slice()
-    .sort((a, b) => orderOf(a) - orderOf(b))
+  // With nothing selected every category is listed, and clicking the selected
+  // pill clears it — so the whole catalogue stays one click away without
+  // spending a pill on it.
+  const groups = (active ? [active] : categories)
     .map(category => ({ category, items: bikes.filter(b => b.category === category) }))
     .filter(group => group.items.length > 0);
 
@@ -267,15 +271,17 @@ export default function FleetPage() {
       <div className="max-w-7xl mx-auto px-6 pb-24 pt-16">
 
         <div className="flex flex-wrap gap-3 mb-12">
-          {filters.map(f => (
+          {categories.map(f => (
             <button
               key={f}
-              onClick={() => setActive(f)}
+              onClick={() => setActive(current => (current === f ? null : f))}
+              aria-pressed={active === f}
+              title={active === f ? `Show every category again` : `Show only ${getCategoryMeta(f).label}`}
               className={`px-5 py-2 rounded-full text-sm font-bold uppercase tracking-wide transition-all ${
                 active === f ? 'bg-dark text-white' : 'bg-white text-dark border border-dark/10 hover:border-dark/30'
               }`}
             >
-              {f === 'All' ? 'All' : getCategoryMeta(f).label}
+              {getCategoryMeta(f).label}
             </button>
           ))}
         </div>
