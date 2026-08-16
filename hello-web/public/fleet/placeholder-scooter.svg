@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 400" width="500" height="400" role="img" aria-label="Photograph coming soon">
+  <rect width="500" height="400" fill="#EFE7DB"/>
+  <text x="250" y="182" text-anchor="middle" font-family="'Space Grotesk', Inter, system-ui, sans-serif" font-size="15" font-weight="700" letter-spacing="3.6" fill="#B0764F">[ SCOOTER ]</text>
+  <line x1="160" y1="208" x2="340" y2="208" stroke="#2E211B" stroke-opacity="0.15" stroke-width="1"/>
+  <text x="250" y="240" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="14" fill="#2E211B" fill-opacity="0.45">Photograph coming soon</text>
+</svg>

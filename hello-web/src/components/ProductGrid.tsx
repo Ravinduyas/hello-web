@@ -34,8 +34,8 @@ export default function ProductGrid() {
       tagline: 'Automatic & air-con',
       price: 'From €31 / day',
       copy: 'Wagon R, Spacia, Roomy, Raize, Prius and the KDH van — for families, rain and long drives.',
-      image: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=1000',
-      alt: 'A driver at the wheel of an automatic car at dusk',
+      image: asset('/fleet/placeholder-car-tall.svg'),
+      alt: 'Hello Rent cars and vans — photograph coming soon',
     },
   ];
 

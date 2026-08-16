@@ -73,7 +73,7 @@ export const bikes: Bike[] = [
     title: 'Yamaha Ray ZR',
     category: 'Scooter',
     pricePerDay: 5,
-    image: asset('/fleet/rayzr.png'),
+    image: asset('/fleet/placeholder-scooter.svg'),
     features: [
       'Automatic hybrid engine',
       'Lightest in the fleet at 99kg',
@@ -117,7 +117,7 @@ export const bikes: Bike[] = [
     title: 'Yamaha FZ 160',
     category: 'Motorbike',
     pricePerDay: 10,
-    image: 'https://images.unsplash.com/photo-1653834048900-b5eeb9decd6a?auto=format&fit=crop&q=80&w=800',
+    image: asset('/fleet/placeholder-motorbike.svg'),
     features: [
       'Manual transmission',
       'Fuel injection',
@@ -130,7 +130,7 @@ export const bikes: Bike[] = [
     title: 'TVS Apache 200',
     category: 'Motorbike',
     pricePerDay: 10,
-    image: 'https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&q=80&w=800',
+    image: asset('/fleet/placeholder-motorbike.svg'),
     features: [
       'Manual transmission',
       'Sport touring',
@@ -143,7 +143,7 @@ export const bikes: Bike[] = [
     title: 'Hero Hunk 200',
     category: 'Motorbike',
     pricePerDay: 10,
-    image: 'https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&q=80&w=800',
+    image: asset('/fleet/placeholder-motorbike.svg'),
     features: [
       'Manual transmission',
       'Stable at highway speeds',
@@ -178,7 +178,7 @@ export const bikes: Bike[] = [
     title: 'Suzuki Wagon R',
     category: 'Car',
     pricePerDay: 31,
-    image: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=800',
+    image: asset('/fleet/placeholder-car.svg'),
     features: ['Automatic transmission', 'Air conditioned', 'Tall cabin, easy to park', 'Great on fuel'],
   },
   {
@@ -186,7 +186,7 @@ export const bikes: Bike[] = [
     title: 'Suzuki Spacia',
     category: 'Car',
     pricePerDay: 31,
-    image: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=800',
+    image: asset('/fleet/placeholder-car.svg'),
     features: ['Automatic transmission', 'Air conditioned', 'Sliding doors', 'Roomy for luggage'],
   },
   {
@@ -194,7 +194,7 @@ export const bikes: Bike[] = [
     title: 'Toyota Roomy',
     category: 'Car',
     pricePerDay: 31,
-    image: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=800',
+    image: asset('/fleet/placeholder-car.svg'),
     features: ['Automatic transmission', 'Air conditioned', 'High roof, tall cabin', 'Comfortable for families'],
   },
   {
@@ -202,7 +202,7 @@ export const bikes: Bike[] = [
     title: 'Toyota Raize',
     category: 'Car',
     pricePerDay: 31,
-    image: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=800',
+    image: asset('/fleet/placeholder-car.svg'),
     features: ['Automatic transmission', 'Air conditioned', 'Compact SUV, higher ride height', 'Confident on rough roads'],
   },
   {
@@ -210,7 +210,7 @@ export const bikes: Bike[] = [
     title: 'Toyota Prius',
     category: 'Car',
     pricePerDay: 31,
-    image: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=800',
+    image: asset('/fleet/placeholder-car.svg'),
     features: ['Automatic transmission', 'Air conditioned', 'Hybrid — very low fuel use', 'Comfortable for long drives'],
   },
   {
@@ -218,7 +218,7 @@ export const bikes: Bike[] = [
     title: 'Toyota KDH Van',
     category: 'Car',
     pricePerDay: 31,
-    image: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=800',
+    image: asset('/fleet/placeholder-car.svg'),
     features: ['Automatic transmission', 'Air conditioned', 'Seats a group with luggage', 'Room for surfboards'],
   },
 ];
