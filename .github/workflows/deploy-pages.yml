@@ -6,12 +6,13 @@ on:
   # Lets you re-deploy by hand from the Actions tab.
   workflow_dispatch:
 
-# Publishing to the gh-pages branch only needs repo write. The official
-# actions/deploy-pages route was rejected by the github-pages environment
-# ("Branch 'main' is not allowed to deploy"), so this pushes the built site
-# to a branch instead, which no environment rule guards.
+# Deploying straight to Pages, rather than pushing a gh-pages branch: a branch
+# push made with GITHUB_TOKEN does not trigger the pages-build-deployment run,
+# so the branch updated but the live site never rebuilt.
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 # One deploy at a time; a newer push waits rather than cancelling a live rollout.
 concurrency:
@@ -19,8 +20,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hello-web
     steps:
       - uses: actions/checkout@v5
 
@@ -32,37 +36,29 @@ jobs:
 
       - name: Install
         run: npm ci
-        working-directory: hello-web
 
       - name: Type-check
         run: npm run lint
-        working-directory: hello-web
 
       - name: Build
         run: npm run build
-        working-directory: hello-web
 
       # The app uses BrowserRouter and Pages has no rewrite rules. Serving the
       # same document for unknown paths makes /fleet, /book etc. survive a
       # refresh or a direct link.
       - name: SPA fallback
         run: cp dist/index.html dist/404.html
-        working-directory: hello-web
 
-      # Without this, Pages runs the output through Jekyll, which drops files
-      # and folders whose names begin with an underscore.
-      - name: Disable Jekyll
-        run: touch dist/.nojekyll
-        working-directory: hello-web
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: hello-web/dist
 
-      - name: Publish to gh-pages
-        working-directory: hello-web/dist
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git init -b gh-pages
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Deploy ${GITHUB_SHA}"
-          git push --force "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
