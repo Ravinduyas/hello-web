@@ -6,6 +6,9 @@ import {
   Calendar,
   MapPin,
   Bike as BikeIcon,
+  ChevronDown,
+  Info,
+  Minus,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -358,13 +361,126 @@ export default function BookingPage() {
 const specRow = (spec: VehicleSpec | undefined, label: string) =>
   spec?.specs.find(s => s.label === label)?.value;
 
-// Character rides as a subtitle under the title rather than as a row: it was
-// the longest label of the three, and at card width it overran its own column
-// and collided with the value beside it.
-const COMPARE_ROWS: { label: string; read: (spec: VehicleSpec | undefined) => string | undefined }[] = [
+/** The attributes the comparison table lines up, in order. */
+const COMPARE_ATTRS: { label: string; read: (spec: VehicleSpec | undefined) => string | undefined }[] = [
+  { label: 'Character', read: spec => spec?.headline },
   { label: 'Best for', read: spec => spec?.bestFor },
+  { label: 'Transmission', read: spec => specRow(spec, 'Transmission') },
   { label: 'Storage', read: spec => specRow(spec, 'Storage') },
 ];
+
+/**
+ * Per-vehicle detail, collapsed. A plain <details> keeps it keyboard-accessible
+ * and working without JS; vehicles with no spec sheet fall back to the feature
+ * list the admin holds for them.
+ */
+function VehicleDetails({ bike }: { bike: Bike }) {
+  const spec = getSpec(bike.id);
+
+  return (
+    <details className="group/vd border-t border-dark/10">
+      <summary className="flex items-center justify-center gap-2 cursor-pointer list-none px-4 py-2.5 text-xs font-bold text-dark/65 hover:text-brand transition-colors">
+        <Info className="w-3.5 h-3.5" />
+        Vehicle details
+        <ChevronDown className="w-3.5 h-3.5 transition-transform group-open/vd:rotate-180" />
+      </summary>
+
+      <div className="px-4 pb-4 text-xs space-y-3">
+        {spec ? (
+          <>
+            <dl className="divide-y divide-dark/10 border-y border-dark/10">
+              {spec.specs.map(row => (
+                <div key={row.label} className="flex justify-between gap-3 py-1.5">
+                  <dt className="text-dark/45 shrink-0">{row.label}</dt>
+                  <dd className="text-dark/80 text-right">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            {spec.pros.length > 0 && (
+              <ul className="space-y-1">
+                {spec.pros.map(p => (
+                  <li key={p} className="flex gap-1.5 text-dark/65 leading-snug">
+                    <Check className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {spec.cons.length > 0 && (
+              <ul className="space-y-1">
+                {spec.cons.map(c => (
+                  <li key={c} className="flex gap-1.5 text-dark/50 leading-snug">
+                    <Minus className="w-3 h-3 text-dark/35 shrink-0 mt-0.5" />
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <ul className="space-y-1">
+            {bike.features.map(f => (
+              <li key={f} className="flex gap-1.5 text-dark/65 leading-snug">
+                <span className="w-1 h-1 mt-1.5 rounded-full bg-brand shrink-0" />
+                {f}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </details>
+  );
+}
+
+/**
+ * The vehicles on screen, side by side on the attributes that separate them.
+ * Only worth drawing for two or more with a sheet — one column compares with
+ * nothing, and vehicles without a sheet would be a column of dashes.
+ */
+function CompareTable({ bikes }: { bikes: Bike[] }) {
+  const withSpec = bikes.filter(b => getSpec(b.id));
+  if (withSpec.length < 2) return null;
+
+  return (
+    <section className="mt-10 pt-8 border-t border-dark/10">
+      <p className="eyebrow text-center">[ Compare ]</p>
+
+      <div className="overflow-x-auto mt-5">
+        <table className="w-full min-w-[620px] text-sm border-collapse">
+          <thead>
+            <tr>
+              <td className="w-28" />
+              {withSpec.map(b => (
+                <th key={b.id} scope="col" className="px-3 pb-3 text-left font-display font-bold align-bottom">
+                  {b.title}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARE_ATTRS.map(attr => (
+              <tr key={attr.label} className="border-t border-dark/10">
+                <th
+                  scope="row"
+                  className="py-2.5 pr-4 text-left text-[10px] font-bold uppercase tracking-widest text-dark/40 align-top"
+                >
+                  {attr.label}
+                </th>
+                {withSpec.map(b => (
+                  <td key={b.id} className="py-2.5 px-3 text-dark/70 align-top leading-snug">
+                    {attr.read(getSpec(b.id)) ?? '—'}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
 
 function StepRide({
   bikes,
@@ -455,70 +571,54 @@ function StepRide({
         {visible.map(b => {
           const active = b.id === selected;
           return (
-            <button
+            // A div, not a button: the details disclosure below is interactive
+            // and may not be nested inside one.
+            <div
               key={b.id}
-              type="button"
-              onClick={() => onSelect(b.id)}
-              className={`text-left rounded-2xl border-2 overflow-hidden transition-all ${
+              className={`rounded-2xl border-2 overflow-hidden transition-all ${
                 active ? 'border-brand shadow-md' : 'border-dark/10 hover:border-dark/30'
               }`}
             >
-              <div className="relative aspect-[3/2] overflow-hidden bg-beige">
-                <img
-                  src={b.image}
-                  alt={b.title}
-                  loading="lazy"
-                  style={{ objectPosition: b.imagePosition ?? 'center' }}
-                  className="w-full h-full object-cover"
-                />
-                {active && (
-                  <span className="absolute top-3 right-3 w-7 h-7 bg-brand rounded-full flex items-center justify-center">
-                    <Check className="w-4 h-4 text-white" />
+              <button
+                type="button"
+                onClick={() => onSelect(b.id)}
+                aria-pressed={active}
+                className="block w-full text-left"
+              >
+                <div className="relative aspect-[3/2] overflow-hidden bg-beige">
+                  <img
+                    src={b.image}
+                    alt={b.title}
+                    loading="lazy"
+                    style={{ objectPosition: b.imagePosition ?? 'center' }}
+                    className="w-full h-full object-cover"
+                  />
+                  {active && (
+                    <span className="absolute top-3 right-3 w-7 h-7 bg-brand rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
+                    </span>
+                  )}
+                </div>
+                <div className="p-4 pb-3">
+                  <span className="text-[10px] font-bold text-brand uppercase tracking-widest">
+                    {b.category}
                   </span>
-                )}
-              </div>
-              <div className="p-4">
-                <span className="text-[10px] font-bold text-brand uppercase tracking-widest">{b.category}</span>
-                <p className="font-display font-bold leading-tight">{b.title}</p>
-                {getSpec(b.id)?.headline && (
-                  <p className="text-xs text-dark/45 leading-snug">{getSpec(b.id)?.headline}</p>
-                )}
+                  <p className="font-display font-bold leading-tight">{b.title}</p>
+                  {getSpec(b.id)?.headline && (
+                    <p className="text-xs text-dark/45 leading-snug mt-0.5">
+                      {getSpec(b.id)?.headline}
+                    </p>
+                  )}
+                </div>
+              </button>
 
-                {/* The same rows in the same order on every card, so the eye
-                    can compare straight down the column. Label sits above its
-                    value rather than beside it — a fixed label column collides
-                    with its own value once four cards share a row, and this
-                    cannot break at any width. Cars carry no spec sheet, so they
-                    fall back to their own features rather than a column of
-                    dashes. */}
-                {getSpec(b.id) ? (
-                  <dl className="mt-3 pt-3 border-t border-dark/10 space-y-2">
-                    {COMPARE_ROWS.map(({ label, read }) => (
-                      <div key={label}>
-                        <dt className="text-[9px] font-bold uppercase tracking-widest text-dark/35">
-                          {label}
-                        </dt>
-                        <dd className="text-xs text-dark/70 leading-snug">
-                          {read(getSpec(b.id)) ?? '—'}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : (
-                  <ul className="mt-3 pt-3 border-t border-dark/10 space-y-1.5">
-                    {b.features.slice(0, 3).map(f => (
-                      <li key={f} className="flex gap-2 text-xs text-dark/70 leading-snug">
-                        <span className="w-1 h-1 mt-1.5 rounded-full bg-brand shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </button>
+              <VehicleDetails bike={b} />
+            </div>
           );
         })}
       </div>
+
+      <CompareTable bikes={visible} />
     </div>
   );
 }
