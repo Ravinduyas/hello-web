@@ -4,10 +4,20 @@ import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { asset } from '../lib/asset';
 
+// Hello Rent's own photographs — the real shop, the real fleet, the real bay.
 const slides = [
-  { src: asset('/hero-couple-scooter.jpg'), alt: 'A foreign couple riding a scooter together with helmets in Sri Lanka' },
-  { src: asset('/hero-hill-riders.jpg'), alt: 'Travelers riding adventure motorbikes through Sri Lanka’s hill country' },
-  { src: asset('/hero-group-ride.jpg'), alt: 'A group of riders with their motorbikes on a Sri Lankan mountain ridge' },
+  {
+    src: asset('/scooters-weligama-bay.jpg'),
+    alt: 'Two Hello Rent scooters parked above Weligama bay, fishing boats moored on the water behind',
+  },
+  {
+    src: asset('/weligama-road.jpg'),
+    alt: 'The Hello Rent shopfront and its scooters on the main road through Weligama',
+  },
+  {
+    src: asset('/fleet-lineup.jpg'),
+    alt: 'A row of TVS Ntorq scooters lined up outside the Hello Rent shop',
+  },
 ];
 
 export default function Hero() {

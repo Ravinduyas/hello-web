@@ -66,8 +66,8 @@ export default function Stats() {
             className="relative aspect-square lg:aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl"
           >
             <img
-              src={asset('/riders-scooter-temple.jpg')}
-              alt="Two travelers on a scooter in front of a temple in Sri Lanka"
+              src={asset('/shop-front.jpg')}
+              alt="The Hello Rent shopfront in Weligama, a tuk-tuk parked beneath the sign"
               loading="lazy"
               className="w-full h-full object-cover"
             />

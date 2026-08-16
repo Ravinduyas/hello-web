@@ -19,8 +19,8 @@ export default function AboutPage() {
       <div className="relative h-[58vh] min-h-[420px] max-h-[620px] w-full overflow-hidden bg-dark">
         <div className="absolute inset-0 bg-dark/60 z-10" />
         <img
-          src={asset('/hero-hill-riders.jpg')}
-          alt="Riders stopped together on a hill road in Sri Lanka"
+          src={asset('/shop-front.jpg')}
+          alt="The Hello Rent shopfront in Weligama, with a tuk-tuk parked under the sign"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />
         <div className="relative z-20 h-full max-w-7xl mx-auto px-6 flex flex-col justify-end pb-16 pt-28">

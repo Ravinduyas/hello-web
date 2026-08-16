@@ -3,6 +3,7 @@ import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Minus, Route
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { bikes as defaultBikes, formatPrice, getCategoryMeta, type Bike } from '../data/fleet';
+import { asset } from '../lib/asset';
 import { getSpec } from '../data/specs';
 import { fetchBikes } from '../lib/api';
 
@@ -244,8 +245,8 @@ export default function FleetPage() {
       <div className="relative h-[58vh] min-h-[420px] max-h-[620px] w-full overflow-hidden bg-dark">
         <div className="absolute inset-0 bg-dark/55 z-10" />
         <img
-          src="https://images.unsplash.com/photo-1706766958001-176b3d7800ff?auto=format&fit=crop&q=80&w=2600"
-          alt="Nine Arch Bridge, Ella"
+          src={asset('/fleet-lineup.jpg')}
+          alt="The Hello Rent scooter fleet lined up outside the shop in Weligama"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />
         <div className="relative z-20 h-full max-w-7xl mx-auto px-6 flex flex-col justify-end pb-16 pt-28">

@@ -2,6 +2,7 @@ import { MapPin, Phone, Mail, Clock, Navigation } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import { CONTACT } from '../data/contact';
+import { asset } from '../lib/asset';
 
 export default function ContactPage() {
   const [sent, setSent] = useState(false);
@@ -17,8 +18,8 @@ export default function ContactPage() {
       <div className="relative h-[58vh] min-h-[420px] max-h-[620px] w-full overflow-hidden bg-dark">
         <div className="absolute inset-0 bg-dark/60 z-10" />
         <img
-          src="https://images.unsplash.com/photo-1703588866434-3ce7163742ed?auto=format&fit=crop&q=80&w=2600"
-          alt="Galle Fort, Sri Lanka"
+          src={asset('/weligama-road.jpg')}
+          alt="The Hello Rent shop on the main road through Weligama"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />
         <div className="relative z-20 h-full max-w-7xl mx-auto px-6 flex flex-col justify-end pb-16 pt-28">

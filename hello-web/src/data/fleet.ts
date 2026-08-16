@@ -39,7 +39,7 @@ export const bikes: Bike[] = [
     title: 'Honda Dio 110cc',
     category: 'Scooter',
     pricePerDay: 5,
-    image: asset('/fleet/dio.png'),
+    image: asset('/fleet/honda-dio.jpg'),
     features: [
       'Automatic — twist and go',
       'Low 765mm seat, petite to average riders',
@@ -52,7 +52,7 @@ export const bikes: Bike[] = [
     title: 'Honda Navi 110cc',
     category: 'Scooter',
     pricePerDay: 5,
-    image: asset('/fleet/navi.png'),
+    image: asset('/fleet/honda-navi.jpg'),
     features: [
       'Automatic with a mini-bike look',
       'True motorcycle riding posture',
@@ -78,7 +78,7 @@ export const bikes: Bike[] = [
     title: 'TVS Ntorq 125',
     category: 'Scooter',
     pricePerDay: 6,
-    image: asset('/fleet/ntorq.png'),
+    image: asset('/fleet/tvs-ntorq.jpg'),
     features: [
       '124.8cc, the most powerful scooter we rent',
       'Best for average to tall riders',
@@ -95,7 +95,7 @@ export const bikes: Bike[] = [
     title: 'Bajaj Pulsar 150 / 200',
     category: 'Motorbike',
     pricePerDay: 10,
-    image: 'https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&q=80&w=800',
+    image: asset('/fleet/bajaj-pulsar.jpg'),
     features: [
       'Manual transmission',
       'Perimeter frame, agile on mountain roads',
@@ -151,7 +151,7 @@ export const bikes: Bike[] = [
     title: 'Bajaj RE 4-Stroke Tuk-Tuk',
     category: 'Tuk Tuk',
     pricePerDay: 15,
-    image: asset('/couple-tuktuk-sigiriya.jpg'),
+    image: asset('/fleet/bajaj-re-tuktuk.jpg'),
     features: [
       'Manual transmission (handlebar clutch)',
       'Bench seats three adults',
