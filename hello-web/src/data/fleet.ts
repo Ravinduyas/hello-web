@@ -82,7 +82,8 @@ export const bikes: Bike[] = [
     title: 'Yamaha Ray ZR',
     category: 'Scooter',
     pricePerDay: 5,
-    image: asset('/fleet/placeholder-scooter.svg'),
+    image: asset('/fleet/yamaha-rayzr.jpg'),
+    imagePosition: 'center 60%',
     engineCc: 110,
     features: [
       'Automatic hybrid engine',

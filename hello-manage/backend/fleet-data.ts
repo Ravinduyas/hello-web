@@ -74,7 +74,7 @@ export const FLEET_BIKES: SeedBike[] = [
     title: 'Yamaha Ray ZR',
     category: 'Scooter',
     pricePerDay: 5,
-    image: '/fleet/placeholder-scooter.svg',
+    image: '/fleet/yamaha-rayzr.jpg',
     features: [
       'Automatic hybrid engine',
       'Lightest in the fleet at 99kg',
