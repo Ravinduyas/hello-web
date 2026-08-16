@@ -229,7 +229,7 @@ export const bikes: Bike[] = [
     title: 'Toyota Prius',
     category: 'Car',
     pricePerDay: 31,
-    image: asset('/fleet/toyota-prius.png'),
+    image: asset('/fleet/toyota-prius.jpg'),
     features: ['Automatic transmission', 'Air conditioned', 'Hybrid — very low fuel use', 'Comfortable for long drives'],
   },
   {

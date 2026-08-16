@@ -214,7 +214,7 @@ export const FLEET_BIKES: SeedBike[] = [
     title: 'Toyota Prius',
     category: 'Car',
     pricePerDay: 31,
-    image: '/fleet/toyota-prius.png',
+    image: '/fleet/toyota-prius.jpg',
     features: ['Automatic transmission', 'Air conditioned', 'Hybrid — very low fuel use', 'Comfortable for long drives'],
     sortOrder: 13,
   },
