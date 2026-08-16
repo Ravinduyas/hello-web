@@ -49,6 +49,8 @@ export default function BookingPage() {
 
   const [step, setStep] = useState(0);
   const [bikeId, setBikeId] = useState<string | null>(params.get('bike'));
+  // Set when the visitor arrives from a category card rather than a vehicle.
+  const [category, setCategory] = useState<string | null>(params.get('category'));
   const [pickupDate, setPickupDate] = useState('');
   const [dropoffDate, setDropoffDate] = useState('');
   // Fleet & extras come from the admin-managed API; fall back to bundled defaults if it's unreachable.
@@ -246,7 +248,15 @@ export default function BookingPage() {
                 exit={{ opacity: 0, x: -24 }}
                 transition={{ duration: 0.25 }}
               >
-                {step === 0 && <StepRide bikes={bikes} selected={bikeId} onSelect={setBikeId} />}
+                {step === 0 && (
+                  <StepRide
+                    bikes={bikes}
+                    selected={bikeId}
+                    onSelect={setBikeId}
+                    category={category}
+                    onClearCategory={() => setCategory(null)}
+                  />
+                )}
 
                 {step === 1 && (
                   <StepDates
@@ -344,13 +354,47 @@ export default function BookingPage() {
 /*  Step 1 — choose a ride                                            */
 /* ------------------------------------------------------------------ */
 
-function StepRide({ bikes, selected, onSelect }: { bikes: Bike[]; selected: string | null; onSelect: (id: string) => void }) {
+function StepRide({
+  bikes,
+  selected,
+  onSelect,
+  category,
+  onClearCategory,
+}: {
+  bikes: Bike[];
+  selected: string | null;
+  onSelect: (id: string) => void;
+  category: string | null;
+  onClearCategory: () => void;
+}) {
+  // Arriving from a category card on the fleet page shows just that class;
+  // the fleet page no longer lists models, so this is where a visitor meets
+  // them. Everything stays reachable via the clear button.
+  const shown = category ? bikes.filter(b => b.category === category) : bikes;
+  const visible = shown.length ? shown : bikes;
+
   return (
     <div>
       <h2 className="font-display text-2xl font-bold mb-1">Choose your ride</h2>
       <p className="text-dark/50 text-sm mb-6">Every bike comes with a helmet and 24/7 roadside support.</p>
+
+      {category && shown.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <span className="px-4 py-1.5 rounded-full bg-dark text-beige text-xs font-bold uppercase tracking-widest">
+            {category}
+          </span>
+          <button
+            type="button"
+            onClick={onClearCategory}
+            className="text-sm text-brand font-medium hover:underline"
+          >
+            Show every vehicle
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {bikes.map(b => {
+        {visible.map(b => {
           const active = b.id === selected;
           return (
             <button

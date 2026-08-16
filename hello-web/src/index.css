@@ -122,20 +122,6 @@
     @apply flex items-end justify-between gap-8 border-t border-dark/15 pt-6;
   }
 
-  /* Horizontal card track (fleet listings). No scrollbars: the arrows carry
-     the affordance on desktop and touch scrolls natively. overflow-y is pinned
-     to visible-clipped rather than left alone, because a browser computes
-     overflow-y to auto whenever overflow-x is auto — which is what put a
-     second, vertical bar inside the track. */
-  .fleet-track {
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .fleet-track::-webkit-scrollbar {
-    display: none;
-  }
-
   /* Shared form control used across the booking wizard. */
   .booking-input {
     @apply w-full bg-beige border border-dark/10 rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:border-brand transition-colors;

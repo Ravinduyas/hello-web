@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Minus, Route } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowRight, Route } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { bikes as defaultBikes, formatPrice, getCategoryMeta, type Bike } from '../data/fleet';
 import { asset } from '../lib/asset';
-import { getSpec } from '../data/specs';
 import { fetchBikes } from '../lib/api';
 
 // Easiest to ride first; anything the admin adds later lands at the end.
@@ -12,6 +11,18 @@ const CATEGORY_ORDER = ['Scooter', 'Motorbike', 'Tuk Tuk', 'Car'];
 const orderOf = (category: string) => {
   const i = CATEGORY_ORDER.indexOf(category);
   return i === -1 ? CATEGORY_ORDER.length : i;
+};
+
+/**
+ * One representative photograph per class, rather than whichever vehicle sorts
+ * first — the cars have no photograph at all, and the tuk-tuk reads far better
+ * under the shop sign than cropped to a card.
+ */
+const CATEGORY_IMAGE: Record<string, string> = {
+  Scooter: asset('/ntorq-front.jpg'),
+  Motorbike: asset('/fleet/bajaj-pulsar.jpg'),
+  'Tuk Tuk': asset('/fleet/bajaj-re-tuktuk.jpg'),
+  Car: asset('/fleet/placeholder-car-tall.svg'),
 };
 
 // Lucky's own advice: for a trip around the whole island, take exactly one of
@@ -59,160 +70,7 @@ const scooterFit = [
   },
 ];
 
-/**
- * Manufacturer specs plus the honest pros and cons, collapsed by default so the
- * card stays scannable. A plain <details> keeps it keyboard-accessible and
- * working without JS; models with no sheet render nothing at all.
- */
-function SpecPanel({ bikeId }: { bikeId: string }) {
-  const spec = getSpec(bikeId);
-  if (!spec) return null;
-
-  return (
-    <details className="group/spec mb-4 border-t border-dark/10 pt-3">
-      <summary className="flex items-center justify-between gap-2 cursor-pointer list-none text-[10px] font-bold uppercase tracking-widest text-dark/40 hover:text-brand transition-colors">
-        <span>Specs &amp; honest verdict</span>
-        <ChevronDown className="w-3.5 h-3.5 shrink-0 transition-transform group-open/spec:rotate-180" />
-      </summary>
-
-      <div className="mt-4 space-y-4">
-        <div>
-          <p className="text-[10px] font-bold text-dark/40 uppercase tracking-widest mb-1">
-            Best for
-          </p>
-          <p className="text-sm text-dark/70">
-            {spec.headline} — {spec.bestFor}
-          </p>
-        </div>
-
-        <dl className="divide-y divide-dark/10 border-y border-dark/10">
-          {spec.specs.map(row => (
-            <div key={row.label} className="flex justify-between gap-4 py-2">
-              <dt className="text-sm text-dark/45 shrink-0">{row.label}</dt>
-              <dd className="text-sm text-dark/80 text-right">{row.value}</dd>
-            </div>
-          ))}
-        </dl>
-
-        {/* Single column — the card is only ~280px wide, so a viewport-based
-            two-column split would cramp both lists. */}
-        <div className="grid grid-cols-1 gap-4">
-          <div>
-            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-2">
-              What's good
-            </p>
-            <ul className="space-y-1.5">
-              {spec.pros.map(p => (
-                <li key={p} className="text-sm text-dark/65 flex gap-2">
-                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-1" />
-                  {p}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {spec.cons.length > 0 && (
-            <div>
-              <p className="text-[10px] font-bold text-dark/40 uppercase tracking-widest mb-2">
-                Worth knowing
-              </p>
-              <ul className="space-y-1.5">
-                {spec.cons.map(c => (
-                  <li key={c} className="text-sm text-dark/65 flex gap-2">
-                    <Minus className="w-3.5 h-3.5 text-dark/35 shrink-0 mt-1" />
-                    {c}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      </div>
-    </details>
-  );
-}
-
-/**
- * One category's vehicles as a horizontal, snapping track rather than a grid
- * that wraps and leaves an orphan card on its own row.
- *
- * The arrows exist because a mouse-wheel user cannot scroll a horizontal track;
- * they hide once there is nothing further to scroll in that direction, and are
- * skipped by screen readers since the track itself is keyboard-scrollable.
- */
-function CardRow({ children }: { children: ReactNode }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-
-  const sync = useCallback(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    // A 1px tolerance — fractional scroll positions never land exactly on the edge.
-    setCanScrollLeft(el.scrollLeft > 1);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  }, []);
-
-  useEffect(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    sync();
-    const observer = new ResizeObserver(sync);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [sync]);
-
-  const page = (direction: 1 | -1) => {
-    const el = trackRef.current;
-    if (!el) return;
-    el.scrollBy({ left: direction * el.clientWidth * 0.85, behavior: 'smooth' });
-  };
-
-  return (
-    <div className="relative">
-      <div
-        ref={trackRef}
-        onScroll={sync}
-        tabIndex={0}
-        role="group"
-        aria-label="Vehicles — scroll horizontally"
-        // py-4 because .fleet-track clips overflow-y to kill the vertical bar;
-        // without the padding the cards' hover lift and shadow get cut off.
-        className="fleet-track flex gap-8 overflow-x-auto snap-x snap-mandatory
-                   focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4
-                   rounded-3xl py-4"
-      >
-        {children}
-      </div>
-
-      {[-1, 1].map(direction => {
-        const isLeft = direction === -1;
-        const enabled = isLeft ? canScrollLeft : canScrollRight;
-        if (!enabled) return null;
-        const Icon = isLeft ? ChevronLeft : ChevronRight;
-        return (
-          <button
-            key={direction}
-            type="button"
-            aria-hidden="true"
-            tabIndex={-1}
-            onClick={() => page(direction as 1 | -1)}
-            className={`hidden md:grid place-items-center absolute top-1/2 -translate-y-1/2 z-10
-                        w-11 h-11 rounded-full bg-white text-dark shadow-lg
-                        hover:bg-dark hover:text-beige transition-colors
-                        ${isLeft ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2'}`}
-          >
-            <Icon className="w-5 h-5" strokeWidth={1.5} />
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export default function FleetPage() {
-  // null = nothing filtered, every category listed.
-  const [active, setActive] = useState<string | null>(null);
   // Fleet is admin-managed; fall back to bundled defaults if the API is unreachable.
   const [bikes, setBikes] = useState<Bike[]>(defaultBikes);
 
@@ -230,20 +88,24 @@ export default function FleetPage() {
     };
   }, []);
 
-  // Filters follow the categories actually present in the fleet (admin-managed),
-  // easiest to ride first, so a visitor who doesn't know the model names can
-  // still tell automatic from manual at a glance. The bar carries the vehicle
-  // types and nothing else — no "All" pill.
-  const categories = Array.from(new Set(bikes.map(b => b.category))).sort(
-    (a, b) => orderOf(a) - orderOf(b),
-  );
-
-  // With nothing selected every category is listed, and clicking the selected
-  // pill clears it — so the whole catalogue stays one click away without
-  // spending a pill on it.
-  const groups = (active ? [active] : categories)
-    .map(category => ({ category, items: bikes.filter(b => b.category === category) }))
-    .filter(group => group.items.length > 0);
+  // The page presents the four vehicle types rather than every named model —
+  // a visitor picks the kind of ride here and the exact vehicle at booking.
+  // Categories come from the fleet itself (admin-managed), easiest to ride
+  // first, so adding one in the admin adds a card here.
+  const summaries = Array.from(new Set(bikes.map(b => b.category)))
+    .sort((a, b) => orderOf(a) - orderOf(b))
+    .map(category => {
+      const items = bikes.filter(b => b.category === category);
+      return {
+        category,
+        meta: getCategoryMeta(category),
+        // The headline rate is the cheapest way into the class.
+        from: Math.min(...items.map(b => b.pricePerDay)),
+        image: CATEGORY_IMAGE[category] ?? items[0]?.image,
+        count: items.length,
+      };
+    })
+    .filter(summary => summary.count > 0);
 
   return (
     <div className="bg-beige min-h-screen">
@@ -270,122 +132,53 @@ export default function FleetPage() {
 
       <div className="max-w-7xl mx-auto px-6 pb-24 pt-16">
 
-        <div className="flex flex-wrap gap-3 mb-12">
-          {categories.map(f => (
-            <button
-              key={f}
-              onClick={() => setActive(current => (current === f ? null : f))}
-              aria-pressed={active === f}
-              title={active === f ? `Show every category again` : `Show only ${getCategoryMeta(f).label}`}
-              className={`px-5 py-2 rounded-full text-sm font-bold uppercase tracking-wide transition-all ${
-                active === f ? 'bg-dark text-white' : 'bg-white text-dark border border-dark/10 hover:border-dark/30'
-              }`}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-8">
+          {summaries.map((cat, idx) => (
+            <motion.div
+              key={cat.category}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: idx * 0.08 }}
             >
-              {getCategoryMeta(f).label}
-            </button>
-          ))}
-        </div>
+              <Link
+                to={`/book?category=${encodeURIComponent(cat.category)}`}
+                aria-label={`Rent ${cat.meta.label}`}
+                className="group relative block h-[440px] lg:h-[500px] rounded-3xl overflow-hidden"
+              >
+                <img
+                  src={cat.image}
+                  alt={cat.meta.label}
+                  loading="lazy"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                {/* Espresso-tinted gradient, darkest at the foot for legibility. */}
+                <div className="absolute inset-0 bg-gradient-to-t from-dark/85 via-dark/30 to-dark/10" />
 
-        <div className="space-y-16 md:space-y-24">
-          {groups.map(group => {
-            const meta = getCategoryMeta(group.category);
-            return (
-              <section key={group.category}>
-                <header className="section-head">
-                  <div className="rule">
-                    <div>
-                      <h2 className="display-xl text-3xl md:text-5xl">
-                        {meta.label}
-                        {meta.transmission && (
-                          <span className="text-brand"> — {meta.transmission}</span>
-                        )}
-                      </h2>
-                      {meta.blurb && (
-                        <p className="text-dark/60 leading-relaxed max-w-2xl mt-5">{meta.blurb}</p>
-                      )}
-                    </div>
-                    <span className="section-index">
-                      ({String(group.items.length).padStart(2, '0')})
+                {cat.meta.transmission && (
+                  <span className="absolute top-6 left-6 eyebrow !text-white/70">
+                    {cat.meta.transmission}
+                  </span>
+                )}
+
+                <div className="absolute inset-x-0 bottom-0 p-7 md:p-8 text-beige">
+                  <h3 className="display-xl text-3xl md:text-4xl">{cat.meta.label}</h3>
+                  {cat.meta.blurb && (
+                    <p className="text-beige/70 text-sm leading-relaxed mt-3">{cat.meta.blurb}</p>
+                  )}
+
+                  <div className="flex items-center justify-between mt-7 pt-5 border-t border-beige/20">
+                    <span className="font-display text-base font-bold">
+                      From {formatPrice(cat.from)} / day
+                    </span>
+                    <span className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wide group-hover:gap-3 transition-all">
+                      Rent <ArrowRight className="w-4 h-4" />
                     </span>
                   </div>
-                </header>
-
-                <CardRow>
-                  {group.items.map((bike, idx) => (
-                    <motion.div
-                      key={bike.id}
-                      initial={{ opacity: 0, y: 24 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: (idx % 3) * 0.07 }}
-                      className="snap-start shrink-0 w-[264px] sm:w-[284px] bg-white rounded-2xl overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                    >
-                      {/* Transmission rides on the photo rather than taking a
-                          line of its own above the title. */}
-                      {/* 5:4 rather than 3:2 — most of these are portrait phone
-                          photos, and a wide crop cut the vehicle in half. The
-                          beige ground matches the studio cutouts' backdrop so
-                          the two kinds of image sit together, and the standing
-                          scale trims the ragged edges those cutouts carry. */}
-                      <div className="relative aspect-[5/4] overflow-hidden bg-beige">
-                        <img
-                          src={bike.image}
-                          alt={bike.title}
-                          loading="lazy"
-                          style={{ objectPosition: bike.imagePosition ?? 'center' }}
-                          className="w-full h-full object-cover scale-[1.04] transition-transform duration-500 group-hover:scale-110"
-                        />
-                        {/* Hairline over the photo edge; without it a pale image
-                            bleeds into the white card body. */}
-                        <div className="absolute inset-0 ring-1 ring-inset ring-dark/10 pointer-events-none" />
-                        <span className="absolute top-3 left-3 rounded-full bg-white/85 backdrop-blur-sm px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-dark/70">
-                          {meta.transmission ?? bike.category}
-                        </span>
-                      </div>
-
-                      <div className="p-5">
-                        <div className="flex items-baseline justify-between gap-3">
-                          <h3 className="font-display text-base font-bold leading-tight">
-                            {bike.title}
-                          </h3>
-                          <span className="font-display text-lg font-black text-brand shrink-0">
-                            {formatPrice(bike.pricePerDay)}
-                            <span className="text-dark/40 text-[10px] font-medium">/day</span>
-                          </span>
-                        </div>
-
-                        {/* Two lines only — the rest lives behind the specs
-                            disclosure, so every card is the same height. */}
-                        <ul className="mt-3 mb-4 space-y-1">
-                          {bike.features.slice(0, 2).map(f => (
-                            <li
-                              key={f}
-                              title={f}
-                              className="text-xs text-dark/55 flex items-center gap-2 min-w-0"
-                            >
-                              <span className="w-1 h-1 rounded-full bg-brand shrink-0" />
-                              <span className="truncate">{f}</span>
-                            </li>
-                          ))}
-                        </ul>
-
-                        <SpecPanel bikeId={bike.id} />
-
-                        <Link
-                          to={`/book?bike=${bike.id}`}
-                          aria-label={`Rent the ${bike.title}`}
-                          className="flex items-center justify-center gap-2 w-full bg-brand text-beige rounded-full py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all hover:brightness-110"
-                        >
-                          Rent now
-                          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                        </Link>
-                      </div>
-                    </motion.div>
-                  ))}
-                </CardRow>
-              </section>
-            );
-          })}
+                </div>
+              </Link>
+            </motion.div>
+          ))}
         </div>
 
         {/* ── Touring advice ────────────────────────────────────────────── */}
