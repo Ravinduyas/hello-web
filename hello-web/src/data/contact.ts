@@ -1,16 +1,18 @@
 /**
  * Single source of truth for the contact details shown across the site.
  *
- * TODO(client): the phone/WhatsApp numbers below are still the placeholders
- * that were hard-coded into ContactPage. Replace them with Hello Rent's real
- * numbers — every place they appear reads from here, so one edit covers the
- * contact page, the WhatsApp button, and anything added later.
+ * The phone and WhatsApp number are the real ones — they match the A-board
+ * outside the shop in the owner's own photographs. Every place they appear
+ * reads from here, so one edit covers the contact page, the floating WhatsApp
+ * button, and anything added later.
+ *
+ * TODO(client): the email address below is still a placeholder.
  */
 export const CONTACT = {
   /** Display form, used in text. */
-  phone: '+94 77 123 4567',
+  phone: '+94 76 707 3388',
   /** Digits only, international format — the form wa.me expects. */
-  whatsappNumber: '94771234567',
+  whatsappNumber: '94767073388',
   email: 'hello@hellorent.co',
   address: 'Weligama, Southern Province, Sri Lanka',
   hours: 'Mon – Sun: 07:00 – 21:00',

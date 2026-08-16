@@ -975,7 +975,9 @@ function StepDetails({ renter, onChange }: { renter: Renter; onChange: (r: Rente
           <input type="email" required value={renter.email} onChange={set('email')} placeholder="sarah@email.com" className="booking-input" />
         </Field>
         <Field label="Phone">
-          <input type="tel" required value={renter.phone} onChange={set('phone')} placeholder="+94 77 123 4567" className="booking-input" />
+          {/* Deliberately not a Sri Lankan number: this asks for the renter's
+              own, and the old example was the shop's placeholder number. */}
+          <input type="tel" required value={renter.phone} onChange={set('phone')} placeholder="e.g. +44 7700 900123" className="booking-input" />
         </Field>
         <div className="sm:col-span-2">
           <Field label="Driving licence no. (optional)">

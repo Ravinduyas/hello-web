@@ -17,6 +17,7 @@ import WhyChooseUs from './components/WhyChooseUs';
 import OurStory from './components/OurStory';
 import Testimonials from './components/Testimonials';
 import TrustBand from './components/TrustBand';
+import WhatsAppButton from './components/WhatsAppButton';
 import { Blog, CTASection } from './components/Blog';
 import AboutPage from './pages/AboutPage';
 import TourPlansPage from './pages/TourPlansPage';
@@ -78,6 +79,10 @@ function Shell() {
           <Footer />
         </>
       )}
+
+      {/* Every page, booking included — it is the shop's main way of being
+          reached, and a question mid-booking is the one most worth answering. */}
+      <WhatsAppButton />
     </div>
   );
 }
