@@ -716,7 +716,7 @@ function StepRide({
                 </div>
                 <div className="p-4 pb-3">
                   <span className="text-[10px] font-bold text-brand uppercase tracking-widest">
-                    {b.category}
+                    {b.bodyType ?? b.category}
                   </span>
                   <p className="font-display font-bold leading-tight">{b.title}</p>
                   {getSpec(b.id)?.headline && (

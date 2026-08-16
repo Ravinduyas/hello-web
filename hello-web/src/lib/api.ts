@@ -51,11 +51,11 @@ export async function fetchExtras(): Promise<Extra[]> {
 /**
  * Active fleet bikes, managed from the admin (Hello Manage).
  *
- * The admin owns inventory, pricing, titles and photographs. Two things it has
- * no column for get merged back in from `fleet.ts` by id: the engine capacity
- * the booking step groups scooters by, and the card crop focal point. Without
- * this the API silently strips both, and the capacity chooser disappears the
- * moment the backend is reachable.
+ * The admin owns inventory, pricing, titles and photographs. What it has no
+ * column for gets merged back in from `fleet.ts` by id: the engine capacity the
+ * booking step groups scooters by, the card crop focal point, and the body type
+ * that stops the KDH being labelled a car. Without this the API silently strips
+ * all three the moment the backend is reachable.
  */
 export async function fetchBikes(): Promise<Bike[]> {
   const res = await fetch(`${API_BASE}/api/bikes`);
@@ -69,6 +69,7 @@ export async function fetchBikes(): Promise<Bike[]> {
       ...bike,
       image: resolveImage(bike.image),
       engineCc: bike.engineCc ?? local?.engineCc,
+      bodyType: bike.bodyType ?? local?.bodyType,
       imagePosition: bike.imagePosition ?? local?.imagePosition,
     };
   });

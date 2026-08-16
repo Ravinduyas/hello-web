@@ -40,6 +40,13 @@ export interface Bike {
    * class whose vehicles carry more than one value.
    */
   engineCc?: number;
+  /**
+   * What this vehicle actually is, when the class name would misdescribe it.
+   * The KDH sits in the Car class — the class is "Cars & vans" and it is priced
+   * with them — but a card labelled CAR over a photograph of a minibus reads as
+   * a mistake. Defaults to the category.
+   */
+  bodyType?: string;
   features: string[];
 }
 
@@ -231,6 +238,7 @@ export const bikes: Bike[] = [
     category: 'Car',
     pricePerDay: 31,
     image: asset('/fleet/toyota-kdh.jpg'),
+    bodyType: 'Van',
     features: ['Automatic transmission', 'Air conditioned', 'Seats a group with luggage', 'Room for surfboards'],
   },
 ];
