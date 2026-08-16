@@ -576,7 +576,9 @@ function StepRide({
               key={cat.category}
               type="button"
               onClick={() => onPickCategory(cat.category)}
-              className="group relative block h-56 rounded-2xl overflow-hidden text-left border-2 border-transparent hover:border-brand transition-all"
+              // Tall enough for the photograph to read as a vehicle: at h-56 a
+              // wide card cropped these to a letterbox strip of the middle.
+              className="group relative block h-72 md:h-80 rounded-2xl overflow-hidden text-left border-2 border-transparent hover:border-brand transition-all"
             >
               <img
                 src={cat.image}
