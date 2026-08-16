@@ -1055,69 +1055,74 @@ function BookingBar({
 }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 bg-dark text-beige border-t border-beige/10">
-      <div className="max-w-7xl mx-auto px-6 py-4 flex flex-wrap items-center gap-x-6 gap-y-3">
-        {bike && (
-          <div className="flex items-center gap-3 min-w-0">
-            <img
-              src={bike.image}
-              alt=""
-              style={{ objectPosition: bike.imagePosition ?? 'center' }}
-              className="w-14 h-11 object-cover rounded-lg shrink-0"
-            />
-            <div className="min-w-0">
-              <p className="font-bold text-sm leading-tight truncate">{bike.title}</p>
-              <p className="text-beige/45 text-xs">
-                {bike.bodyType ?? bike.category} · {formatPrice(bike.pricePerDay)}/day
-              </p>
+      {/* One row that never wraps: summary on the left, giving up width by
+          truncating, and the controls on the right at their natural size. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 lg:gap-6 min-w-0">
+          {bike && (
+            <div className="flex items-center gap-3 min-w-0">
+              <img
+                src={bike.image}
+                alt=""
+                style={{ objectPosition: bike.imagePosition ?? 'center' }}
+                className="hidden sm:block w-14 h-11 object-cover rounded-lg shrink-0"
+              />
+              <div className="min-w-0">
+                <p className="font-bold text-sm leading-tight truncate">{bike.title}</p>
+                <p className="text-beige/45 text-xs truncate">
+                  {bike.bodyType ?? bike.category} · {formatPrice(bike.pricePerDay)}/day
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* The middle facts drop out on a phone, where the bar has room for the
-            vehicle, the total and the controls and little else. */}
-        <div className="hidden lg:flex flex-col gap-0.5 text-xs text-beige/55 min-w-0">
-          {days > 0 && (
-            <span className="whitespace-nowrap">
-              {longDate(pickupDate)} → {longDate(dropoffDate)} · {days} day{days > 1 ? 's' : ''}
-            </span>
-          )}
-          {extrasCount > 0 && (
-            <span className="whitespace-nowrap">
-              {extrasCount} extra{extrasCount > 1 ? 's' : ''} added
-            </span>
-          )}
+          {/* Dates and extras need room the controls have first claim on. */}
+          <div className="hidden xl:flex flex-col gap-0.5 text-xs text-beige/55 shrink-0">
+            {days > 0 && (
+              <span className="whitespace-nowrap">
+                {longDate(pickupDate)} → {longDate(dropoffDate)} · {days} day{days > 1 ? 's' : ''}
+              </span>
+            )}
+            {extrasCount > 0 && (
+              <span className="whitespace-nowrap">
+                {extrasCount} extra{extrasCount > 1 ? 's' : ''} added
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-4 ml-auto shrink-0">
+        <div className="flex items-center gap-3 sm:gap-5 shrink-0">
           {/* No point announcing a total of nothing on the first step. */}
           {total > 0 && (
-            <div className="text-right">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-beige/40 leading-none">
-                Total
-              </p>
-              <p className="font-display text-2xl font-black text-brand tabular-nums leading-tight">
+            <div className="text-right leading-none">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-beige/40">Total</p>
+              <p className="font-display text-xl sm:text-2xl font-black text-brand tabular-nums mt-1">
                 {formatPrice(total)}
               </p>
             </div>
           )}
 
+          {/* The label goes before the button does — an arrow alone still reads
+              as "back" once Continue sits beside it. */}
           <button
             type="button"
             onClick={onBack}
             disabled={!canGoBack}
-            className="inline-flex items-center gap-2 border border-beige/30 text-beige px-5 py-2.5 rounded-full text-sm font-medium transition-all hover:bg-beige hover:text-dark disabled:opacity-25 disabled:pointer-events-none"
+            aria-label="Back"
+            className="inline-flex items-center gap-2 border border-beige/30 text-beige px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium transition-all hover:bg-beige hover:text-dark disabled:opacity-25 disabled:pointer-events-none"
           >
-            <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Back</span>
           </button>
 
           <button
             type="button"
             onClick={onNext}
             disabled={!canContinue}
-            className="btn-primary disabled:opacity-40 disabled:pointer-events-none"
+            className="btn-primary whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none"
           >
             {submitting ? 'Booking…' : isLastStep ? 'Confirm booking' : 'Continue'}
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-4 h-4 shrink-0" />
           </button>
         </div>
       </div>
