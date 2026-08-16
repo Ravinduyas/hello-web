@@ -7,6 +7,8 @@ import {
   MapPin,
   Bike as BikeIcon,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Info,
   Minus,
 } from 'lucide-react';
@@ -31,7 +33,23 @@ function rentalDays(pickup: string, dropoff: string): number {
   return Math.max(1, Math.round((end - start) / MS_PER_DAY));
 }
 
-const todayISO = () => new Date().toISOString().split('T')[0];
+/** Local-time ISO date. Never toISOString() — that shifts the day by timezone. */
+const isoOf = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const fromISO = (s: string) => {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/**
+ * Today in the visitor's own timezone.
+ *
+ * Not toISOString() — that converts to UTC first, so a traveller anywhere west
+ * of Greenwich gets yesterday's date for part of their day, and the calendar
+ * would grey out a date they can still legitimately book.
+ */
+const todayISO = () => isoOf(new Date());
 
 interface Renter {
   firstName: string;
@@ -651,26 +669,158 @@ function StepDates(props: {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <Field label="Pickup date">
-          <input
-            type="date"
-            min={todayISO()}
-            value={pickupDate}
-            onChange={e => onChange({ pickupDate: e.target.value })}
-            className="booking-input"
-          />
-        </Field>
-        <Field label="Drop-off date">
-          <input
-            type="date"
-            min={pickupDate || todayISO()}
-            value={dropoffDate}
-            onChange={e => onChange({ dropoffDate: e.target.value })}
-            className="booking-input"
-          />
-        </Field>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+        <RangeCalendar pickupDate={pickupDate} dropoffDate={dropoffDate} onChange={onChange} />
+
+        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+          <DateReadout label="Pickup" value={pickupDate} placeholder="Pick a date" />
+          <DateReadout label="Drop-off" value={dropoffDate} placeholder="Pick a date" />
+
+          {pickupDate && dropoffDate && (
+            <p className="col-span-2 lg:col-span-1 text-sm text-dark/60 bg-beige rounded-2xl px-4 py-3">
+              {rentalDays(pickupDate, dropoffDate)} day
+              {rentalDays(pickupDate, dropoffDate) > 1 ? 's' : ''} — pick up and return at{' '}
+              {shopLocation.name}.
+            </p>
+          )}
+        </div>
       </div>
+    </div>
+  );
+}
+
+function DateReadout({ label, value, placeholder }: { label: string; value: string; placeholder: string }) {
+  return (
+    <div className="border border-dark/10 rounded-2xl px-4 py-3 bg-white">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-dark/40">{label}</p>
+      <p className={`text-sm mt-0.5 ${value ? 'font-medium text-dark' : 'italic text-dark/35'}`}>
+        {value ? longDate(value) : placeholder}
+      </p>
+    </div>
+  );
+}
+
+/* ---- Calendar ---------------------------------------------------- */
+
+const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const longDate = (s: string) => {
+  const d = fromISO(s);
+  return `${d.getDate()} ${MONTH_NAMES[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
+};
+
+/**
+ * Six weeks of days for the month, Monday-first, padded with the neighbouring
+ * months so every row is full.
+ */
+function monthGrid(view: Date): Date[] {
+  const first = new Date(view.getFullYear(), view.getMonth(), 1);
+  // getDay() is Sunday-first; shift so Monday starts the week.
+  const lead = (first.getDay() + 6) % 7;
+  const start = new Date(first.getFullYear(), first.getMonth(), 1 - lead);
+  return Array.from({ length: 42 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
+}
+
+function RangeCalendar({
+  pickupDate,
+  dropoffDate,
+  onChange,
+}: {
+  pickupDate: string;
+  dropoffDate: string;
+  onChange: (f: DateFields) => void;
+}) {
+  const today = todayISO();
+  const [view, setView] = useState(() => {
+    const anchor = pickupDate ? fromISO(pickupDate) : fromISO(today);
+    return new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  });
+
+  const grid = monthGrid(view);
+  const shiftMonth = (by: number) => setView(v => new Date(v.getFullYear(), v.getMonth() + by, 1));
+  // Never page back past the current month — those days are all unbookable.
+  const atFirstMonth = isoOf(view) <= `${today.slice(0, 7)}-01`;
+
+  function pick(day: string) {
+    // First tap sets the start; a second tap after it closes the range.
+    // Anything else starts over, so a mis-tap costs one click, not a reset.
+    if (!pickupDate || dropoffDate || day < pickupDate) {
+      onChange({ pickupDate: day, dropoffDate: '' });
+    } else {
+      onChange({ dropoffDate: day });
+    }
+  }
+
+  return (
+    <div className="border border-dark/10 rounded-2xl p-4 md:p-5 bg-white">
+      <div className="flex items-center justify-between mb-4">
+        <button
+          type="button"
+          onClick={() => shiftMonth(-1)}
+          disabled={atFirstMonth}
+          aria-label="Previous month"
+          className="w-9 h-9 grid place-items-center rounded-full hover:bg-beige disabled:opacity-25 disabled:pointer-events-none transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <p className="font-display font-bold">
+          {MONTH_NAMES[view.getMonth()]} {view.getFullYear()}
+        </p>
+        <button
+          type="button"
+          onClick={() => shiftMonth(1)}
+          aria-label="Next month"
+          className="w-9 h-9 grid place-items-center rounded-full hover:bg-beige transition-colors"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 gap-y-1 border-t border-dark/10 pt-3">
+        {WEEKDAYS.map(w => (
+          <div key={w} className="text-center text-[10px] font-bold uppercase tracking-widest text-dark/35 pb-2">
+            {w}
+          </div>
+        ))}
+
+        {grid.map(day => {
+          const key = isoOf(day);
+          const outside = day.getMonth() !== view.getMonth();
+          const past = key < today;
+          const isStart = key === pickupDate;
+          const isEnd = key === dropoffDate;
+          const between = !!pickupDate && !!dropoffDate && key > pickupDate && key < dropoffDate;
+          const edge = isStart || isEnd;
+
+          return (
+            <button
+              key={key}
+              type="button"
+              disabled={past}
+              onClick={() => pick(key)}
+              aria-label={longDate(key)}
+              aria-pressed={edge}
+              className={`h-10 text-sm transition-colors disabled:pointer-events-none
+                ${edge ? 'bg-brand text-beige font-bold' : between ? 'bg-brand/10 text-dark' : 'hover:bg-beige'}
+                ${isStart && dropoffDate ? 'rounded-l-full' : ''}
+                ${isEnd ? 'rounded-r-full' : ''}
+                ${edge && !dropoffDate ? 'rounded-full' : ''}
+                ${!edge && !between ? 'rounded-full' : ''}
+                ${past ? 'text-dark/20' : outside ? 'text-dark/30' : ''}`}
+            >
+              {day.getDate()}
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="text-xs text-dark/45 mt-3 pt-3 border-t border-dark/10">
+        Tap a pickup date, then a drop-off date.
+      </p>
     </div>
   );
 }
