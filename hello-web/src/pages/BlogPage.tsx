@@ -87,7 +87,7 @@ export default function BlogPage() {
           >
             <div className="aspect-[16/10] lg:aspect-auto lg:min-h-[420px] overflow-hidden">
               <img
-                src={asset('/ride-hill-road.jpg')}
+                src={asset('/photos/ride-hill-road.jpg')}
                 alt="A winding road through the Sri Lankan hills"
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />

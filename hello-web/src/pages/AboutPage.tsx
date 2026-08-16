@@ -19,7 +19,7 @@ export default function AboutPage() {
       <div className="relative h-[58vh] min-h-[420px] max-h-[620px] w-full overflow-hidden bg-dark">
         <div className="absolute inset-0 bg-dark/60 z-10" />
         <img
-          src={asset('/shop-front.jpg')}
+          src={asset('/photos/shop-front.jpg')}
           alt="The Hello Rent shopfront in Weligama, with a tuk-tuk parked under the sign"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />
@@ -91,7 +91,7 @@ export default function AboutPage() {
             className="relative aspect-square lg:aspect-[4/5] rounded-3xl overflow-hidden bg-white flex items-center justify-center p-12"
           >
             <img
-              src={asset('/hello-rental.jpg')}
+              src={asset('/photos/hello-rental.jpg')}
               alt="Hello Rent — scooter and bike rental, Weligama"
               loading="lazy"
               className="w-full h-full object-contain"

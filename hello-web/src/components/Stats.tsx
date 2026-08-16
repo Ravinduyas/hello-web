@@ -66,7 +66,7 @@ export default function Stats() {
             className="relative aspect-square lg:aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl"
           >
             <img
-              src={asset('/shop-front.jpg')}
+              src={asset('/photos/shop-front.jpg')}
               alt="The Hello Rent shopfront in Weligama, a tuk-tuk parked beneath the sign"
               loading="lazy"
               className="w-full h-full object-cover"

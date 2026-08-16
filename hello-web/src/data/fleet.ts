@@ -262,7 +262,7 @@ export const orderOf = (category: string) => {
  * Shared so the fleet page and the booking step show a class the same way.
  */
 export const categoryImage: Record<string, string> = {
-  Scooter: asset('/ntorq-front.jpg'),
+  Scooter: asset('/photos/ntorq-front.jpg'),
   Motorbike: asset('/fleet/bajaj-pulsar.jpg'),
   'Tuk Tuk': asset('/fleet/bajaj-re-tuktuk.jpg'),
   Car: asset('/fleet/toyota-kdh.jpg'),

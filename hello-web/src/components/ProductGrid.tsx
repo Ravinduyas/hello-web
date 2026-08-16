@@ -10,7 +10,7 @@ export default function ProductGrid() {
       tagline: 'Automatic & easy',
       price: 'From €5 / day',
       copy: 'Honda Dio, Navi, Yamaha Ray ZR and the TVS Ntorq — twist and go, no gears.',
-      image: asset('/ntorq-front.jpg'),
+      image: asset('/photos/ntorq-front.jpg'),
       alt: 'A TVS Ntorq 125 automatic scooter outside the Hello Rent shop',
     },
     {

@@ -18,13 +18,13 @@ export default function HowItWorks() {
       num: '01',
       title: 'Choose Your Bike',
       description: 'Browse our scooters, motorbikes, tuk-tuks and cars online. Automatics from €5/day are ideal for beach roads and city streets, while manual bikes are built for Ella\'s mountain passes.',
-      image: asset('/fleet-lineup.jpg'),
+      image: asset('/photos/fleet-lineup.jpg'),
     },
     {
       num: '02',
       title: 'Book Online',
       description: 'Reserve in minutes. Pick your dates and collect your ride from our Weligama store on the south coast — return it there when your trip wraps up.',
-      image: asset('/shop-interior.jpg'),
+      image: asset('/photos/shop-interior.jpg'),
     },
     {
       num: '03',
@@ -42,7 +42,7 @@ export default function HowItWorks() {
           is required for manual motorbikes.
         </>
       ),
-      image: asset('/rider-ready.jpg'),
+      image: asset('/photos/rider-ready.jpg'),
     },
   ];
 

@@ -8,19 +8,19 @@ export function Blog() {
     {
       title: 'How far can you get in one day?',
       date: 'Featured · Day Trips',
-      image: asset('/ride-hill-road.jpg'),
+      image: asset('/photos/ride-hill-road.jpg'),
       to: '/tours',
     },
     {
       title: 'Top Scenic Routes to Ride in Sri Lanka',
       date: '02 May 2026',
-      image: asset('/tea-country-ride.jpg'),
+      image: asset('/photos/tea-country-ride.jpg'),
       to: '/blog',
     },
     {
       title: 'The Coastal Ride: Colombo to Galle',
       date: '18 Apr 2026',
-      image: asset('/ride-misty-forest.jpg'),
+      image: asset('/photos/ride-misty-forest.jpg'),
       to: '/blog',
     }
   ];
@@ -75,7 +75,7 @@ export function CTASection() {
   return (
     <section className="relative h-[600px] w-full overflow-hidden flex items-center justify-center">
       <img
-        src={asset('/tea-country-ride.jpg')}
+        src={asset('/photos/tea-country-ride.jpg')}
         className="absolute inset-0 w-full h-full object-cover"
         alt="Motorbike riders in Sri Lanka's tea country"
         loading="lazy"

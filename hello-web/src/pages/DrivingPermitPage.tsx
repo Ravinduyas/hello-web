@@ -58,7 +58,7 @@ export default function DrivingPermitPage() {
       >
         <div className="absolute inset-0 bg-dark/65 z-10" />
         <img
-          src={asset('/rider-checking-phone.jpg')}
+          src={asset('/photos/rider-checking-phone.jpg')}
           alt="A rider checking their phone beside a scooter in Sri Lanka"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />

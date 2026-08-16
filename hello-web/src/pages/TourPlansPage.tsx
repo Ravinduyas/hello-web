@@ -67,7 +67,7 @@ export default function TourPlansPage() {
       >
         <div className="absolute inset-0 bg-dark/60 z-10" />
         <img
-          src={asset('/ride-hill-road.jpg')}
+          src={asset('/photos/ride-hill-road.jpg')}
           alt="A winding road through the Sri Lankan hills"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />

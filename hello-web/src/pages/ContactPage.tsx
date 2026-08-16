@@ -49,7 +49,7 @@ export default function ContactPage() {
       <div className="relative h-[58vh] min-h-[420px] max-h-[620px] w-full overflow-hidden bg-dark">
         <div className="absolute inset-0 bg-dark/60 z-10" />
         <img
-          src={asset('/weligama-road.jpg')}
+          src={asset('/photos/weligama-road.jpg')}
           alt="The Hello Rent shop on the main road through Weligama"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />

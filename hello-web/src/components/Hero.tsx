@@ -7,15 +7,15 @@ import { asset } from '../lib/asset';
 // Hello Rent's own photographs — the real shop, the real fleet, the real bay.
 const slides = [
   {
-    src: asset('/scooters-weligama-bay.jpg'),
+    src: asset('/photos/scooters-weligama-bay.jpg'),
     alt: 'Two Hello Rent scooters parked above Weligama bay, fishing boats moored on the water behind',
   },
   {
-    src: asset('/weligama-road.jpg'),
+    src: asset('/photos/weligama-road.jpg'),
     alt: 'The Hello Rent shopfront and its scooters on the main road through Weligama',
   },
   {
-    src: asset('/fleet-lineup.jpg'),
+    src: asset('/photos/fleet-lineup.jpg'),
     alt: 'A row of TVS Ntorq scooters lined up outside the Hello Rent shop',
   },
 ];

@@ -81,7 +81,7 @@ export default function FleetPage() {
       <div className="relative h-[58vh] min-h-[420px] max-h-[620px] w-full overflow-hidden bg-dark">
         <div className="absolute inset-0 bg-dark/55 z-10" />
         <img
-          src={asset('/fleet-lineup.jpg')}
+          src={asset('/photos/fleet-lineup.jpg')}
           alt="The Hello Rent scooter fleet lined up outside the shop in Weligama"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />
