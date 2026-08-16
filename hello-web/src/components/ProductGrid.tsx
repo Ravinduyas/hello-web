@@ -34,8 +34,8 @@ export default function ProductGrid() {
       tagline: 'Automatic & air-con',
       price: 'From €31 / day',
       copy: 'Wagon R, Spacia, Roomy, Raize, Prius and the KDH van — for families, rain and long drives.',
-      image: asset('/fleet/placeholder-car-tall.svg'),
-      alt: 'Hello Rent cars and vans — photograph coming soon',
+      image: asset('/fleet/toyota-kdh.jpg'),
+      alt: 'A Toyota Hiace KDH van from the Hello Rent fleet',
     },
   ];
 

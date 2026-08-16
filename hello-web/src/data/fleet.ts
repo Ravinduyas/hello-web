@@ -190,7 +190,7 @@ export const bikes: Bike[] = [
     title: 'Suzuki Wagon R',
     category: 'Car',
     pricePerDay: 31,
-    image: asset('/fleet/placeholder-car.svg'),
+    image: asset('/fleet/suzuki-wagon-r.jpg'),
     features: ['Automatic transmission', 'Air conditioned', 'Tall cabin, easy to park', 'Great on fuel'],
   },
   {
@@ -198,7 +198,7 @@ export const bikes: Bike[] = [
     title: 'Suzuki Spacia',
     category: 'Car',
     pricePerDay: 31,
-    image: asset('/fleet/placeholder-car.svg'),
+    image: asset('/fleet/suzuki-spacia.jpg'),
     features: ['Automatic transmission', 'Air conditioned', 'Sliding doors', 'Roomy for luggage'],
   },
   {
@@ -206,7 +206,7 @@ export const bikes: Bike[] = [
     title: 'Toyota Roomy',
     category: 'Car',
     pricePerDay: 31,
-    image: asset('/fleet/placeholder-car.svg'),
+    image: asset('/fleet/toyota-roomy.webp'),
     features: ['Automatic transmission', 'Air conditioned', 'High roof, tall cabin', 'Comfortable for families'],
   },
   {
@@ -214,7 +214,7 @@ export const bikes: Bike[] = [
     title: 'Toyota Raize',
     category: 'Car',
     pricePerDay: 31,
-    image: asset('/fleet/placeholder-car.svg'),
+    image: asset('/fleet/toyota-raize.jpg'),
     features: ['Automatic transmission', 'Air conditioned', 'Compact SUV, higher ride height', 'Confident on rough roads'],
   },
   {
@@ -222,7 +222,7 @@ export const bikes: Bike[] = [
     title: 'Toyota Prius',
     category: 'Car',
     pricePerDay: 31,
-    image: asset('/fleet/placeholder-car.svg'),
+    image: asset('/fleet/toyota-prius.png'),
     features: ['Automatic transmission', 'Air conditioned', 'Hybrid — very low fuel use', 'Comfortable for long drives'],
   },
   {
@@ -230,7 +230,7 @@ export const bikes: Bike[] = [
     title: 'Toyota KDH Van',
     category: 'Car',
     pricePerDay: 31,
-    image: asset('/fleet/placeholder-car.svg'),
+    image: asset('/fleet/toyota-kdh.jpg'),
     features: ['Automatic transmission', 'Air conditioned', 'Seats a group with luggage', 'Room for surfboards'],
   },
 ];

@@ -22,7 +22,9 @@ const CATEGORY_IMAGE: Record<string, string> = {
   Scooter: asset('/ntorq-front.jpg'),
   Motorbike: asset('/fleet/bajaj-pulsar.jpg'),
   'Tuk Tuk': asset('/fleet/bajaj-re-tuktuk.jpg'),
-  Car: asset('/fleet/placeholder-car-tall.svg'),
+  // The Hiace stands for the class: it is the only one of the six that reads
+  // as a van as well as a car, and the shot is tall enough to crop.
+  Car: asset('/fleet/toyota-kdh.jpg'),
 };
 
 // Lucky's own advice: for a trip around the whole island, take exactly one of
