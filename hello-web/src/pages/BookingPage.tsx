@@ -273,7 +273,7 @@ export default function BookingPage() {
     // cards into view without scrolling for them.
     // No navbar on this route, so no clearance to leave for one. The bottom
     // padding clears the standing summary bar instead, which is fixed.
-    <div className="bg-beige min-h-screen pt-8 md:pt-10 pb-28 px-6">
+    <div className="bg-beige min-h-screen pt-8 md:pt-10 pb-36 px-6">
       <div className="max-w-7xl mx-auto">
         <header className="mb-5">
           {/* The only way back out, since the site nav is hidden here. */}
@@ -376,30 +376,6 @@ export default function BookingPage() {
               </p>
             )}
 
-            <div className="flex flex-wrap items-center justify-between gap-4 mt-8 pt-6 border-t border-dark/10">
-              <button
-                type="button"
-                onClick={back}
-                disabled={step === 0 || submitting}
-                className="btn-outline disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ArrowLeft className="w-4 h-4" /> Back
-              </button>
-
-              <button
-                type="button"
-                onClick={next}
-                disabled={!stepValid[step] || submitting}
-                className="btn-primary disabled:opacity-40 disabled:pointer-events-none"
-              >
-                {submitting
-                  ? 'Booking…'
-                  : step === STEPS.length - 1
-                    ? 'Confirm booking'
-                    : 'Continue'}
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
           </div>
 
         </div>
@@ -412,6 +388,12 @@ export default function BookingPage() {
         dropoffDate={dropoffDate}
         extrasCount={chosenExtras.length}
         total={summary.total}
+        canGoBack={step > 0 && !submitting}
+        canContinue={stepValid[step] && !submitting}
+        isLastStep={step === STEPS.length - 1}
+        submitting={submitting}
+        onBack={back}
+        onNext={next}
       />
     </div>
   );
@@ -1030,18 +1012,19 @@ function Row({ icon: Icon, label, value }: { icon: typeof MapPin; label: string;
   );
 }
 
+
 /* ------------------------------------------------------------------ */
-/*  Standing summary bar                                              */
+/*  Standing action bar                                               */
 /* ------------------------------------------------------------------ */
 
 /**
- * A thin bar pinned to the foot of the booking, carrying what has been chosen
- * so far and what it comes to.
+ * The foot of the booking: what has been chosen, what it comes to, and the
+ * controls that move through it.
  *
- * It replaces the old sidebar panel: the same information, but it costs a
- * strip rather than a column, and it stays in view on a phone where the
- * sidebar sat below the fold. Nothing is shown until there is something to
- * show, so the first step is not framed by an empty bar.
+ * This is the old sidebar panel's job done in a strip rather than a column,
+ * and it holds Back and Continue so the way forward is always on screen —
+ * previously they sat at the end of the step content, which on the details
+ * step meant scrolling past a form to reach them.
  */
 function BookingBar({
   bike,
@@ -1050,6 +1033,12 @@ function BookingBar({
   dropoffDate,
   extrasCount,
   total,
+  canGoBack,
+  canContinue,
+  isLastStep,
+  submitting,
+  onBack,
+  onNext,
 }: {
   bike: Bike | undefined;
   days: number;
@@ -1057,27 +1046,36 @@ function BookingBar({
   dropoffDate: string;
   extrasCount: number;
   total: number;
+  canGoBack: boolean;
+  canContinue: boolean;
+  isLastStep: boolean;
+  submitting: boolean;
+  onBack: () => void;
+  onNext: () => void;
 }) {
-  if (!bike && total === 0) return null;
-
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 bg-dark text-beige border-t border-beige/10">
-      <div className="max-w-7xl mx-auto px-6 py-2.5 flex items-center gap-4">
+      <div className="max-w-7xl mx-auto px-6 py-4 flex flex-wrap items-center gap-x-6 gap-y-3">
         {bike && (
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
             <img
               src={bike.image}
               alt=""
               style={{ objectPosition: bike.imagePosition ?? 'center' }}
-              className="w-10 h-8 object-cover rounded shrink-0"
+              className="w-14 h-11 object-cover rounded-lg shrink-0"
             />
-            <span className="font-bold text-sm truncate">{bike.title}</span>
+            <div className="min-w-0">
+              <p className="font-bold text-sm leading-tight truncate">{bike.title}</p>
+              <p className="text-beige/45 text-xs">
+                {bike.bodyType ?? bike.category} · {formatPrice(bike.pricePerDay)}/day
+              </p>
+            </div>
           </div>
         )}
 
-        {/* Middle facts collapse away on a phone, where the bar has room for
-            the vehicle and the total and little else. */}
-        <div className="hidden sm:flex items-center gap-4 text-xs text-beige/55 min-w-0">
+        {/* The middle facts drop out on a phone, where the bar has room for the
+            vehicle, the total and the controls and little else. */}
+        <div className="hidden lg:flex flex-col gap-0.5 text-xs text-beige/55 min-w-0">
           {days > 0 && (
             <span className="whitespace-nowrap">
               {longDate(pickupDate)} → {longDate(dropoffDate)} · {days} day{days > 1 ? 's' : ''}
@@ -1085,16 +1083,42 @@ function BookingBar({
           )}
           {extrasCount > 0 && (
             <span className="whitespace-nowrap">
-              {extrasCount} extra{extrasCount > 1 ? 's' : ''}
+              {extrasCount} extra{extrasCount > 1 ? 's' : ''} added
             </span>
           )}
         </div>
 
-        <div className="flex items-baseline gap-2 ml-auto shrink-0">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-beige/40">Total</span>
-          <span className="font-display text-xl font-black text-brand tabular-nums">
-            {formatPrice(total)}
-          </span>
+        <div className="flex items-center gap-4 ml-auto shrink-0">
+          {/* No point announcing a total of nothing on the first step. */}
+          {total > 0 && (
+            <div className="text-right">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-beige/40 leading-none">
+                Total
+              </p>
+              <p className="font-display text-2xl font-black text-brand tabular-nums leading-tight">
+                {formatPrice(total)}
+              </p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={!canGoBack}
+            className="inline-flex items-center gap-2 border border-beige/30 text-beige px-5 py-2.5 rounded-full text-sm font-medium transition-all hover:bg-beige hover:text-dark disabled:opacity-25 disabled:pointer-events-none"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back
+          </button>
+
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!canContinue}
+            className="btn-primary disabled:opacity-40 disabled:pointer-events-none"
+          >
+            {submitting ? 'Booking…' : isLastStep ? 'Confirm booking' : 'Continue'}
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
