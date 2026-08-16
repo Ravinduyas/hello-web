@@ -132,7 +132,7 @@ export const FLEET_BIKES: SeedBike[] = [
     title: 'TVS Apache 200',
     category: 'Motorbike',
     pricePerDay: 10,
-    image: '/fleet/placeholder-motorbike.svg',
+    image: '/fleet/tvs-apache.jpg',
     features: [
       'Manual transmission',
       'Sport touring',

@@ -142,7 +142,7 @@ export const bikes: Bike[] = [
     title: 'TVS Apache 200',
     category: 'Motorbike',
     pricePerDay: 10,
-    image: asset('/fleet/placeholder-motorbike.svg'),
+    image: asset('/fleet/tvs-apache.jpg'),
     features: [
       'Manual transmission',
       'Sport touring',
