@@ -209,8 +209,11 @@ export default function BookingPage() {
     // Deliberately tight above the fold. The job of this page is picking a
     // vehicle, so the masthead and step rail give up their height to get the
     // cards into view without scrolling for them.
-    <div className="bg-beige min-h-screen pt-24 md:pt-28 pb-16 px-6">
-      <div className="max-w-6xl mx-auto">
+    // pt clears the floating navbar — trimming it further ran the masthead
+    // underneath. max-w-7xl matches the rest of the site and keeps the side
+    // margins narrow instead of banding the page with empty beige.
+    <div className="bg-beige min-h-screen pt-28 md:pt-32 pb-16 px-6">
+      <div className="max-w-7xl mx-auto">
         <header className="mb-5">
           <span className="eyebrow">[ Book your ride ]</span>
           <h1 className="display-xl text-3xl md:text-4xl mt-2">Reserve in a few taps</h1>
@@ -242,9 +245,7 @@ export default function BookingPage() {
           ))}
         </ol>
 
-        {/* One column now the summary panel is gone — and narrower than the
-            masthead, so the form does not sprawl across a wide monitor. */}
-        <div className="max-w-4xl">
+        <div>
           <div className="bg-white rounded-3xl p-6 md:p-8 min-h-[420px]">
             <AnimatePresence mode="wait">
               <motion.div
@@ -357,8 +358,10 @@ export default function BookingPage() {
 const specRow = (spec: VehicleSpec | undefined, label: string) =>
   spec?.specs.find(s => s.label === label)?.value;
 
+// Character rides as a subtitle under the title rather than as a row: it was
+// the longest label of the three, and at card width it overran its own column
+// and collided with the value beside it.
 const COMPARE_ROWS: { label: string; read: (spec: VehicleSpec | undefined) => string | undefined }[] = [
-  { label: 'Character', read: spec => spec?.headline },
   { label: 'Best for', read: spec => spec?.bestFor },
   { label: 'Storage', read: spec => specRow(spec, 'Storage') },
 ];
@@ -445,8 +448,10 @@ function StepRide({
         </div>
       )}
 
-      {/* Three across from lg so the whole class is visible at once. */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+      {/* Four across from lg: scooters and motorbikes are classes of four, so a
+          whole class lands on one row with nothing orphaned, and the
+          comparison reads across without scrolling. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {visible.map(b => {
           const active = b.id === selected;
           return (
@@ -475,19 +480,27 @@ function StepRide({
               <div className="p-4">
                 <span className="text-[10px] font-bold text-brand uppercase tracking-widest">{b.category}</span>
                 <p className="font-display font-bold leading-tight">{b.title}</p>
+                {getSpec(b.id)?.headline && (
+                  <p className="text-xs text-dark/45 leading-snug">{getSpec(b.id)?.headline}</p>
+                )}
 
                 {/* The same rows in the same order on every card, so the eye
-                    can compare straight down the column. Cars carry no spec
-                    sheet, so they fall back to their own features rather than
-                    showing a column of dashes. */}
+                    can compare straight down the column. Label sits above its
+                    value rather than beside it — a fixed label column collides
+                    with its own value once four cards share a row, and this
+                    cannot break at any width. Cars carry no spec sheet, so they
+                    fall back to their own features rather than a column of
+                    dashes. */}
                 {getSpec(b.id) ? (
-                  <dl className="mt-3 pt-3 border-t border-dark/10 space-y-1.5">
+                  <dl className="mt-3 pt-3 border-t border-dark/10 space-y-2">
                     {COMPARE_ROWS.map(({ label, read }) => (
-                      <div key={label} className="flex gap-3 text-xs leading-snug">
-                        <dt className="w-20 shrink-0 text-dark/40 uppercase tracking-widest text-[10px] font-bold pt-px">
+                      <div key={label}>
+                        <dt className="text-[9px] font-bold uppercase tracking-widest text-dark/35">
                           {label}
                         </dt>
-                        <dd className="text-dark/70">{read(getSpec(b.id)) ?? '—'}</dd>
+                        <dd className="text-xs text-dark/70 leading-snug">
+                          {read(getSpec(b.id)) ?? '—'}
+                        </dd>
                       </div>
                     ))}
                   </dl>
