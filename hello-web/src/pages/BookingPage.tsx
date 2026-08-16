@@ -322,37 +322,58 @@ export default function BookingPage() {
           </div>
 
           {/* ---- Live summary ---- */}
-          <aside className="bg-dark text-beige rounded-3xl p-6 md:p-8 lg:sticky lg:top-24">
-            <h2 className="font-display text-lg font-bold mb-5 flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-brand" /> Booking summary
+          {/* Grows as the booking does. Empty, it is one line — a panel of
+              rules around "No ride selected" and a €0 total told a customer
+              nothing and cost most of a screen on the step where the vehicles
+              needed the room. */}
+          <aside className="bg-dark text-beige rounded-2xl p-5 lg:sticky lg:top-24">
+            <h2 className="font-display text-base font-bold flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-brand" /> Booking summary
             </h2>
 
-            {bike ? (
-              <div className="flex gap-4 mb-5">
-                <img src={bike.image} alt={bike.title} className="w-20 h-16 object-cover rounded-xl" />
-                <div>
-                  <p className="font-bold leading-tight">{bike.title}</p>
-                  <p className="text-beige/50 text-sm">{bike.category} · {formatPrice(bike.pricePerDay)}/day</p>
-                </div>
-              </div>
+            {!bike && summary.lines.length === 0 ? (
+              <p className="text-beige/50 text-sm mt-2">
+                Pick a ride and your dates to see the total.
+              </p>
             ) : (
-              <p className="text-beige/50 text-sm mb-5">No ride selected yet.</p>
+              <>
+                {bike && (
+                  <div className="flex gap-3 mt-4">
+                    <img
+                      src={bike.image}
+                      alt={bike.title}
+                      style={{ objectPosition: bike.imagePosition ?? 'center' }}
+                      className="w-16 h-12 object-cover rounded-lg shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="font-bold leading-tight text-sm">{bike.title}</p>
+                      <p className="text-beige/50 text-xs">
+                        {bike.category} · {formatPrice(bike.pricePerDay)}/day
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {summary.lines.length > 0 && (
+                  <div className="space-y-1.5 text-sm border-t border-beige/15 mt-4 pt-4">
+                    {summary.lines.map(line => (
+                      <div key={line.label} className="flex justify-between gap-4">
+                        <span className="text-beige/70">{line.label}</span>
+                        <span className="font-medium tabular-nums">{formatPrice(line.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-end justify-between border-t border-beige/15 mt-4 pt-4">
+                  <span className="font-bold text-sm">Total</span>
+                  <span className="font-display text-2xl font-black text-brand tabular-nums">
+                    {formatPrice(summary.total)}
+                  </span>
+                </div>
+              </>
             )}
 
-            <div className="space-y-2 text-sm border-t border-beige/15 pt-5">
-              {summary.lines.length === 0 && <p className="text-beige/40">Pick your dates to see pricing.</p>}
-              {summary.lines.map(line => (
-                <div key={line.label} className="flex justify-between gap-4">
-                  <span className="text-beige/70">{line.label}</span>
-                  <span className="font-medium tabular-nums">{formatPrice(line.amount)}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-end justify-between border-t border-beige/15 mt-5 pt-5">
-              <span className="font-bold">Total</span>
-              <span className="font-display text-3xl font-black text-brand tabular-nums">{formatPrice(summary.total)}</span>
-            </div>
             <p className="text-beige/40 text-xs mt-3">Pay at pickup. Free cancellation up to 24h before.</p>
           </aside>
         </div>
