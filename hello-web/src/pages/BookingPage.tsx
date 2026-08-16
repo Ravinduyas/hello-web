@@ -243,7 +243,10 @@ export default function BookingPage() {
           ))}
         </ol>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8 items-start">
+        {/* The summary holds short lines and a total — 360px left it mostly
+            empty. The width it gives back goes to the vehicle cards, which
+            actually have something to fit. */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
           {/* ---- Step content ---- */}
           <div className="bg-white rounded-3xl p-6 md:p-8 min-h-[420px]">
             <AnimatePresence mode="wait">
