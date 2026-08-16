@@ -176,9 +176,11 @@ function CardRow({ children }: { children: ReactNode }) {
         tabIndex={0}
         role="group"
         aria-label="Vehicles — scroll horizontally"
+        // py-4 because .fleet-track clips overflow-y to kill the vertical bar;
+        // without the padding the cards' hover lift and shadow get cut off.
         className="fleet-track flex gap-8 overflow-x-auto snap-x snap-mandatory
                    focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4
-                   rounded-3xl py-2"
+                   rounded-3xl py-4"
       >
         {children}
       </div>
