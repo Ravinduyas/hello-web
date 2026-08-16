@@ -13,7 +13,7 @@ import {
   Minus,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { bikes as defaultBikes, extras as defaultExtras, formatPrice, shopLocation, type Bike, type Extra } from '../data/fleet';
 import { getSpec, type VehicleSpec } from '../data/specs';
 import { createBooking, fetchExtras, fetchBikes } from '../lib/api';
@@ -67,6 +67,7 @@ const STEPS = ['Your ride', 'Rental dates', 'Extras', 'Your details'] as const;
 
 export default function BookingPage() {
   const [params] = useSearchParams();
+  const location = useLocation();
 
   const [step, setStep] = useState(0);
   const [bikeId, setBikeId] = useState<string | null>(params.get('bike'));
@@ -94,6 +95,46 @@ export default function BookingPage() {
 
   const bike = bikes.find(b => b.id === bikeId);
   const days = rentalDays(pickupDate, dropoffDate);
+
+  /* ---- Arriving at the page ---------------------------------------
+   *
+   * A booking in progress survives leaving and coming back: "Book now" on its
+   * own resumes it. Arriving with an explicit class or vehicle is a choice,
+   * though, so that applies and returns to the first step — otherwise picking
+   * Motorbikes on the fleet page would leave Scooters selected, since this
+   * component stays mounted and only seeds from the query string once.
+   */
+  const paramCategory = params.get('category');
+  const paramBike = params.get('bike');
+
+  useEffect(() => {
+    if (!paramCategory && !paramBike) return;
+    if (paramCategory) {
+      setCategory(paramCategory);
+      setEngineCc(null);
+    }
+    // A vehicle from the class you just left cannot stay selected.
+    setBikeId(paramBike ?? null);
+    setStep(0);
+  }, [paramCategory, paramBike]);
+
+  // A finished booking is not something to resume — returning starts a new one,
+  // keeping only the renter's own details so they need not retype them.
+  useEffect(() => {
+    if (!confirmed) return;
+    setConfirmed(false);
+    setReference('');
+    setStep(0);
+    setBikeId(paramBike ?? null);
+    setCategory(paramCategory);
+    setEngineCc(null);
+    setPickupDate('');
+    setDropoffDate('');
+    setChosenExtras([]);
+    setError('');
+    // location.key changes on every navigation, including to the same URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
 
   // Load the live fleet & extras once on mount; keep defaults on failure.
   useEffect(() => {
