@@ -27,6 +27,12 @@ export interface Bike {
   /** Daily rental rate in EUR. */
   pricePerDay: number;
   image: string;
+  /**
+   * CSS object-position for the card crop. The real photographs are phone
+   * shots where the vehicle is rarely dead centre, so each one names its own
+   * focal point; studio cutouts leave this unset and centre by default.
+   */
+  imagePosition?: string;
   features: string[];
 }
 
@@ -40,6 +46,7 @@ export const bikes: Bike[] = [
     category: 'Scooter',
     pricePerDay: 5,
     image: asset('/fleet/honda-dio.jpg'),
+    imagePosition: 'center 55%',
     features: [
       'Automatic — twist and go',
       'Low 765mm seat, petite to average riders',
@@ -53,6 +60,7 @@ export const bikes: Bike[] = [
     category: 'Scooter',
     pricePerDay: 5,
     image: asset('/fleet/honda-navi.jpg'),
+    imagePosition: '35% 55%',
     features: [
       'Automatic with a mini-bike look',
       'True motorcycle riding posture',
@@ -96,6 +104,7 @@ export const bikes: Bike[] = [
     category: 'Motorbike',
     pricePerDay: 10,
     image: asset('/fleet/bajaj-pulsar.jpg'),
+    imagePosition: 'center 50%',
     features: [
       'Manual transmission',
       'Perimeter frame, agile on mountain roads',
@@ -152,6 +161,7 @@ export const bikes: Bike[] = [
     category: 'Tuk Tuk',
     pricePerDay: 15,
     image: asset('/fleet/bajaj-re-tuktuk.jpg'),
+    imagePosition: '35% 60%',
     features: [
       'Manual transmission (handlebar clutch)',
       'Bench seats three adults',

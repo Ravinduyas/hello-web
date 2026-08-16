@@ -314,13 +314,22 @@ export default function FleetPage() {
                     >
                       {/* Transmission rides on the photo rather than taking a
                           line of its own above the title. */}
-                      <div className="relative aspect-[3/2] overflow-hidden bg-beige">
+                      {/* 5:4 rather than 3:2 — most of these are portrait phone
+                          photos, and a wide crop cut the vehicle in half. The
+                          beige ground matches the studio cutouts' backdrop so
+                          the two kinds of image sit together, and the standing
+                          scale trims the ragged edges those cutouts carry. */}
+                      <div className="relative aspect-[5/4] overflow-hidden bg-beige">
                         <img
                           src={bike.image}
                           alt={bike.title}
                           loading="lazy"
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          style={{ objectPosition: bike.imagePosition ?? 'center' }}
+                          className="w-full h-full object-cover scale-[1.04] transition-transform duration-500 group-hover:scale-110"
                         />
+                        {/* Hairline over the photo edge; without it a pale image
+                            bleeds into the white card body. */}
+                        <div className="absolute inset-0 ring-1 ring-inset ring-dark/10 pointer-events-none" />
                         <span className="absolute top-3 left-3 rounded-full bg-white/85 backdrop-blur-sm px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-dark/70">
                           {meta.transmission ?? bike.category}
                         </span>
