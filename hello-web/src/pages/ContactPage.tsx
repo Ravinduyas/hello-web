@@ -1,14 +1,45 @@
-import { MapPin, Phone, Mail, Clock, Navigation } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Navigation, MessageCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState } from 'react';
-import { CONTACT } from '../data/contact';
+import { CONTACT, whatsappLink } from '../data/contact';
 import { asset } from '../lib/asset';
 
+const SUBJECTS = ['Booking enquiry', 'Fleet question', 'Pickup location', 'Other'];
+
 export default function ContactPage() {
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    subject: SUBJECTS[0],
+    message: '',
+  });
   const [sent, setSent] = useState(false);
+
+  const set =
+    (key: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setForm(f => ({ ...f, [key]: e.target.value }));
+
+  /**
+   * There is no mail server behind this site, so the form hands the message to
+   * WhatsApp — where the shop actually answers — instead of pretending to send
+   * it. Everything typed is carried across, so nothing is retyped.
+   */
+  const composed = [
+    `Hi Hello Rent! ${form.subject}.`,
+    '',
+    `Name: ${[form.firstName, form.lastName].filter(Boolean).join(' ')}`,
+    form.email ? `Email: ${form.email}` : '',
+    '',
+    form.message,
+  ]
+    .filter(line => line !== '')
+    .join('\n');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    window.open(whatsappLink(composed), '_blank', 'noopener,noreferrer');
     setSent(true);
   }
 
@@ -48,10 +79,29 @@ export default function ContactPage() {
             {sent ? (
               <div className="flex flex-col items-center justify-center h-full py-16 text-center">
                 <div className="w-16 h-16 bg-brand/10 rounded-full flex items-center justify-center mb-6">
-                  <Mail className="w-8 h-8 text-brand" />
+                  <MessageCircle className="w-8 h-8 text-brand" />
                 </div>
-                <h3 className="font-display text-2xl font-bold mb-3">Message sent!</h3>
-                <p className="text-dark/60">We'll get back to you within 24 hours.</p>
+                <h3 className="font-display text-2xl font-bold mb-3">WhatsApp is open</h3>
+                {/* Only the handover is certain, so the wording claims no more
+                    than that — and the link covers a blocked pop-up. */}
+                <p className="text-dark/60 mb-6">
+                  Your message is waiting there — press send and we'll reply as soon as we see it.
+                </p>
+                <a
+                  href={whatsappLink(composed)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary"
+                >
+                  Open WhatsApp again
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setSent(false)}
+                  className="text-sm text-dark/45 hover:text-brand transition-colors mt-5"
+                >
+                  Back to the form
+                </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -62,6 +112,8 @@ export default function ContactPage() {
                     <input
                       type="text"
                       required
+                      value={form.firstName}
+                      onChange={set('firstName')}
                       placeholder="Sarah"
                       className="w-full bg-beige border border-dark/10 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-brand transition-colors"
                     />
@@ -71,6 +123,8 @@ export default function ContactPage() {
                     <input
                       type="text"
                       required
+                      value={form.lastName}
+                      onChange={set('lastName')}
                       placeholder="Johnson"
                       className="w-full bg-beige border border-dark/10 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-brand transition-colors"
                     />
@@ -80,18 +134,22 @@ export default function ContactPage() {
                   <label className="text-[10px] font-bold uppercase tracking-widest text-dark/40">Email</label>
                   <input
                     type="email"
-                    required
-                    placeholder="sarah@email.com"
+                    value={form.email}
+                    onChange={set('email')}
+                    placeholder="sarah@email.com (optional)"
                     className="w-full bg-beige border border-dark/10 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-brand transition-colors"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-dark/40">Subject</label>
-                  <select className="w-full bg-beige border border-dark/10 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-brand transition-colors appearance-none">
-                    <option>Booking enquiry</option>
-                    <option>Fleet question</option>
-                    <option>Pickup location</option>
-                    <option>Other</option>
+                  <select
+                    value={form.subject}
+                    onChange={set('subject')}
+                    className="w-full bg-beige border border-dark/10 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-brand transition-colors appearance-none"
+                  >
+                    {SUBJECTS.map(s => (
+                      <option key={s}>{s}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -99,12 +157,18 @@ export default function ContactPage() {
                   <textarea
                     required
                     rows={5}
+                    value={form.message}
+                    onChange={set('message')}
                     placeholder="Tell us what you need..."
                     className="w-full bg-beige border border-dark/10 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-brand transition-colors resize-none"
                   />
                 </div>
+                {/* Named for what it does — the message goes to WhatsApp, and
+                    a button saying "send" would imply an inbox that does not
+                    exist. */}
                 <button type="submit" className="btn-primary w-full justify-center">
-                  SEND MESSAGE
+                  <MessageCircle className="w-4 h-4" />
+                  SEND VIA WHATSAPP
                 </button>
               </form>
             )}

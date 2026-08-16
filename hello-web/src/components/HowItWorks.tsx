@@ -28,7 +28,7 @@ export default function HowItWorks() {
     },
     {
       num: '03',
-      title: 'Collect & Hit the Road',
+      title: 'Collect & Ride',
       description: (
         <>
           Show your booking, grab your helmet, and go. Our team will brief you on the best Sri
