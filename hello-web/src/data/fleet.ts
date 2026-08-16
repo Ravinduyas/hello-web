@@ -213,7 +213,7 @@ export const bikes: Bike[] = [
     title: 'Toyota Roomy',
     category: 'Car',
     pricePerDay: 31,
-    image: asset('/fleet/toyota-roomy.webp'),
+    image: asset('/fleet/toyota-roomy.jpg'),
     features: ['Automatic transmission', 'Air conditioned', 'High roof, tall cabin', 'Comfortable for families'],
   },
   {

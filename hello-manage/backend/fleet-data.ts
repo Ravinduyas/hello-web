@@ -196,7 +196,7 @@ export const FLEET_BIKES: SeedBike[] = [
     title: 'Toyota Roomy',
     category: 'Car',
     pricePerDay: 31,
-    image: '/fleet/toyota-roomy.webp',
+    image: '/fleet/toyota-roomy.jpg',
     features: ['Automatic transmission', 'Air conditioned', 'High roof, tall cabin', 'Comfortable for families'],
     sortOrder: 11,
   },
