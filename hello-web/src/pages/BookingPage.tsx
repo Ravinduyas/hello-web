@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { bikes as defaultBikes, extras as defaultExtras, formatPrice, shopLocation, type Bike, type Extra } from '../data/fleet';
+import { bikes as defaultBikes, extras as defaultExtras, formatPrice, shopLocation, summariseCategories, type Bike, type Extra } from '../data/fleet';
 import { getSpec, type VehicleSpec } from '../data/specs';
 import { createBooking, fetchExtras, fetchBikes } from '../lib/api';
 
@@ -323,9 +323,17 @@ export default function BookingPage() {
                     selected={bikeId}
                     onSelect={setBikeId}
                     category={category}
+                    onPickCategory={c => {
+                      setCategory(c);
+                      setEngineCc(null);
+                      setBikeId(null);
+                    }}
                     onClearCategory={() => {
+                      // Back to the class cards, so the selection goes too —
+                      // a Dio cannot stay picked while you browse motorbikes.
                       setCategory(null);
                       setEngineCc(null);
+                      setBikeId(null);
                     }}
                     engineCc={engineCc}
                     onPickCapacity={setEngineCc}
@@ -547,6 +555,7 @@ function StepRide({
   onSelect,
   category,
   onClearCategory,
+  onPickCategory,
   engineCc,
   onPickCapacity,
 }: {
@@ -555,6 +564,7 @@ function StepRide({
   onSelect: (id: string) => void;
   category: string | null;
   onClearCategory: () => void;
+  onPickCategory: (category: string) => void;
   engineCc: number | null;
   onPickCapacity: (cc: number | null) => void;
 }) {
@@ -563,6 +573,52 @@ function StepRide({
   // them. Everything stays reachable via the clear button.
   const shown = category ? bikes.filter(b => b.category === category) : bikes;
   const inCategory = shown.length ? shown : bikes;
+
+  // Nothing chosen yet: open on the classes, the same four cards the fleet page
+  // shows, rather than dropping someone straight into fifteen named vehicles.
+  // A vehicle arriving by link skips this — it has already been chosen.
+  if (!category && !selected) {
+    const summaries = summariseCategories(bikes);
+    return (
+      <div>
+        <h2 className="font-display text-2xl font-bold">What would you like to ride?</h2>
+        <p className="text-dark/50 text-sm">Pick a class, then the vehicle. Every one comes with a helmet.</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+          {summaries.map(cat => (
+            <button
+              key={cat.category}
+              type="button"
+              onClick={() => onPickCategory(cat.category)}
+              className="group relative block h-56 rounded-2xl overflow-hidden text-left border-2 border-transparent hover:border-brand transition-all"
+            >
+              <img
+                src={cat.image}
+                alt={cat.meta.label}
+                loading="lazy"
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-dark/85 via-dark/30 to-dark/10" />
+
+              {cat.meta.transmission && (
+                <span className="absolute top-4 left-4 eyebrow !text-white/70">{cat.meta.transmission}</span>
+              )}
+
+              <div className="absolute inset-x-0 bottom-0 p-5 text-beige">
+                <h3 className="display-xl text-2xl">{cat.meta.label}</h3>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-beige/20">
+                  <span className="font-display text-sm font-bold">From {formatPrice(cat.from)} / day</span>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide group-hover:gap-2.5 transition-all">
+                    Choose <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   // Scooters are chosen by engine capacity before model — that is how the
   // price list is written (110cc €5, 125cc €6). The chooser appears only when
@@ -599,7 +655,7 @@ function StepRide({
                 onClick={onClearCategory}
                 className="text-sm text-brand font-medium hover:underline"
               >
-                Show all
+                Change class
               </button>
               {showCapacities && <span className="w-px h-5 bg-dark/15 mx-1.5" aria-hidden="true" />}
             </>

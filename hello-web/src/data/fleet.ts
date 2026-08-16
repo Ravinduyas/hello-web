@@ -238,6 +238,28 @@ export const bikes: Bike[] = [
 export const getBike = (id: string | null | undefined) =>
   bikes.find(b => b.id === id);
 
+/** Easiest to ride first; anything the admin adds later lands at the end. */
+export const CATEGORY_ORDER = ['Scooter', 'Motorbike', 'Tuk Tuk', 'Car'];
+
+export const orderOf = (category: string) => {
+  const i = CATEGORY_ORDER.indexOf(category);
+  return i === -1 ? CATEGORY_ORDER.length : i;
+};
+
+/**
+ * One representative photograph per class, rather than whichever vehicle sorts
+ * first — the tuk-tuk reads far better under the shop sign than cropped to a
+ * card, and the Hiace is the only car that also reads as a van.
+ *
+ * Shared so the fleet page and the booking step show a class the same way.
+ */
+export const categoryImage: Record<string, string> = {
+  Scooter: asset('/ntorq-front.jpg'),
+  Motorbike: asset('/fleet/bajaj-pulsar.jpg'),
+  'Tuk Tuk': asset('/fleet/bajaj-re-tuktuk.jpg'),
+  Car: asset('/fleet/toyota-kdh.jpg'),
+};
+
 /* ------------------------------------------------------------------ */
 /*  How each class is presented                                        */
 /* ------------------------------------------------------------------ */
@@ -338,3 +360,23 @@ export const extras: Extra[] = [
     perDay: false,
   },
 ];
+
+/**
+ * Each class present in a fleet, in riding order, with its headline rate.
+ * Declared after getCategoryMeta, which it calls.
+ */
+export function summariseCategories(list: Bike[]) {
+  return Array.from(new Set(list.map(b => b.category)))
+    .sort((a, b) => orderOf(a) - orderOf(b))
+    .map(category => {
+      const items = list.filter(b => b.category === category);
+      return {
+        category,
+        meta: getCategoryMeta(category),
+        from: Math.min(...items.map(b => b.pricePerDay)),
+        image: categoryImage[category] ?? items[0]?.image,
+        count: items.length,
+      };
+    })
+    .filter(summary => summary.count > 0);
+}

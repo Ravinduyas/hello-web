@@ -2,30 +2,9 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, Route } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { bikes as defaultBikes, formatPrice, getCategoryMeta, type Bike } from '../data/fleet';
+import { bikes as defaultBikes, formatPrice, summariseCategories, type Bike } from '../data/fleet';
 import { asset } from '../lib/asset';
 import { fetchBikes } from '../lib/api';
-
-// Easiest to ride first; anything the admin adds later lands at the end.
-const CATEGORY_ORDER = ['Scooter', 'Motorbike', 'Tuk Tuk', 'Car'];
-const orderOf = (category: string) => {
-  const i = CATEGORY_ORDER.indexOf(category);
-  return i === -1 ? CATEGORY_ORDER.length : i;
-};
-
-/**
- * One representative photograph per class, rather than whichever vehicle sorts
- * first — the cars have no photograph at all, and the tuk-tuk reads far better
- * under the shop sign than cropped to a card.
- */
-const CATEGORY_IMAGE: Record<string, string> = {
-  Scooter: asset('/ntorq-front.jpg'),
-  Motorbike: asset('/fleet/bajaj-pulsar.jpg'),
-  'Tuk Tuk': asset('/fleet/bajaj-re-tuktuk.jpg'),
-  // The Hiace stands for the class: it is the only one of the six that reads
-  // as a van as well as a car, and the shot is tall enough to crop.
-  Car: asset('/fleet/toyota-kdh.jpg'),
-};
 
 // Lucky's own advice: for a trip around the whole island, take exactly one of
 // these three rather than choosing on looks.
@@ -92,22 +71,9 @@ export default function FleetPage() {
 
   // The page presents the four vehicle types rather than every named model —
   // a visitor picks the kind of ride here and the exact vehicle at booking.
-  // Categories come from the fleet itself (admin-managed), easiest to ride
-  // first, so adding one in the admin adds a card here.
-  const summaries = Array.from(new Set(bikes.map(b => b.category)))
-    .sort((a, b) => orderOf(a) - orderOf(b))
-    .map(category => {
-      const items = bikes.filter(b => b.category === category);
-      return {
-        category,
-        meta: getCategoryMeta(category),
-        // The headline rate is the cheapest way into the class.
-        from: Math.min(...items.map(b => b.pricePerDay)),
-        image: CATEGORY_IMAGE[category] ?? items[0]?.image,
-        count: items.length,
-      };
-    })
-    .filter(summary => summary.count > 0);
+  // Categories come from the fleet itself (admin-managed), so adding one in
+  // the admin adds a card here.
+  const summaries = summariseCategories(bikes);
 
   return (
     <div className="bg-beige min-h-screen">
