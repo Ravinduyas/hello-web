@@ -271,8 +271,9 @@ export default function BookingPage() {
     // Deliberately tight above the fold. The job of this page is picking a
     // vehicle, so the masthead and step rail give up their height to get the
     // cards into view without scrolling for them.
-    // No navbar on this route, so no clearance to leave for one.
-    <div className="bg-beige min-h-screen pt-8 md:pt-10 pb-16 px-6">
+    // No navbar on this route, so no clearance to leave for one. The bottom
+    // padding clears the standing summary bar instead, which is fixed.
+    <div className="bg-beige min-h-screen pt-8 md:pt-10 pb-28 px-6">
       <div className="max-w-7xl mx-auto">
         <header className="mb-5">
           {/* The only way back out, since the site nav is hidden here. */}
@@ -385,20 +386,6 @@ export default function BookingPage() {
                 <ArrowLeft className="w-4 h-4" /> Back
               </button>
 
-              {/* The running total rides with the button that commits to it —
-                  the summary panel is gone, and nobody should reach "Confirm
-                  booking" without seeing what they are agreeing to pay. */}
-              {summary.total > 0 && (
-                <div className="flex items-baseline gap-2 ml-auto mr-4">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-dark/40">
-                    Total
-                  </span>
-                  <span className="font-display text-xl font-black text-brand tabular-nums">
-                    {formatPrice(summary.total)}
-                  </span>
-                </div>
-              )}
-
               <button
                 type="button"
                 onClick={next}
@@ -417,6 +404,15 @@ export default function BookingPage() {
 
         </div>
       </div>
+
+      <BookingBar
+        bike={bike}
+        days={days}
+        pickupDate={pickupDate}
+        dropoffDate={dropoffDate}
+        extrasCount={chosenExtras.length}
+        total={summary.total}
+      />
     </div>
   );
 }
@@ -1029,6 +1025,77 @@ function Row({ icon: Icon, label, value }: { icon: typeof MapPin; label: string;
       <div className="flex-1">
         <p className="text-[10px] font-bold uppercase tracking-widest text-dark/40">{label}</p>
         <p className="font-medium text-sm">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Standing summary bar                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A thin bar pinned to the foot of the booking, carrying what has been chosen
+ * so far and what it comes to.
+ *
+ * It replaces the old sidebar panel: the same information, but it costs a
+ * strip rather than a column, and it stays in view on a phone where the
+ * sidebar sat below the fold. Nothing is shown until there is something to
+ * show, so the first step is not framed by an empty bar.
+ */
+function BookingBar({
+  bike,
+  days,
+  pickupDate,
+  dropoffDate,
+  extrasCount,
+  total,
+}: {
+  bike: Bike | undefined;
+  days: number;
+  pickupDate: string;
+  dropoffDate: string;
+  extrasCount: number;
+  total: number;
+}) {
+  if (!bike && total === 0) return null;
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-40 bg-dark text-beige border-t border-beige/10">
+      <div className="max-w-7xl mx-auto px-6 py-2.5 flex items-center gap-4">
+        {bike && (
+          <div className="flex items-center gap-2.5 min-w-0">
+            <img
+              src={bike.image}
+              alt=""
+              style={{ objectPosition: bike.imagePosition ?? 'center' }}
+              className="w-10 h-8 object-cover rounded shrink-0"
+            />
+            <span className="font-bold text-sm truncate">{bike.title}</span>
+          </div>
+        )}
+
+        {/* Middle facts collapse away on a phone, where the bar has room for
+            the vehicle and the total and little else. */}
+        <div className="hidden sm:flex items-center gap-4 text-xs text-beige/55 min-w-0">
+          {days > 0 && (
+            <span className="whitespace-nowrap">
+              {longDate(pickupDate)} → {longDate(dropoffDate)} · {days} day{days > 1 ? 's' : ''}
+            </span>
+          )}
+          {extrasCount > 0 && (
+            <span className="whitespace-nowrap">
+              {extrasCount} extra{extrasCount > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-baseline gap-2 ml-auto shrink-0">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-beige/40">Total</span>
+          <span className="font-display text-xl font-black text-brand tabular-nums">
+            {formatPrice(total)}
+          </span>
+        </div>
       </div>
     </div>
   );
