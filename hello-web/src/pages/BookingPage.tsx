@@ -207,15 +207,18 @@ export default function BookingPage() {
   /*  Wizard                                                          */
   /* ---------------------------------------------------------------- */
   return (
-    <div className="bg-beige min-h-screen pt-28 md:pt-36 pb-24 px-6">
+    // Deliberately tight above the fold. The job of this page is picking a
+    // vehicle, so the masthead and step rail give up their height to get the
+    // cards into view without scrolling for them.
+    <div className="bg-beige min-h-screen pt-24 md:pt-28 pb-16 px-6">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-10">
+        <header className="mb-5">
           <span className="eyebrow">[ Book your ride ]</span>
-          <h1 className="display-xl text-4xl md:text-6xl mt-3">Reserve in a few taps</h1>
+          <h1 className="display-xl text-3xl md:text-4xl mt-2">Reserve in a few taps</h1>
         </header>
 
         {/* Step indicator */}
-        <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-10">
+        <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-6">
           {STEPS.map((label, i) => (
             <li key={label} className="flex items-center gap-3">
               <button
@@ -319,7 +322,7 @@ export default function BookingPage() {
           </div>
 
           {/* ---- Live summary ---- */}
-          <aside className="bg-dark text-beige rounded-3xl p-6 md:p-8 lg:sticky lg:top-28">
+          <aside className="bg-dark text-beige rounded-3xl p-6 md:p-8 lg:sticky lg:top-24">
             <h2 className="font-display text-lg font-bold mb-5 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-brand" /> Booking summary
             </h2>
@@ -420,51 +423,49 @@ function StepRide({
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-bold mb-1">Choose your ride</h2>
-      <p className="text-dark/50 text-sm mb-6">Every bike comes with a helmet and 24/7 roadside support.</p>
+      <h2 className="font-display text-2xl font-bold">Choose your ride</h2>
+      <p className="text-dark/50 text-sm">Every bike comes with a helmet and 24/7 roadside support.</p>
 
-      {category && shown.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          <span className="px-4 py-1.5 rounded-full bg-dark text-beige text-xs font-bold uppercase tracking-widest">
-            {category}
-          </span>
-          <button
-            type="button"
-            onClick={onClearCategory}
-            className="text-sm text-brand font-medium hover:underline"
-          >
-            Show every vehicle
-          </button>
-        </div>
-      )}
-
-      {showCapacities && (
-        <div className="mb-6">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-dark/40 mb-3">
-            Engine size
-          </p>
-          <div className="flex flex-wrap gap-3">
-            {capacities.map(cc => (
+      {/* Class and engine size share one strip rather than stacking two
+          labelled blocks — it saves a screenful before the cards. */}
+      {(showCapacities || (category && shown.length > 0)) && (
+        <div className="flex flex-wrap items-center gap-2 mt-4 mb-5">
+          {category && shown.length > 0 && (
+            <>
+              <span className="px-3.5 py-1.5 rounded-full bg-dark text-beige text-[11px] font-bold uppercase tracking-widest">
+                {category}
+              </span>
               <button
-                key={cc}
                 type="button"
-                onClick={() => onPickCapacity(engineCc === cc ? null : cc)}
-                aria-pressed={engineCc === cc}
-                className={`px-5 py-2.5 rounded-2xl border-2 text-left transition-all ${
-                  engineCc === cc
-                    ? 'border-brand bg-brand/5'
-                    : 'border-dark/10 hover:border-dark/30'
-                }`}
+                onClick={onClearCategory}
+                className="text-sm text-brand font-medium hover:underline"
               >
-                <span className="font-display font-bold block leading-tight">{cc}cc</span>
-                <span className="text-xs text-dark/50">{formatPrice(rateAt(cc))} / day</span>
+                Show all
               </button>
-            ))}
-          </div>
+              {showCapacities && <span className="w-px h-5 bg-dark/15 mx-1.5" aria-hidden="true" />}
+            </>
+          )}
+
+          {capacities.map(cc => (
+            <button
+              key={cc}
+              type="button"
+              onClick={() => onPickCapacity(engineCc === cc ? null : cc)}
+              aria-pressed={engineCc === cc}
+              className={`px-3.5 py-1.5 rounded-full border text-[11px] font-bold uppercase tracking-widest transition-all ${
+                engineCc === cc
+                  ? 'border-brand bg-brand text-beige'
+                  : 'border-dark/15 text-dark hover:border-dark/40'
+              }`}
+            >
+              {cc}cc · {formatPrice(rateAt(cc))}
+            </button>
+          ))}
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Three across from lg so the whole class is visible at once. */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {visible.map(b => {
           const active = b.id === selected;
           return (
@@ -476,8 +477,14 @@ function StepRide({
                 active ? 'border-brand shadow-md' : 'border-dark/10 hover:border-dark/30'
               }`}
             >
-              <div className="relative aspect-[16/10] overflow-hidden">
-                <img src={b.image} alt={b.title} loading="lazy" className="w-full h-full object-cover" />
+              <div className="relative aspect-[3/2] overflow-hidden bg-beige">
+                <img
+                  src={b.image}
+                  alt={b.title}
+                  loading="lazy"
+                  style={{ objectPosition: b.imagePosition ?? 'center' }}
+                  className="w-full h-full object-cover"
+                />
                 {active && (
                   <span className="absolute top-3 right-3 w-7 h-7 bg-brand rounded-full flex items-center justify-center">
                     <Check className="w-4 h-4 text-white" />
