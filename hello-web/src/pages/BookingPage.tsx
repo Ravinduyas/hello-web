@@ -11,6 +11,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { bikes as defaultBikes, extras as defaultExtras, formatPrice, shopLocation, type Bike, type Extra } from '../data/fleet';
+import { getSpec, type VehicleSpec } from '../data/specs';
 import { createBooking, fetchExtras, fetchBikes } from '../lib/api';
 
 /* ------------------------------------------------------------------ */
@@ -354,6 +355,23 @@ export default function BookingPage() {
 /*  Step 1 — choose a ride                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The three attributes every ride card compares on, in a fixed order.
+ *
+ * Character and best-for come straight off the comparison sheet; storage is
+ * read out of the spec rows by label, because it is the one figure that
+ * separates otherwise similar scooters and the sheets do not all carry the
+ * same fields.
+ */
+const specRow = (spec: VehicleSpec | undefined, label: string) =>
+  spec?.specs.find(s => s.label === label)?.value;
+
+const COMPARE_ROWS: { label: string; read: (spec: VehicleSpec | undefined) => string | undefined }[] = [
+  { label: 'Character', read: spec => spec?.headline },
+  { label: 'Best for', read: spec => spec?.bestFor },
+  { label: 'Storage', read: spec => specRow(spec, 'Storage') },
+];
+
 function StepRide({
   bikes,
   selected,
@@ -413,12 +431,35 @@ function StepRide({
                   </span>
                 )}
               </div>
-              <div className="p-4 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-brand uppercase tracking-widest">{b.category}</span>
-                  <p className="font-display font-bold">{b.title}</p>
-                </div>
-                <span className="font-display text-lg font-black text-brand">{formatPrice(b.pricePerDay)}</span>
+              <div className="p-4">
+                <span className="text-[10px] font-bold text-brand uppercase tracking-widest">{b.category}</span>
+                <p className="font-display font-bold leading-tight">{b.title}</p>
+
+                {/* The same rows in the same order on every card, so the eye
+                    can compare straight down the column. Cars carry no spec
+                    sheet, so they fall back to their own features rather than
+                    showing a column of dashes. */}
+                {getSpec(b.id) ? (
+                  <dl className="mt-3 pt-3 border-t border-dark/10 space-y-1.5">
+                    {COMPARE_ROWS.map(({ label, read }) => (
+                      <div key={label} className="flex gap-3 text-xs leading-snug">
+                        <dt className="w-20 shrink-0 text-dark/40 uppercase tracking-widest text-[10px] font-bold pt-px">
+                          {label}
+                        </dt>
+                        <dd className="text-dark/70">{read(getSpec(b.id)) ?? '—'}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <ul className="mt-3 pt-3 border-t border-dark/10 space-y-1.5">
+                    {b.features.slice(0, 3).map(f => (
+                      <li key={f} className="flex gap-2 text-xs text-dark/70 leading-snug">
+                        <span className="w-1 h-1 mt-1.5 rounded-full bg-brand shrink-0" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </button>
           );
