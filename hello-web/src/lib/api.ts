@@ -1,5 +1,6 @@
 /** Public booking API client. Talks to the Hello Manage backend. */
-import type { Bike } from '../data/fleet';
+import { bikes as localBikes, type Bike } from '../data/fleet';
+import { asset } from './asset';
 
 // In dev this is '' and the Vite proxy forwards /api to the backend.
 // In production set VITE_API_BASE to the backend origin (CORS is enabled there).
@@ -47,11 +48,40 @@ export async function fetchExtras(): Promise<Extra[]> {
   return res.json();
 }
 
-/** Active fleet bikes, managed from the admin (Hello Manage). */
+/**
+ * Active fleet bikes, managed from the admin (Hello Manage).
+ *
+ * The admin owns inventory, pricing, titles and photographs. Two things it has
+ * no column for get merged back in from `fleet.ts` by id: the engine capacity
+ * the booking step groups scooters by, and the card crop focal point. Without
+ * this the API silently strips both, and the capacity chooser disappears the
+ * moment the backend is reachable.
+ */
 export async function fetchBikes(): Promise<Bike[]> {
   const res = await fetch(`${API_BASE}/api/bikes`);
   if (!res.ok) throw new Error(await parseError(res));
-  return res.json() as Promise<Bike[]>;
+  const list = (await res.json()) as Bike[];
+
+  const localById = new Map(localBikes.map(b => [b.id, b]));
+  return list.map(bike => {
+    const local = localById.get(bike.id);
+    return {
+      ...bike,
+      image: resolveImage(bike.image),
+      engineCc: bike.engineCc ?? local?.engineCc,
+      imagePosition: bike.imagePosition ?? local?.imagePosition,
+    };
+  });
+}
+
+/**
+ * The admin stores image paths from the site root ("/fleet/dio.png"), but the
+ * site is served from a sub-path on GitHub Pages — so those would 404. Rewrite
+ * anything root-relative through the base; leave absolute URLs alone.
+ */
+function resolveImage(image: string): string {
+  if (!image || /^https?:\/\//i.test(image) || image.startsWith('data:')) return image;
+  return asset(image);
 }
 
 /** Create a booking. Returns the server-issued reference. */
