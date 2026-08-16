@@ -118,7 +118,7 @@ export const FLEET_BIKES: SeedBike[] = [
     title: 'Yamaha FZ 160',
     category: 'Motorbike',
     pricePerDay: 10,
-    image: '/fleet/placeholder-motorbike.svg',
+    image: '/fleet/yamaha-fz.jpg',
     features: [
       'Manual transmission',
       'Fuel injection',

@@ -129,7 +129,7 @@ export const bikes: Bike[] = [
     title: 'Yamaha FZ 160',
     category: 'Motorbike',
     pricePerDay: 10,
-    image: asset('/fleet/placeholder-motorbike.svg'),
+    image: asset('/fleet/yamaha-fz.jpg'),
     features: [
       'Manual transmission',
       'Fuel injection',
