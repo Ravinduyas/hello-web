@@ -52,6 +52,8 @@ export default function BookingPage() {
   const [bikeId, setBikeId] = useState<string | null>(params.get('bike'));
   // Set when the visitor arrives from a category card rather than a vehicle.
   const [category, setCategory] = useState<string | null>(params.get('category'));
+  // Narrows a class by engine size before model — scooters are 110cc or 125cc.
+  const [engineCc, setEngineCc] = useState<number | null>(null);
   const [pickupDate, setPickupDate] = useState('');
   const [dropoffDate, setDropoffDate] = useState('');
   // Fleet & extras come from the admin-managed API; fall back to bundled defaults if it's unreachable.
@@ -255,7 +257,12 @@ export default function BookingPage() {
                     selected={bikeId}
                     onSelect={setBikeId}
                     category={category}
-                    onClearCategory={() => setCategory(null)}
+                    onClearCategory={() => {
+                      setCategory(null);
+                      setEngineCc(null);
+                    }}
+                    engineCc={engineCc}
+                    onPickCapacity={setEngineCc}
                   />
                 )}
 
@@ -378,18 +385,38 @@ function StepRide({
   onSelect,
   category,
   onClearCategory,
+  engineCc,
+  onPickCapacity,
 }: {
   bikes: Bike[];
   selected: string | null;
   onSelect: (id: string) => void;
   category: string | null;
   onClearCategory: () => void;
+  engineCc: number | null;
+  onPickCapacity: (cc: number | null) => void;
 }) {
   // Arriving from a category card on the fleet page shows just that class;
   // the fleet page no longer lists models, so this is where a visitor meets
   // them. Everything stays reachable via the clear button.
   const shown = category ? bikes.filter(b => b.category === category) : bikes;
-  const visible = shown.length ? shown : bikes;
+  const inCategory = shown.length ? shown : bikes;
+
+  // Scooters are chosen by engine capacity before model — that is how the
+  // price list is written (110cc €5, 125cc €6). The chooser appears only when
+  // the class actually spans more than one capacity, so it never shows up for
+  // cars or the tuk-tuk.
+  const capacities = Array.from(
+    new Set(inCategory.map(b => b.engineCc).filter((cc): cc is number => typeof cc === 'number')),
+  ).sort((a, b) => a - b);
+  const showCapacities = capacities.length > 1;
+
+  const visible =
+    showCapacities && engineCc ? inCategory.filter(b => b.engineCc === engineCc) : inCategory;
+
+  // The cheapest rate at a given capacity, for the chooser's label.
+  const rateAt = (cc: number) =>
+    Math.min(...inCategory.filter(b => b.engineCc === cc).map(b => b.pricePerDay));
 
   return (
     <div>
@@ -408,6 +435,32 @@ function StepRide({
           >
             Show every vehicle
           </button>
+        </div>
+      )}
+
+      {showCapacities && (
+        <div className="mb-6">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-dark/40 mb-3">
+            Engine size
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {capacities.map(cc => (
+              <button
+                key={cc}
+                type="button"
+                onClick={() => onPickCapacity(engineCc === cc ? null : cc)}
+                aria-pressed={engineCc === cc}
+                className={`px-5 py-2.5 rounded-2xl border-2 text-left transition-all ${
+                  engineCc === cc
+                    ? 'border-brand bg-brand/5'
+                    : 'border-dark/10 hover:border-dark/30'
+                }`}
+              >
+                <span className="font-display font-bold block leading-tight">{cc}cc</span>
+                <span className="text-xs text-dark/50">{formatPrice(rateAt(cc))} / day</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

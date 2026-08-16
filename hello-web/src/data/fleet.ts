@@ -33,6 +33,13 @@ export interface Bike {
    * focal point; studio cutouts leave this unset and centre by default.
    */
   imagePosition?: string;
+  /**
+   * Engine capacity in cc. Set where the class is chosen by capacity — the
+   * scooters, which the owner's price list groups as 110cc at €5 and 125cc at
+   * €6. Left unset elsewhere, and the capacity chooser only appears for a
+   * class whose vehicles carry more than one value.
+   */
+  engineCc?: number;
   features: string[];
 }
 
@@ -47,6 +54,7 @@ export const bikes: Bike[] = [
     pricePerDay: 5,
     image: asset('/fleet/honda-dio.jpg'),
     imagePosition: 'center 55%',
+    engineCc: 110,
     features: [
       'Automatic — twist and go',
       'Low 765mm seat, petite to average riders',
@@ -61,6 +69,7 @@ export const bikes: Bike[] = [
     pricePerDay: 5,
     image: asset('/fleet/honda-navi.jpg'),
     imagePosition: '35% 55%',
+    engineCc: 110,
     features: [
       'Automatic with a mini-bike look',
       'True motorcycle riding posture',
@@ -74,6 +83,7 @@ export const bikes: Bike[] = [
     category: 'Scooter',
     pricePerDay: 5,
     image: asset('/fleet/placeholder-scooter.svg'),
+    engineCc: 110,
     features: [
       'Automatic hybrid engine',
       'Lightest in the fleet at 99kg',
@@ -87,6 +97,7 @@ export const bikes: Bike[] = [
     category: 'Scooter',
     pricePerDay: 6,
     image: asset('/fleet/tvs-ntorq.jpg'),
+    engineCc: 125,
     features: [
       '124.8cc, the most powerful scooter we rent',
       'Best for average to tall riders',
