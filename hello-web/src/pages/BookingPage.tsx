@@ -224,7 +224,7 @@ export default function BookingPage() {
   /* ---------------------------------------------------------------- */
   if (confirmed) {
     return (
-      <div className="bg-beige min-h-screen pt-28 md:pt-36 pb-24 px-6">
+      <div className="bg-beige min-h-screen pt-10 md:pt-16 pb-24 px-6">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
@@ -271,14 +271,22 @@ export default function BookingPage() {
     // Deliberately tight above the fold. The job of this page is picking a
     // vehicle, so the masthead and step rail give up their height to get the
     // cards into view without scrolling for them.
-    // pt clears the floating navbar — trimming it further ran the masthead
-    // underneath. max-w-7xl matches the rest of the site and keeps the side
-    // margins narrow instead of banding the page with empty beige.
-    <div className="bg-beige min-h-screen pt-28 md:pt-32 pb-16 px-6">
+    // No navbar on this route, so no clearance to leave for one.
+    <div className="bg-beige min-h-screen pt-8 md:pt-10 pb-16 px-6">
       <div className="max-w-7xl mx-auto">
         <header className="mb-5">
-          <span className="eyebrow">[ Book your ride ]</span>
-          <h1 className="display-xl text-3xl md:text-4xl mt-2">Reserve in a few taps</h1>
+          {/* The only way back out, since the site nav is hidden here. */}
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-sm text-dark/50 hover:text-brand transition-colors mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="font-display font-bold tracking-tight">Hello Rent</span>
+          </Link>
+          <div>
+            <span className="eyebrow">[ Book your ride ]</span>
+            <h1 className="display-xl text-3xl md:text-4xl mt-2">Reserve in a few taps</h1>
+          </div>
         </header>
 
         {/* Step indicator */}
