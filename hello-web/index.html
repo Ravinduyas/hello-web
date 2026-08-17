@@ -11,6 +11,16 @@
     <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%favicon-180.png" />
     <meta name="theme-color" content="#B0764F" />
+
+    <!-- Fetched in parallel with the stylesheet rather than after it, and
+         preconnected so the TLS handshake is already done when the request
+         goes out. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+    />
   </head>
   <body>
     <div id="root"></div>

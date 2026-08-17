@@ -1,4 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+/* The webfonts are linked from index.html, not imported here. An @import
+   inside the bundle is serial — the browser must fetch this stylesheet, parse
+   it, and only then discover the fonts — and it makes the whole bundle depend
+   on a third party being reachable. */
 @import "tailwindcss";
 
 @theme {
