@@ -111,7 +111,9 @@ export default function FleetPage() {
             >
               <Link
                 to={`/book?category=${encodeURIComponent(cat.category)}`}
-                aria-label={`Rent ${cat.meta.label}`}
+                target="_blank"
+                rel="noopener"
+                aria-label={`Rent ${cat.meta.label} — opens in a new tab`}
                 className="group relative block h-[440px] lg:h-[500px] rounded-3xl overflow-hidden"
               >
                 <img

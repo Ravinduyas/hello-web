@@ -321,6 +321,8 @@ export default function DrivingPermitPage() {
                 </a>
                 <Link
                   to="/book"
+                  target="_blank"
+                  rel="noopener"
                   className="inline-flex items-center justify-center gap-2 border border-beige/30 text-beige px-6 py-3 rounded-full text-sm font-medium hover:bg-beige hover:text-dark transition-all group"
                 >
                   Add it to a booking

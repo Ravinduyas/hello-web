@@ -154,7 +154,7 @@ export default function Services() {
 
         <p className="text-sm text-dark/50 leading-relaxed mt-10">
           Add any of these to your booking, or just ask us —{' '}
-          <Link to="/book" className="text-brand font-medium hover:underline">
+          <Link to="/book" target="_blank" rel="noopener" className="text-brand font-medium hover:underline">
             start a booking
           </Link>
           .
