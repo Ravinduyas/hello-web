@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Save, RefreshCw, X, Check, ChevronDown, ChevronRight, Tag, LayoutGrid, List, Pencil } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { money } from '../lib/money';
 import {
   fetchBikes,
   createBike,
@@ -815,7 +816,7 @@ function BikeFields({
           <CategorySelect value={draft.category} categories={categories} onChange={v => setDraft({ ...draft, category: v })} />
         </div>
         <label className="md:col-span-3 space-y-2 block">
-          <span className="label">Price / day ($)</span>
+          <span className="label">Price / day (€)</span>
           <input
             type="number"
             min={0}

@@ -149,7 +149,7 @@ function AddExtra({ onCreate }: { onCreate: (input: ExtraInput) => Promise<void>
       </div>
       <div className="grid grid-cols-2 gap-4 items-end">
         <div className="space-y-2">
-          <span className="label">Price ($)</span>
+          <span className="label">Price (€)</span>
           <input
             type="number"
             min={0}
@@ -229,7 +229,7 @@ function ExtraRow({
           <input className="input" value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} />
         </div>
         <div className="md:col-span-2 space-y-2">
-          <span className="label">Price ($)</span>
+          <span className="label">Price (€)</span>
           <input
             type="number"
             min={0}

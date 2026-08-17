@@ -18,8 +18,8 @@ import {
   type Booking,
 } from '../lib/api';
 import { ownerCommission } from '../lib/commission';
+import { money } from '../lib/money';
 
-const money = (n: number) => `$${n.toFixed(2).replace(/\.00$/, '')}`;
 
 const unitStatusChip: Record<UnitStatus, string> = {
   available: 'bg-emerald-100 text-emerald-800',
@@ -345,7 +345,7 @@ function OwnerFields({ draft, setDraft }: { draft: OwnerInput; setDraft: (d: Own
           />
         </label>
         <label className="space-y-2 block">
-          <span className="label">Flat per rental ($)</span>
+          <span className="label">Flat per rental (€)</span>
           <input
             type="number"
             min={0}

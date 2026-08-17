@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Check, Bike as BikeIcon, Calendar, Store, RefreshCw, ArrowRight } from 'lucide-react';
+import { money } from '../lib/money';
 import {
   fetchBikes,
   fetchUnits,
@@ -292,11 +293,11 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
             <Section title="Payment & deposit" step={5} hint="Optional">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-2">
-                  <span className="label">Amount paid now ($)</span>
+                  <span className="label">Amount paid now (€)</span>
                   <input type="number" min={0} step="0.5" className="input" placeholder="0" value={paidNow} onChange={e => setPaidNow(e.target.value)} />
                 </label>
                 <label className="block space-y-2">
-                  <span className="label">Security deposit ($)</span>
+                  <span className="label">Security deposit (€)</span>
                   <input type="number" min={0} step="0.5" className="input" placeholder="0" value={deposit} onChange={e => setDeposit(e.target.value)} />
                 </label>
               </div>
