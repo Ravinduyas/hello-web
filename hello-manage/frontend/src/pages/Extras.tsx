@@ -209,7 +209,14 @@ function ExtraRow({
   }
 
   return (
-    <div className={`bg-white rounded-2xl p-5 md:p-6 transition-opacity ${draft.active ? '' : 'opacity-60'}`}>
+    // Dimmed by what is saved, not what is typed. Dimming on the draft made an
+    // unsaved toggle look identical to a saved one — the card faded, the change
+    // was never written, and the extra kept showing on the website.
+    <div
+      className={`bg-white rounded-2xl p-5 md:p-6 transition-opacity ${extra.active ? '' : 'opacity-60'} ${
+        dirty ? 'ring-2 ring-brand/60' : ''
+      }`}
+    >
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
         <div className="md:col-span-3 space-y-2">
           <span className="label flex items-center gap-1">
@@ -248,6 +255,15 @@ function ExtraRow({
           {draft.active ? 'Active' : 'Inactive'}
         </button>
         <span className="text-xs text-dark/40 font-mono">{extra.id}</span>
+
+        {/* Nothing reaches the website until Save is pressed, so say so rather
+            than letting the toggle imply it already has. */}
+        {dirty && (
+          <span className="text-xs font-bold text-brand inline-flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand" />
+            Unsaved — press Save to apply
+          </span>
+        )}
 
         <div className="ml-auto flex gap-2">
           <button
