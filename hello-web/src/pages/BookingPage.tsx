@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { bikes as defaultBikes, extras as defaultExtras, formatPrice, shopLocation, summariseCategories, type Bike, type Extra } from '../data/fleet';
+import { bikes as defaultBikes, extras as defaultExtras, formatPrice, priceLabel, shopLocation, summariseCategories, type Bike, type Extra } from '../data/fleet';
 import { getSpec, type VehicleSpec } from '../data/specs';
 import { asset } from '../lib/asset';
 import { createBooking, fetchExtras, fetchBikes } from '../lib/api';
@@ -1011,9 +1011,16 @@ function StepExtras({ extras, chosen, onToggle, days }: { extras: Extra[]; chose
                 <p className="font-bold">{ex.label}</p>
                 <p className="text-dark/50 text-sm">{ex.description}</p>
               </div>
+              {/* A free extra says so and drops the per-trip/flat qualifier —
+                  "FREE / FOR TRIP" invites the question of what it would
+                  otherwise have cost. */}
               <div className="text-right shrink-0">
-                <p className="font-display font-bold text-brand">{formatPrice(total)}</p>
-                <p className="text-dark/40 text-[10px] uppercase tracking-wide">{ex.perDay ? 'for trip' : 'flat'}</p>
+                <p className="font-display font-bold text-brand">{priceLabel(total)}</p>
+                {total > 0 && (
+                  <p className="text-dark/40 text-[10px] uppercase tracking-wide">
+                    {ex.perDay ? 'for trip' : 'flat'}
+                  </p>
+                )}
               </div>
             </button>
           );

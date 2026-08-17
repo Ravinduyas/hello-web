@@ -1,11 +1,12 @@
 import { AlertTriangle, ArrowRight, Check, FileText, MessageCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { whatsappLink } from '../data/contact';
-import { extras, formatPrice } from '../data/fleet';
+import { extras as defaultExtras, priceLabel, type Extra } from '../data/fleet';
+import { fetchExtras } from '../lib/api';
 import { asset } from '../lib/asset';
 
-const permitExtra = extras.find(e => e.id === 'driving-permit');
 
 // The three routes to a legal permit, as Hello Rent explains them.
 const options = [
@@ -50,6 +51,26 @@ const documents = [
 ];
 
 export default function DrivingPermitPage() {
+  // The permit fee is admin-managed like any other extra, so quote the live
+  // one rather than the bundled copy.
+  const [extras, setExtras] = useState<Extra[]>(defaultExtras);
+
+  useEffect(() => {
+    let active = true;
+    fetchExtras()
+      .then(list => {
+        if (active && list.length) setExtras(list);
+      })
+      .catch(() => {
+        /* backend unreachable — the bundled price stands */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const permitExtra = extras.find(e => e.id === 'driving-permit');
+
   return (
     <div className="bg-beige min-h-screen">
       <div
@@ -275,10 +296,12 @@ export default function DrivingPermitPage() {
                 </span>
                 {permitExtra && (
                   <p className="font-display text-5xl font-black text-brand mt-2 leading-none">
-                    {formatPrice(permitExtra.price)}
+                    {priceLabel(permitExtra.price)}
                   </p>
                 )}
-                <p className="text-beige/50 text-sm mt-3">One-off · valid six months</p>
+                <p className="text-beige/50 text-sm mt-3">
+                  {permitExtra && permitExtra.price > 0 ? 'One-off · ' : ''}Valid six months
+                </p>
               </div>
               <p className="text-beige/60 text-sm leading-relaxed">
                 Legally endorsed through the Automobile Association. You can add it to your booking,

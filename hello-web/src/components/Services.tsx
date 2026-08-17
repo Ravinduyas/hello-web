@@ -1,7 +1,9 @@
 import { ArrowRight, FileText, Package, ShieldCheck, Smartphone, Truck } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { extras, formatPrice } from '../data/fleet';
+import { extras as defaultExtras, priceLabel, type Extra } from '../data/fleet';
+import { fetchExtras } from '../lib/api';
 
 // Everything Hello Rent does beyond handing over a vehicle. Prices come from
 // the same `extras` list the booking form charges from, so the two cannot drift.
@@ -13,9 +15,6 @@ const icons: Record<string, typeof FileText> = {
   delivery: Truck,
 };
 
-const permit = extras.find(e => e.id === 'driving-permit');
-const rest = extras.filter(e => e.id !== 'driving-permit');
-
 // The three documents we need to arrange a permit, from the client's notes.
 const documents = [
   'Your own government-issued IDP booklet',
@@ -24,6 +23,28 @@ const documents = [
 ];
 
 export default function Services() {
+  // The admin owns these prices, so read them from it — the bundled list is
+  // only a fallback. Without this, changing an extra in the admin moved the
+  // booking form but left this section quoting the old figure.
+  const [extras, setExtras] = useState<Extra[]>(defaultExtras);
+
+  useEffect(() => {
+    let active = true;
+    fetchExtras()
+      .then(list => {
+        if (active && list.length) setExtras(list);
+      })
+      .catch(() => {
+        /* backend unreachable — the bundled prices stand */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const permit = extras.find(e => e.id === 'driving-permit');
+  const rest = extras.filter(e => e.id !== 'driving-permit');
+
   return (
     <section className="bg-beige py-16 md:py-24">
       <div className="max-w-7xl mx-auto px-6">
@@ -82,9 +103,11 @@ export default function Services() {
               <div className="flex flex-wrap items-center justify-between gap-6 mt-10 pt-8 border-t border-beige/20">
                 <div>
                   <span className="font-display text-3xl font-bold">
-                    {formatPrice(permit.price)}
+                    {priceLabel(permit.price)}
                   </span>
-                  <span className="text-beige/50 text-sm ml-2">one-off · valid six months</span>
+                  <span className="text-beige/50 text-sm ml-2">
+                    {permit.price > 0 ? 'one-off · ' : ''}valid six months
+                  </span>
                 </div>
                 <Link
                   to="/driving-permit"
@@ -113,11 +136,15 @@ export default function Services() {
                   <Icon className="w-5 h-5 text-brand shrink-0" strokeWidth={1.5} />
                   <h3 className="font-display text-base font-bold leading-tight">{label}</h3>
                   <p className="text-sm text-dark/55 leading-relaxed">{description}</p>
+                  {/* "Free / day" reads as a question about what it normally
+                      costs, so a free extra drops the qualifier. */}
                   <span className="font-display text-sm font-bold mt-auto pt-3">
-                    {formatPrice(price)}
-                    <span className="text-dark/45 font-sans font-normal ml-1.5">
-                      {perDay ? '/ day' : 'one-off'}
-                    </span>
+                    {priceLabel(price)}
+                    {price > 0 && (
+                      <span className="text-dark/45 font-sans font-normal ml-1.5">
+                        {perDay ? '/ day' : 'one-off'}
+                      </span>
+                    )}
                   </span>
                 </motion.div>
               );

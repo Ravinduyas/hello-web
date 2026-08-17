@@ -19,6 +19,13 @@ export const CURRENCY = '€';
 /** Format a rate for display, e.g. formatPrice(5) === "€5". */
 export const formatPrice = (amount: number) => `${CURRENCY}${amount}`;
 
+/**
+ * A charge as a customer should read it. Zero is a thing the shop gives away,
+ * not a price — so setting an extra to 0 in the admin reads "Free" rather than
+ * "€0", which looks like a mistake or a missing value.
+ */
+export const priceLabel = (amount: number) => (amount <= 0 ? 'Free' : formatPrice(amount));
+
 export interface Bike {
   id: string;
   title: string;
