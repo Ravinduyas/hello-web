@@ -630,12 +630,40 @@ function StepRide({
   ).sort((a, b) => a - b);
   const showCapacities = capacities.length > 1;
 
-  const visible =
-    showCapacities && engineCc ? inCategory.filter(b => b.engineCc === engineCc) : inCategory;
-
   // The cheapest rate at a given capacity, for the chooser's label.
   const rateAt = (cc: number) =>
     Math.min(...inCategory.filter(b => b.engineCc === cc).map(b => b.pricePerDay));
+
+  const visible = (
+    showCapacities && engineCc ? inCategory.filter(b => b.engineCc === engineCc) : inCategory
+  )
+    .slice()
+    // Smallest engine first, so the row reads 110cc then 125cc and the two
+    // groups below are contiguous rather than interleaved.
+    .sort((a, b) => (a.engineCc ?? 0) - (b.engineCc ?? 0));
+
+  /**
+   * The row split by engine size — 110cc on the left, 125cc on the right.
+   *
+   * The cards stay in one grid; these are only headings laid over the same
+   * columns, each spanning as many as its capacity has vehicles, with a rule
+   * down the left of every group after the first. Splitting the grid itself
+   * would have made the lone 125cc card as wide as the three beside it.
+   */
+  const capacityBands =
+    showCapacities && !engineCc
+      ? capacities.map(cc => ({ cc, span: visible.filter(b => b.engineCc === cc).length }))
+      : [];
+
+  // The first vehicle of each band after the first carries the dividing rule,
+  // so the line runs on down through the cards rather than stopping at the
+  // heading.
+  const bandStartIds = new Set(
+    capacityBands
+      .slice(1)
+      .map(band => visible.find(b => b.engineCc === band.cc)?.id)
+      .filter((id): id is string => Boolean(id)),
+  );
 
   return (
     <div>
@@ -680,6 +708,27 @@ function StepRide({
         </div>
       )}
 
+      {/* Engine-size headings, on the same four columns as the cards below so
+          each sits exactly over its own vehicles. Hidden under lg, where the
+          cards wrap and the columns no longer line up. */}
+      {capacityBands.length > 1 && (
+        <div className="hidden lg:grid lg:grid-cols-4 gap-4 mb-3">
+          {capacityBands.map((band, i) => (
+            <div
+              key={band.cc}
+              style={{ gridColumn: `span ${band.span} / span ${band.span}` }}
+              className={i > 0 ? 'border-l border-dark/15 pl-4' : ''}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-widest text-dark/40">
+                {band.cc}cc
+                <span className="text-dark/25"> · </span>
+                {formatPrice(rateAt(band.cc))} / day
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Four across from lg: scooters and motorbikes are classes of four, so a
           whole class lands on one row with nothing orphaned, and the
           comparison reads across without scrolling. */}
@@ -688,10 +737,15 @@ function StepRide({
           const active = b.id === selected;
           return (
             // A div, not a button: the details disclosure below is interactive
-            // and may not be nested inside one.
+            // and may not be nested inside one. The outer wrapper exists only
+            // to carry the rule between engine sizes without disturbing the
+            // card's own border.
             <div
               key={b.id}
-              className={`rounded-2xl border-2 overflow-hidden transition-all ${
+              className={bandStartIds.has(b.id) ? 'lg:border-l lg:border-dark/15 lg:pl-4' : ''}
+            >
+            <div
+              className={`h-full rounded-2xl border-2 overflow-hidden transition-all ${
                 active ? 'border-brand shadow-md' : 'border-dark/10 hover:border-dark/30'
               }`}
             >
@@ -729,6 +783,7 @@ function StepRide({
               </button>
 
               <VehicleDetails bike={b} />
+            </div>
             </div>
           );
         })}

@@ -4,7 +4,23 @@ import { asset } from './asset';
 
 // In dev this is '' and the Vite proxy forwards /api to the backend.
 // In production set VITE_API_BASE to the backend origin (CORS is enabled there).
-const API_BASE = (import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE ?? '';
+const ENV = (import.meta as { env?: Record<string, string | boolean> }).env ?? {};
+const API_BASE = (ENV.VITE_API_BASE as string) ?? '';
+
+/**
+ * Whether there is anything to call.
+ *
+ * In dev, yes — the proxy forwards to the local backend, and if it is not
+ * running the calls fail and the bundled fleet is used. In a build, only if
+ * VITE_API_BASE names a backend. Without it the site is static: every request
+ * to /api would hit the static host, come back as the 404 page, and fail after
+ * a round trip that could never have worked.
+ */
+const API_ENABLED = Boolean(API_BASE) || ENV.DEV === true;
+
+/** Thrown when a booking is attempted with no backend configured to take it. */
+export const NO_BACKEND =
+  "Online booking isn't switched on yet. Send us a WhatsApp message and we'll confirm your booking straight away.";
 
 export interface Extra {
   id: string;
@@ -43,6 +59,7 @@ async function parseError(res: Response): Promise<string> {
 
 /** Active booking extras, managed from the admin (Hello Manage). */
 export async function fetchExtras(): Promise<Extra[]> {
+  if (!API_ENABLED) return [];
   const res = await fetch(`${API_BASE}/api/extras`);
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();
@@ -58,6 +75,7 @@ export async function fetchExtras(): Promise<Extra[]> {
  * all three the moment the backend is reachable.
  */
 export async function fetchBikes(): Promise<Bike[]> {
+  if (!API_ENABLED) return [];
   const res = await fetch(`${API_BASE}/api/bikes`);
   if (!res.ok) throw new Error(await parseError(res));
   const list = (await res.json()) as Bike[];
@@ -87,6 +105,10 @@ function resolveImage(image: string): string {
 
 /** Create a booking. Returns the server-issued reference. */
 export async function createBooking(payload: BookingPayload): Promise<{ reference: string; id: string }> {
+  // Reading the fleet degrades quietly to the bundled copy; taking a booking
+  // cannot. Say so plainly rather than surfacing a network error.
+  if (!API_ENABLED) throw new Error(NO_BACKEND);
+
   const res = await fetch(`${API_BASE}/api/bookings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
