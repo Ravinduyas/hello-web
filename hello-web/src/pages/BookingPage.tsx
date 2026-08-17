@@ -717,12 +717,12 @@ function StepRide({
             <div
               key={band.cc}
               style={{ gridColumn: `span ${band.span} / span ${band.span}` }}
-              className={i > 0 ? 'border-l border-dark/15 pl-4' : ''}
+              className={i > 0 ? 'border-l border-dark/25 pl-4' : ''}
             >
-              <p className="text-[10px] font-bold uppercase tracking-widest text-dark/40">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-brand">
                 {band.cc}cc
-                <span className="text-dark/25"> · </span>
-                {formatPrice(rateAt(band.cc))} / day
+                <span className="text-dark/30"> · </span>
+                <span className="text-dark/70">{formatPrice(rateAt(band.cc))} / day</span>
               </p>
             </div>
           ))}
@@ -742,7 +742,7 @@ function StepRide({
             // card's own border.
             <div
               key={b.id}
-              className={bandStartIds.has(b.id) ? 'lg:border-l lg:border-dark/15 lg:pl-4' : ''}
+              className={bandStartIds.has(b.id) ? 'lg:border-l lg:border-dark/25 lg:pl-4' : ''}
             >
             <div
               className={`h-full rounded-2xl border-2 overflow-hidden transition-all ${
