@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { bikes as defaultBikes, extras as defaultExtras, formatPrice, shopLocation, summariseCategories, type Bike, type Extra } from '../data/fleet';
 import { getSpec, type VehicleSpec } from '../data/specs';
+import { asset } from '../lib/asset';
 import { createBooking, fetchExtras, fetchBikes } from '../lib/api';
 
 /* ------------------------------------------------------------------ */
@@ -275,19 +276,31 @@ export default function BookingPage() {
     // padding clears the standing summary bar instead, which is fixed.
     <div className="bg-beige min-h-screen pt-8 md:pt-10 pb-36 px-6">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-5">
-          {/* The only way back out, since the site nav is hidden here. */}
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm text-dark/50 hover:text-brand transition-colors mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="font-display font-bold tracking-tight">Hello Rent</span>
-          </Link>
+        <header className="mb-5 flex items-start justify-between gap-6">
           <div>
-            <span className="eyebrow">[ Book your ride ]</span>
-            <h1 className="display-xl text-3xl md:text-4xl mt-2">Reserve in a few taps</h1>
+            {/* The only way back out, since the site nav is hidden here. */}
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 text-sm text-dark/50 hover:text-brand transition-colors mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="font-display font-bold tracking-tight">Hello Rent</span>
+            </Link>
+            <div>
+              <span className="eyebrow">[ Book your ride ]</span>
+              <h1 className="display-xl text-3xl md:text-4xl mt-2">Reserve in a few taps</h1>
+            </div>
           </div>
+
+          {/* The logo stands in for the navbar that this route hides — a
+              customer mid-booking should still see whose site they are on.
+              mix-blend-multiply drops the mark's white backing into the beige;
+              the file is a JPEG and has no transparency of its own. */}
+          <img
+            src={asset('/brand/logo.jpg')}
+            alt="Hello Rent"
+            className="hidden sm:block w-24 md:w-32 shrink-0 mix-blend-multiply"
+          />
         </header>
 
         {/* Step indicator */}

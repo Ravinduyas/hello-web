@@ -91,7 +91,7 @@ export default function AboutPage() {
             className="relative aspect-square lg:aspect-[4/5] rounded-3xl overflow-hidden bg-white flex items-center justify-center p-12"
           >
             <img
-              src={asset('/photos/hello-rental.jpg')}
+              src={asset('/brand/logo.jpg')}
               alt="Hello Rent — scooter and bike rental, Weligama"
               loading="lazy"
               className="w-full h-full object-contain"
