@@ -59,7 +59,7 @@ export default function FleetPage() {
     let on = true;
     fetchBikes()
       .then(list => {
-        if (on && list.length) setBikes(list);
+        if (on && list) setBikes(list);
       })
       .catch(() => {
         /* offline — defaults remain */

@@ -57,9 +57,16 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
-/** Active booking extras, managed from the admin (Hello Manage). */
-export async function fetchExtras(): Promise<Extra[]> {
-  if (!API_ENABLED) return [];
+/**
+ * Active booking extras, managed from the admin (Hello Manage).
+ *
+ * Returns null when there is no backend to ask — which is a different thing
+ * from an empty list. An empty list is an answer: the operator has deactivated
+ * everything, and the site must show nothing. Conflating the two meant
+ * switching an extra off brought the bundled copy back instead.
+ */
+export async function fetchExtras(): Promise<Extra[] | null> {
+  if (!API_ENABLED) return null;
   const res = await fetch(`${API_BASE}/api/extras`);
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();
@@ -74,8 +81,8 @@ export async function fetchExtras(): Promise<Extra[]> {
  * that stops the KDH being labelled a car. Without this the API silently strips
  * all three the moment the backend is reachable.
  */
-export async function fetchBikes(): Promise<Bike[]> {
-  if (!API_ENABLED) return [];
+export async function fetchBikes(): Promise<Bike[] | null> {
+  if (!API_ENABLED) return null;
   const res = await fetch(`${API_BASE}/api/bikes`);
   if (!res.ok) throw new Error(await parseError(res));
   const list = (await res.json()) as Bike[];

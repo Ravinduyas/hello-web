@@ -142,12 +142,12 @@ export default function BookingPage() {
     let active = true;
     fetchBikes()
       .then(list => {
-        if (active && list.length) setBikes(list);
+        if (active && list) setBikes(list);
       })
       .catch(() => {});
     fetchExtras()
       .then(list => {
-        if (active && list.length) setExtras(list);
+        if (active && list) setExtras(list);
       })
       .catch(() => {
         /* offline / backend down — bundled defaults remain */

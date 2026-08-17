@@ -59,7 +59,7 @@ export default function DrivingPermitPage() {
     let active = true;
     fetchExtras()
       .then(list => {
-        if (active && list.length) setExtras(list);
+        if (active && list) setExtras(list);
       })
       .catch(() => {
         /* backend unreachable — the bundled price stands */
