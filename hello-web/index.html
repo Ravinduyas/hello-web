@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hello Rent | Scooter & Bike Rentals</title>
+
+    <!-- Without these the browser asks for /favicon.ico on every page and gets
+         a 404. %BASE_URL% rather than a leading slash: the site is served from
+         a sub-path on GitHub Pages, and Vite substitutes the real base here. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%favicon-180.png" />
+    <meta name="theme-color" content="#B0764F" />
   </head>
   <body>
     <div id="root"></div>
