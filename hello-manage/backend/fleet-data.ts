@@ -1,7 +1,8 @@
 /**
  * The canonical Hello Rent fleet — the single source of truth for what we rent
  * and what it costs. Transcribed from the owner's fleet notes; the full
- * reference lives in `command/fleet/FLEET-REFERENCE.md`.
+ * reference lives outside the repo in
+ * `../hello-rent-source-material/fleet/FLEET-REFERENCE.md`.
  *
  * Vehicles are grouped by class and transmission, because that is how a visitor
  * who has never heard of a Dio or a Pulsar actually chooses:

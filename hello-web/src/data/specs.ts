@@ -1,6 +1,7 @@
 /**
  * Manufacturer specs and an honest verdict per model, transcribed from the
- * comparison and spec sheets in `command/fleet`.
+ * comparison and spec sheets kept outside the repo in
+ * `../hello-rent-source-material/fleet`.
  *
  * Kept separate from `fleet.ts` on purpose: the fleet itself is admin-managed
  * and arrives from the API, while this is static reference material we hold

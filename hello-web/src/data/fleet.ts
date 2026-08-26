@@ -1,5 +1,6 @@
 /**
- * The real Hello Rent fleet, from the client's fleet notes (command/fleet).
+ * The real Hello Rent fleet, from the client's fleet notes — kept outside the
+ * repo in ../hello-rent-source-material/fleet.
  *
  * Vehicle classes and models follow the owner's own breakdown:
  *   Scooter   — automatic transmission, 110cc and 125cc
