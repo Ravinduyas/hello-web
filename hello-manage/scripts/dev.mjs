@@ -13,20 +13,16 @@
  */
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { delimiter, resolve } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const RESET = '\x1b[0m';
 const DIM = '\x1b[2m';
 const API_PORT = Number(process.env.PORT) || 4000;
 
-// npm puts node_modules/.bin on PATH for its own scripts; spawning directly
-// does not, so vite would not be found. Both bin folders are listed because the
-// repo shares a single install at the root.
-const PATH_WITH_BINS = [
-  resolve('node_modules/.bin'),
-  resolve('..', 'node_modules/.bin'),
-  process.env.PATH,
-].join(delimiter);
+// Resolved from this file, not the cwd, so `npm run dev` behaves the same
+// wherever it is invoked from.
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * True if the port is already taken.
@@ -55,12 +51,19 @@ function stopAll(code) {
   process.exit(code);
 }
 
-function start({ tag, colour, command }) {
+function start({ tag, colour, half, command }) {
+  const cwd = join(ROOT, half);
+  // npm puts node_modules/.bin on PATH for its own scripts; spawning directly
+  // does not, so vite would not be found. Each half installs its own
+  // dependencies, so each gets its own bin folder.
+  const path = [join(cwd, 'node_modules', '.bin'), process.env.PATH].join(delimiter);
+
   const child = spawn(command, {
+    cwd,
     // shell: true so this behaves the same on Windows, where these are .cmd
     // shims rather than executables.
     shell: true,
-    env: { ...process.env, PATH: PATH_WITH_BINS, Path: PATH_WITH_BINS },
+    env: { ...process.env, PATH: path, Path: path },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   children.push(child);
@@ -87,10 +90,10 @@ if (await isTaken(API_PORT)) {
       `Stop that process first if you want a fresh one.${RESET}`,
   );
 } else {
-  start({ tag: 'api  ', colour: '\x1b[36m', command: 'node --watch backend/index.ts' });
+  start({ tag: 'api  ', colour: '\x1b[36m', half: 'backend', command: 'node --watch index.ts' });
 }
 
-start({ tag: 'admin', colour: '\x1b[35m', command: 'vite --config frontend/vite.config.ts' });
+start({ tag: 'admin', colour: '\x1b[35m', half: 'frontend', command: 'vite' });
 
 process.on('SIGINT', () => stopAll(0));
 process.on('SIGTERM', () => stopAll(0));

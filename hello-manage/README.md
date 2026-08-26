@@ -9,7 +9,10 @@ hello-manage/
 └── frontend/   React + Vite admin dashboard (bookings, extras CRUD) ·  port 5174
 ```
 
-This is a self-contained project with its own `package.json` and `node_modules`.
+Each half is its own package: `backend/` and `frontend/` carry their own
+`package.json`, lockfile and `node_modules`, so an API dependency never reaches the
+admin bundle and a React dependency never reaches the server. The root
+`package.json` holds no dependencies of its own — only the scripts that drive both.
 The public site lives separately in `../hello-web`.
 
 ## Run locally
@@ -17,13 +20,16 @@ The public site lives separately in `../hello-web`.
 From this `hello-manage/` folder:
 
 ```bash
-npm install                # first time only
+npm install                # first time only — installs both halves
 npm run dev                # both halves: API on :4000, admin UI on :5174
 
 # or run them separately
 npm run backend            # API only,      http://localhost:4000  (admin / 1234)
 npm run frontend           # admin UI only, http://localhost:5174
 ```
+
+Either half also runs on its own, from its own folder — `cd backend && npm install &&
+npm run dev` needs nothing from the root.
 
 And the public site, from `../hello-web`:
 
@@ -46,8 +52,8 @@ The SQLite file is created at `backend/data/hellorent.db` on first run (gitignor
 
 ## Production
 
-- Backend: `node backend/index.ts` (Node 24+). Put the DB file on a
-  persistent disk via `DB_FILE`. If you build the admin UI (`npm run build:frontend`),
-  the backend serves it from `frontend/dist`.
+- Backend: `npm install && npm start` in `backend/` (Node 24+). Put the DB file on a
+  persistent disk via `DB_FILE`. If you build the admin UI (`npm run build:frontend`,
+  or `npm run build` in `frontend/`), the backend serves it from `frontend/dist`.
 - Public site: from `../hello-web` run `npm run build`, host the static `dist/`, and
   set `VITE_API_BASE` to the backend origin (allowed in `CORS_ORIGINS`).

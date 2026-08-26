@@ -19,8 +19,8 @@ logger.error = (msg, options) => {
   parentError(msg, options);
 };
 
-// Standalone admin app. Shares the repo-root node_modules (Node resolves upward),
-// so it needs no install of its own.
+// Standalone admin app with its own package.json and node_modules, installed
+// and run from this folder.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, root, '');
   const apiTarget = `http://localhost:${env.API_PORT || '4000'}`;
