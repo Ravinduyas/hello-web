@@ -12,7 +12,7 @@
  * against nothing while the console filled with a stack trace.
  */
 import { spawn } from 'node:child_process';
-import { connect } from 'node:net';
+import { createServer } from 'node:net';
 import { delimiter, resolve } from 'node:path';
 
 const RESET = '\x1b[0m';
@@ -28,18 +28,20 @@ const PATH_WITH_BINS = [
   process.env.PATH,
 ].join(delimiter);
 
-/** True if something already answers on the port — probed by connecting to it. */
-function isListening(port) {
+/**
+ * True if the port is already taken.
+ *
+ * Tries to bind it, exactly as the server does, rather than connecting to it.
+ * A connect probe to 127.0.0.1 misses a server bound only to :: — which is how
+ * the API binds — so it reported the port free and the spawn then died with
+ * EADDRINUSE on :::4000.
+ */
+function isTaken(port) {
   return new Promise(done => {
-    const socket = connect({ port, host: '127.0.0.1' });
-    const finish = result => {
-      socket.destroy();
-      done(result);
-    };
-    socket.setTimeout(700);
-    socket.once('connect', () => finish(true));
-    socket.once('timeout', () => finish(false));
-    socket.once('error', () => finish(false));
+    const probe = createServer();
+    probe.once('error', err => done(err.code === 'EADDRINUSE'));
+    probe.once('listening', () => probe.close(() => done(false)));
+    probe.listen(port);
   });
 }
 
@@ -79,7 +81,7 @@ function start({ tag, colour, command }) {
   });
 }
 
-if (await isListening(API_PORT)) {
+if (await isTaken(API_PORT)) {
   console.log(
     `${DIM}api   | already running on :${API_PORT} — reusing it. ` +
       `Stop that process first if you want a fresh one.${RESET}`,

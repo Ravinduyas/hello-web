@@ -610,6 +610,20 @@ if (existsSync(adminDist)) {
   });
 }
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Hello Manage API listening on http://localhost:${PORT}`);
+});
+
+// A port already in use is an ordinary thing to hit — another copy of this
+// server is usually still running. Say so in one line and exit, rather than
+// letting an unhandled 'error' event throw a stack trace nobody needs to read.
+server.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(
+      `Port ${PORT} is already in use — another Hello Manage API is probably running. ` +
+        `Stop it, or use a different port: PORT=4001 npm run backend`,
+    );
+    process.exit(1);
+  }
+  throw err;
 });
