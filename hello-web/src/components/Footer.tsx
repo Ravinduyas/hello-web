@@ -34,7 +34,7 @@ export default function Footer() {
                   key={label}
                   href="#"
                   aria-label={`Hello Rent on ${label}`}
-                  className="w-9 h-9 flex items-center justify-center rounded-full text-dark hover:text-brand hover:bg-dark/5 transition-colors"
+                  className="w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-full text-dark hover:text-brand hover:bg-dark/5 transition-colors"
                 >
                   <Icon className="w-5 h-5" />
                 </a>
@@ -45,7 +45,7 @@ export default function Footer() {
           <div className="grid grid-cols-2 gap-8 lg:col-span-2">
             <div className="space-y-4">
               <h4 className="font-bold text-sm uppercase tracking-wider text-dark/40">Company</h4>
-              <ul className="space-y-3 text-sm font-medium">
+              <ul className="space-y-1 -my-2 text-sm font-medium [&_a]:inline-block [&_a]:py-2">
                 <li><Link to="/" className="hover:text-brand transition-colors">Home</Link></li>
                 <li><Link to="/fleet" className="hover:text-brand transition-colors">Our Fleet</Link></li>
                 <li><Link to="/about" className="hover:text-brand transition-colors">About Us</Link></li>
@@ -56,7 +56,7 @@ export default function Footer() {
             </div>
             <div className="space-y-4">
               <h4 className="font-bold text-sm uppercase tracking-wider text-dark/40">Support</h4>
-              <ul className="space-y-3 text-sm font-medium">
+              <ul className="space-y-1 -my-2 text-sm font-medium [&_a]:inline-block [&_a]:py-2">
                 <li><Link to="/driving-permit" className="hover:text-brand transition-colors">Driving Permit</Link></li>
                 <li><Link to="/tours" className="hover:text-brand transition-colors">Day Trips</Link></li>
                 <li><Link to="/about#safety" className="hover:text-brand transition-colors">Safety Guide</Link></li>

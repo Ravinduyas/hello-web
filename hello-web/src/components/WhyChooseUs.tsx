@@ -134,7 +134,7 @@ export default function WhyChooseUs() {
             </p>
             <Link
               to="/about"
-              className="self-start inline-flex items-center gap-2 border border-beige/30 text-beige px-5 py-2.5 rounded-full text-sm font-medium hover:bg-beige hover:text-dark transition-all"
+              className="btn-ghost self-start"
             >
               Read our story
             </Link>

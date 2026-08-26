@@ -311,7 +311,7 @@ export default function BookingPage() {
                 type="button"
                 onClick={() => i < step && setStep(i)}
                 disabled={i > step}
-                className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wide transition-colors ${
+                className={`flex items-center gap-2 min-h-11 sm:min-h-0 text-sm font-bold uppercase tracking-wide transition-colors ${
                   i === step ? 'text-brand' : i < step ? 'text-dark/60 hover:text-dark' : 'text-dark/25'
                 }`}
               >
@@ -1188,7 +1188,7 @@ function BookingBar({
             onClick={onBack}
             disabled={!canGoBack}
             aria-label="Back"
-            className="inline-flex items-center gap-2 border border-beige/30 text-beige px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium transition-all hover:bg-beige hover:text-dark disabled:opacity-25 disabled:pointer-events-none"
+            className="btn-ghost px-4 sm:px-5 disabled:opacity-25 disabled:pointer-events-none"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">Back</span>

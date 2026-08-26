@@ -52,7 +52,7 @@ export default function Navbar() {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`relative px-4 py-2 rounded-full transition-colors ${
+                  className={`relative flex items-center px-4 py-2 min-h-[44px] lg:min-h-0 rounded-full transition-colors ${
                     activeLink ? 'text-dark' : 'text-dark/60 hover:text-dark'
                   }`}
                 >
@@ -78,7 +78,7 @@ export default function Navbar() {
               onClick={() => setOpen(true)}
               aria-label="Open menu"
               aria-expanded={open}
-              className="md:hidden p-2 rounded-full text-dark hover:bg-dark/5 transition-colors"
+              className="md:hidden p-3 rounded-full text-dark hover:bg-dark/5 transition-colors"
             >
               <Menu className="w-5 h-5" />
             </button>

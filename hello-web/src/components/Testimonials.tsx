@@ -178,10 +178,14 @@ export default function Testimonials() {
                         key={i}
                         onClick={() => setIndex(i)}
                         aria-label={`Go to testimonial ${i + 1}`}
-                        className={`h-2 rounded-full transition-all ${
-                          i === index ? 'w-6 bg-brand' : 'w-2 bg-dark/15 hover:bg-dark/30'
-                        }`}
-                      />
+                        className="group grid place-items-center h-11 w-6 -mx-1.5 lg:h-2 lg:w-auto lg:mx-0"
+                      >
+                        <span
+                          className={`block h-2 rounded-full transition-all ${
+                            i === index ? 'w-6 bg-brand' : 'w-2 bg-dark/15 group-hover:bg-dark/30'
+                          }`}
+                        />
+                      </button>
                     ))}
                   </div>
 

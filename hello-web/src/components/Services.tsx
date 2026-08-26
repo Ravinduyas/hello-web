@@ -111,7 +111,7 @@ export default function Services() {
                 </div>
                 <Link
                   to="/driving-permit"
-                  className="inline-flex items-center gap-2 border border-beige/30 text-beige px-5 py-2.5 rounded-full text-sm font-medium hover:bg-beige hover:text-dark transition-all"
+                  className="btn-ghost"
                 >
                   How it works
                   <ArrowRight className="w-4 h-4" />

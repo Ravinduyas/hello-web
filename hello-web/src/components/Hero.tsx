@@ -33,7 +33,7 @@ export default function Hero() {
   // headline, CTA and the index bar pinned to the foot. The floor keeps those
   // clear of each other on a short laptop.
   return (
-    <section className="relative h-[80vh] min-h-[560px] max-h-[860px] w-full overflow-hidden bg-dark">
+    <section className="relative h-[80dvh] min-h-[560px] max-h-[860px] w-full overflow-hidden bg-dark">
       {/* Crossfading slideshow with a slow Ken Burns zoom. */}
       <AnimatePresence>
         <motion.img
@@ -72,10 +72,14 @@ export default function Hero() {
               key={i}
               onClick={() => setIndex(i)}
               aria-label={`Show slide ${i + 1}`}
-              className={`w-2 rounded-full transition-all ${
-                i === index ? 'h-8 bg-beige' : 'h-2 bg-beige/40 hover:bg-beige/70'
-              }`}
-            />
+              className="group grid place-items-center w-11 h-11 -my-1.5 lg:w-2 lg:h-auto lg:my-0"
+            >
+              <span
+                className={`block w-2 rounded-full transition-all ${
+                  i === index ? 'h-8 bg-beige' : 'h-2 bg-beige/40 group-hover:bg-beige/70'
+                }`}
+              />
+            </button>
           ))}
         </div>
         <span className="font-display text-xs font-bold text-beige/40 tabular-nums tracking-tight">
@@ -88,14 +92,14 @@ export default function Hero() {
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="max-w-3xl"
+          className="max-w-3xl pr-14 sm:pr-0"
         >
           <span className="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full eyebrow !text-white mb-7 border border-white/20">
             [ Sri Lanka's Favourite Scooter Rental ]
           </span>
           {/* Headline reveals a line at a time — each line masked so it rises
               into view rather than simply fading. */}
-          <h1 className="display-xl text-6xl md:text-8xl text-white mb-8">
+          <h1 className="display-xl text-4xl sm:text-6xl md:text-8xl text-white mb-8">
             {['Discover Sri Lanka', 'your way'].map((line, i) => (
               <span key={line} className="block overflow-hidden">
                 <motion.span

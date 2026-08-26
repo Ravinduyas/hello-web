@@ -16,15 +16,36 @@
 @layer base {
   html {
     scroll-behavior: smooth;
-    /* Bake in the client's preferred "75% zoom" density: scaling the root font
-       shrinks all rem-based type/spacing proportionally at 100% zoom. Media-query
-       breakpoints use the initial 16px (per spec), so the responsive layout is
-       unaffected. Adjust this single value to make the whole site denser/looser. */
-    font-size: 75%;
+    /* The client's preferred "75% zoom" density: scaling the root font shrinks
+       all rem-based type/spacing proportionally at 100% zoom.
+
+       It is a desktop preference and only holds there. At 75% a phone renders
+       body copy at 10.5px and puts every button under 30px tall — below the
+       44px a thumb needs, and under the 16px at which iOS stops zooming the
+       page on input focus. So the density ramps with the viewport: phones get
+       a true 16px, tablets sit between, and desktop keeps the 75% the client
+       asked for, unchanged.
+
+       Media-query breakpoints use the initial 16px (per spec), so these
+       thresholds match Tailwind's md/lg regardless of what is set here. */
+    font-size: 100%;
     /* Force a light UA theme so dark-mode browsers never paint the root
        canvas, overscroll area, or scrollbars black behind our warm design. */
     color-scheme: light;
     background-color: var(--color-beige);
+  }
+
+  /* md — tablets */
+  @media (min-width: 48rem) {
+    html {
+      font-size: 87.5%;
+    }
+  }
+  /* lg — desktop, the density the design was drawn at */
+  @media (min-width: 64rem) {
+    html {
+      font-size: 75%;
+    }
   }
 
   body {
@@ -96,6 +117,11 @@
   .btn-outline {
     @apply border border-dark text-dark px-5 py-2.5 text-sm rounded-full font-medium transition-all hover:bg-dark hover:text-beige flex items-center gap-2;
   }
+  /* Outline pill for use on the espresso panels — the cream-on-dark
+     counterpart to .btn-outline. */
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 border border-beige/30 text-beige px-5 py-2.5 rounded-full text-sm font-medium transition-all hover:bg-beige hover:text-dark;
+  }
   /* Cream pill for use over hero imagery (mirrors the reference's white CTA). */
   .btn-light {
     @apply bg-beige text-dark px-5 py-2.5 text-sm rounded-full font-medium transition-all hover:bg-white flex items-center gap-2;
@@ -128,6 +154,34 @@
   /* Shared form control used across the booking wizard. */
   .booking-input {
     @apply w-full bg-beige border border-dark/10 rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:border-brand transition-colors;
+  }
+
+  /* Touch viewports — phones and tablets alike.
+
+     A control needs about 44px on its short side before a thumb hits it
+     reliably; at the desktop density these pills come out at 33px, which is
+     fine for a cursor and not for a finger. Height only: the design's
+     horizontal proportions are left alone.
+
+     Form controls additionally need a 16px font. Below that, iOS zooms the
+     page in on focus and does not zoom back out, which strands the visitor
+     mid-form at 1.3x with the layout scrolled sideways. */
+  @media (max-width: 63.999rem) {
+    .btn-primary,
+    .btn-dark,
+    .btn-outline,
+    .btn-light,
+    .btn-ghost {
+      min-height: 44px;
+    }
+
+    .booking-input,
+    input,
+    select,
+    textarea {
+      min-height: 44px;
+      font-size: 16px;
+    }
   }
 
   /* Skip-to-content link: hidden until focused via keyboard. */
