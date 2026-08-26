@@ -18,8 +18,11 @@ From this `hello-manage/` folder:
 
 ```bash
 npm install                # first time only
-npm run backend            # API on http://localhost:4000  (admin / 1234)
-npm run frontend           # admin UI on http://localhost:5174
+npm run dev                # both halves: API on :4000, admin UI on :5174
+
+# or run them separately
+npm run backend            # API only,      http://localhost:4000  (admin / 1234)
+npm run frontend           # admin UI only, http://localhost:5174
 ```
 
 And the public site, from `../hello-web`:

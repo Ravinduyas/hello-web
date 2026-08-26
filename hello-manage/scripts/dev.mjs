@@ -9,26 +9,44 @@
 import { spawn } from 'node:child_process';
 import { delimiter, resolve } from 'node:path';
 
+const RESET = '\x1b[0m';
+
+// npm puts node_modules/.bin on PATH for its own scripts; spawning directly
+// does not, so vite would not be found. Both bin folders are listed because the
+// repo shares a single install at the root.
+const PATH_WITH_BINS = [
+  resolve('node_modules/.bin'),
+  resolve('..', 'node_modules/.bin'),
+  process.env.PATH,
+].join(delimiter);
+
 const parts = [
   { tag: 'api  ', colour: '\x1b[36m', command: 'node --watch backend/index.ts' },
   { tag: 'admin', colour: '\x1b[35m', command: 'vite --config frontend/vite.config.ts' },
 ];
 
-const RESET = '\x1b[0m';
 const children = [];
 let stopping = false;
 
+function stopAll(code) {
+  if (stopping) return;
+  stopping = true;
+  for (const child of children) child.kill();
+  process.exit(code);
+}
+
 for (const { tag, colour, command } of parts) {
-  // shell: true so this works the same on Windows, where the binaries are .cmd
-  // shims rather than executables.
+  // shell: true so this behaves the same on Windows, where these are .cmd shims
+  // rather than executables.
   const child = spawn(command, {
     shell: true,
     env: { ...process.env, PATH: PATH_WITH_BINS, Path: PATH_WITH_BINS },
-    stdio: ['ignore', 'pipe', 'pipe'] });
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   children.push(child);
 
-  const label = `${colour}${tag}${RESET} │ `;
-  const write = (stream) => (chunk) => {
+  const label = `${colour}${tag}${RESET} | `;
+  const write = stream => chunk => {
     for (const line of chunk.toString().split(/\r?\n/)) {
       if (line.trim()) stream.write(label + line + '\n');
     }
@@ -36,18 +54,11 @@ for (const { tag, colour, command } of parts) {
   child.stdout.on('data', write(process.stdout));
   child.stderr.on('data', write(process.stderr));
 
-  child.on('exit', (code) => {
+  child.on('exit', code => {
     if (stopping) return;
     console.log(`${label}exited with code ${code} — stopping the other half too.`);
     stopAll(code ?? 1);
   });
-}
-
-function stopAll(code) {
-  if (stopping) return;
-  stopping = true;
-  for (const child of children) child.kill();
-  process.exit(code);
 }
 
 process.on('SIGINT', () => stopAll(0));
