@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "postinstall": "npm install --prefix backend && npm install --prefix frontend",
-    "dev": "node scripts/dev.mjs",
-    "backend": "npm run dev --prefix backend",
-    "frontend": "npm run dev --prefix frontend",
+    "dev": "concurrently --kill-others -n api,admin -c cyan,magenta \"npm:backend -s\" \"npm:frontend -s\"",
+    "backend": "npm run dev --prefix backend -s",
+    "frontend": "npm run dev --prefix frontend -s",
     "dev:frontend": "npm run frontend",
     "build:frontend": "npm run build --prefix frontend",
     "seed:fleet": "npm run seed:fleet --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
   }
 }

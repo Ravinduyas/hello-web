@@ -12,7 +12,8 @@ hello-manage/
 Each half is its own package: `backend/` and `frontend/` carry their own
 `package.json`, lockfile and `node_modules`, so an API dependency never reaches the
 admin bundle and a React dependency never reaches the server. The root
-`package.json` holds no dependencies of its own — only the scripts that drive both.
+`package.json` holds no application dependencies — only `concurrently`, which
+runs both halves under a single `npm run dev`.
 The public site lives separately in `../hello-web`.
 
 ## Run locally
