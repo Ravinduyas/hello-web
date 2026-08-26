@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run frontend",
-    "dev:backend": "npm run backend",
+    "dev": "node scripts/dev.mjs",
     "backend": "node --watch backend/index.ts",
     "seed:fleet": "node backend/seed-fleet.ts",
     "frontend": "vite --config frontend/vite.config.ts",
-    "build:frontend": "vite build --config frontend/vite.config.ts"
+    "build:frontend": "vite build --config frontend/vite.config.ts",
+    "dev:frontend": "npm run frontend"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
