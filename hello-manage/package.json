@@ -9,6 +9,8 @@
     "backend": "npm run dev --prefix backend -s",
     "frontend": "npm run dev --prefix frontend -s",
     "dev:frontend": "npm run frontend",
+    "build": "npm run build --prefix backend -s && npm run build --prefix frontend -s",
+    "build:backend": "npm run build --prefix backend -s",
     "build:frontend": "npm run build --prefix frontend",
     "seed:fleet": "npm run seed:fleet --prefix backend"
   },

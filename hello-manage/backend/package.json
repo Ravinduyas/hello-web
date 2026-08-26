@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch index.ts",
+    "build": "tsc --noEmit",
     "start": "node index.ts",
     "seed:fleet": "node seed-fleet.ts"
   },

@@ -1,0 +1,30 @@
+{
+  /* The backend is never bundled or emitted — Node 24 runs the .ts files
+     directly and strips the types as it loads them. So "building" it means
+     checking it: this config exists to make `npm run build` fail on a type
+     error that would otherwise only surface as a crash at runtime.
+
+     erasableSyntaxOnly is the important one. Node can only strip syntax that
+     erases cleanly, so enums, namespaces and constructor parameter properties
+     would load fine under tsc and throw when Node runs them. This makes tsc
+     reject them instead. */
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["node"],
+
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "data"]
+}
