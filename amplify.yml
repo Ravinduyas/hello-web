@@ -1,20 +1,18 @@
 version: 1
-applications:
-  - appRoot: hello-web
-    frontend:
-      phases:
-        preBuild:
-          commands:
-            - npm ci
-        build:
-          commands:
-            # Amplify serves the site at the domain root, not under /hello-web/
-            # (the GitHub Pages default in vite.config.ts), so override the base.
-            - BASE_PATH=/ npm run build
-      artifacts:
-        baseDirectory: dist
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - cd hello-web && npm ci
+    build:
+      commands:
+        # Amplify serves the site at the domain root, not under /hello-web/
+        # (the GitHub Pages default in vite.config.ts), so override the base.
+        - cd hello-web && BASE_PATH=/ npm run build
+  artifacts:
+    baseDirectory: hello-web/dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - hello-web/node_modules/**/*
