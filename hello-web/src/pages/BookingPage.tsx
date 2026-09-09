@@ -60,7 +60,7 @@ interface Renter {
   license: string;
 }
 
-const STEPS = ['Your ride', 'Rental dates', 'Extras', 'Your details'] as const;
+const STEPS = ['Vehicle type', 'Your ride', 'Rental dates', 'Extras', 'Your details'] as const;
 
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
@@ -116,7 +116,8 @@ export default function BookingPage() {
     }
     // A vehicle from the class you just left cannot stay selected.
     setBikeId(paramBike ?? null);
-    setStep(0);
+    // The class screen is already answered by the link, so land on the ride.
+    setStep(1);
   }, [paramCategory, paramBike]);
 
   // A finished booking is not something to resume — returning starts a new one,
@@ -174,6 +175,7 @@ export default function BookingPage() {
 
   /* ---- Per-step validation --------------------------------------- */
   const stepValid = [
+    !!category,
     !!bike,
     !!pickupDate && !!dropoffDate && days > 0,
     true, // extras are optional
@@ -340,29 +342,33 @@ export default function BookingPage() {
                 transition={{ duration: 0.25 }}
               >
                 {step === 0 && (
+                  <StepClass
+                    bikes={bikes}
+                    selected={category}
+                    onPick={c => {
+                      setCategory(c);
+                      setEngineCc(null);
+                      // A vehicle from the class you just left cannot stay
+                      // selected once a different class is chosen.
+                      setBikeId(null);
+                      setStep(1);
+                    }}
+                  />
+                )}
+
+                {step === 1 && (
                   <StepRide
                     bikes={bikes}
                     selected={bikeId}
                     onSelect={setBikeId}
                     category={category}
-                    onPickCategory={c => {
-                      setCategory(c);
-                      setEngineCc(null);
-                      setBikeId(null);
-                    }}
-                    onClearCategory={() => {
-                      // Back to the class cards, so the selection goes too —
-                      // a Dio cannot stay picked while you browse motorbikes.
-                      setCategory(null);
-                      setEngineCc(null);
-                      setBikeId(null);
-                    }}
+                    onChangeClass={() => setStep(0)}
                     engineCc={engineCc}
                     onPickCapacity={setEngineCc}
                   />
                 )}
 
-                {step === 1 && (
+                {step === 2 && (
                   <StepDates
                     pickupDate={pickupDate}
                     dropoffDate={dropoffDate}
@@ -377,9 +383,9 @@ export default function BookingPage() {
                   />
                 )}
 
-                {step === 2 && <StepExtras extras={extras} chosen={chosenExtras} onToggle={toggleExtra} days={Math.max(days, 1)} />}
+                {step === 3 && <StepExtras extras={extras} chosen={chosenExtras} onToggle={toggleExtra} days={Math.max(days, 1)} />}
 
-                {step === 3 && <StepDetails renter={renter} onChange={r => setRenter(r)} />}
+                {step === 4 && <StepDetails renter={renter} onChange={r => setRenter(r)} />}
               </motion.div>
             </AnimatePresence>
 
@@ -413,7 +419,77 @@ export default function BookingPage() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Step 1 — choose a ride                                            */
+/*  Step 1 — choose a class                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The four vehicle types, as its own screen.
+ *
+ * Class and vehicle used to share one step, swapping the panel once a class was
+ * picked — so the progress rail said "Your ride" through both and Back could
+ * not return to the classes. They are now two steps, which is what they always
+ * were to the person filling the form in.
+ */
+function StepClass({
+  bikes,
+  selected,
+  onPick,
+}: {
+  bikes: Bike[];
+  selected: string | null;
+  onPick: (category: string) => void;
+}) {
+  const summaries = summariseCategories(bikes);
+
+  return (
+    <div>
+      <h2 className="font-display text-2xl font-bold">What would you like to ride?</h2>
+      <p className="text-dark/50 text-sm">Pick a class, then the vehicle. Every one comes with a helmet.</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+        {summaries.map(cat => (
+          <button
+            key={cat.category}
+            type="button"
+            onClick={() => onPick(cat.category)}
+            // Tall enough for the photograph to read as a vehicle: at h-56 a
+            // wide card cropped these to a letterbox strip of the middle.
+            aria-pressed={selected === cat.category}
+            className={`group relative block h-72 md:h-80 rounded-2xl overflow-hidden text-left border-2 transition-all ${
+              selected === cat.category ? 'border-brand' : 'border-transparent hover:border-brand'
+            }`}
+          >
+            <img
+              src={cat.image}
+              alt={cat.meta.label}
+              loading="lazy"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-dark/85 via-dark/30 to-dark/10" />
+
+            {cat.meta.transmission && (
+              <span className="absolute top-4 left-4 eyebrow !text-white/70">{cat.meta.transmission}</span>
+            )}
+
+            <div className="absolute inset-x-0 bottom-0 p-5 text-beige">
+              <h3 className="display-xl text-2xl">{cat.meta.label}</h3>
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-beige/20">
+                <span className="font-display text-sm font-bold">From {formatPrice(cat.from)} / day</span>
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide group-hover:gap-2.5 transition-all">
+                  Choose <ArrowRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+}
+
+/* ------------------------------------------------------------------ */
+/*  Step 2 — choose a ride                                            */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -553,8 +629,7 @@ function StepRide({
   selected,
   onSelect,
   category,
-  onClearCategory,
-  onPickCategory,
+  onChangeClass,
   engineCc,
   onPickCapacity,
 }: {
@@ -562,8 +637,7 @@ function StepRide({
   selected: string | null;
   onSelect: (id: string) => void;
   category: string | null;
-  onClearCategory: () => void;
-  onPickCategory: (category: string) => void;
+  onChangeClass: () => void;
   engineCc: number | null;
   onPickCapacity: (cc: number | null) => void;
 }) {
@@ -573,53 +647,6 @@ function StepRide({
   const shown = category ? bikes.filter(b => b.category === category) : bikes;
   const inCategory = shown.length ? shown : bikes;
 
-  // Nothing chosen yet: open on the classes, the same four cards the fleet page
-  // shows, rather than dropping someone straight into fifteen named vehicles.
-  // A vehicle arriving by link skips this — it has already been chosen.
-  if (!category && !selected) {
-    const summaries = summariseCategories(bikes);
-    return (
-      <div>
-        <h2 className="font-display text-2xl font-bold">What would you like to ride?</h2>
-        <p className="text-dark/50 text-sm">Pick a class, then the vehicle. Every one comes with a helmet.</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-          {summaries.map(cat => (
-            <button
-              key={cat.category}
-              type="button"
-              onClick={() => onPickCategory(cat.category)}
-              // Tall enough for the photograph to read as a vehicle: at h-56 a
-              // wide card cropped these to a letterbox strip of the middle.
-              className="group relative block h-72 md:h-80 rounded-2xl overflow-hidden text-left border-2 border-transparent hover:border-brand transition-all"
-            >
-              <img
-                src={cat.image}
-                alt={cat.meta.label}
-                loading="lazy"
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-dark/85 via-dark/30 to-dark/10" />
-
-              {cat.meta.transmission && (
-                <span className="absolute top-4 left-4 eyebrow !text-white/70">{cat.meta.transmission}</span>
-              )}
-
-              <div className="absolute inset-x-0 bottom-0 p-5 text-beige">
-                <h3 className="display-xl text-2xl">{cat.meta.label}</h3>
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-beige/20">
-                  <span className="font-display text-sm font-bold">From {formatPrice(cat.from)} / day</span>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide group-hover:gap-2.5 transition-all">
-                    Choose <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   // Scooters are chosen by engine capacity before model — that is how the
   // price list is written (110cc €5, 125cc €6). The chooser appears only when
@@ -681,7 +708,7 @@ function StepRide({
               </span>
               <button
                 type="button"
-                onClick={onClearCategory}
+                onClick={onChangeClass}
                 className="text-sm text-brand font-medium hover:underline"
               >
                 Change class
