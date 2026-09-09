@@ -6,11 +6,8 @@ import {
   Calendar,
   MapPin,
   Bike as BikeIcon,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Info,
-  Minus,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
@@ -512,71 +509,6 @@ const COMPARE_ATTRS: { label: string; read: (spec: VehicleSpec | undefined) => s
 ];
 
 /**
- * Per-vehicle detail, collapsed. A plain <details> keeps it keyboard-accessible
- * and working without JS; vehicles with no spec sheet fall back to the feature
- * list the admin holds for them.
- */
-function VehicleDetails({ bike }: { bike: Bike }) {
-  const spec = getSpec(bike.id);
-
-  return (
-    <details className="group/vd border-t border-dark/10">
-      <summary className="flex items-center justify-center gap-2 cursor-pointer list-none px-4 py-2.5 text-xs font-bold text-dark/65 hover:text-brand transition-colors">
-        <Info className="w-3.5 h-3.5" />
-        Vehicle details
-        <ChevronDown className="w-3.5 h-3.5 transition-transform group-open/vd:rotate-180" />
-      </summary>
-
-      <div className="px-4 pb-4 text-xs space-y-3">
-        {spec ? (
-          <>
-            <dl className="divide-y divide-dark/10 border-y border-dark/10">
-              {spec.specs.map(row => (
-                <div key={row.label} className="flex justify-between gap-3 py-1.5">
-                  <dt className="text-dark/45 shrink-0">{row.label}</dt>
-                  <dd className="text-dark/80 text-right">{row.value}</dd>
-                </div>
-              ))}
-            </dl>
-
-            {spec.pros.length > 0 && (
-              <ul className="space-y-1">
-                {spec.pros.map(p => (
-                  <li key={p} className="flex gap-1.5 text-dark/65 leading-snug">
-                    <Check className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
-                    {p}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {spec.cons.length > 0 && (
-              <ul className="space-y-1">
-                {spec.cons.map(c => (
-                  <li key={c} className="flex gap-1.5 text-dark/50 leading-snug">
-                    <Minus className="w-3 h-3 text-dark/35 shrink-0 mt-0.5" />
-                    {c}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        ) : (
-          <ul className="space-y-1">
-            {bike.features.map(f => (
-              <li key={f} className="flex gap-1.5 text-dark/65 leading-snug">
-                <span className="w-1 h-1 mt-1.5 rounded-full bg-brand shrink-0" />
-                {f}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </details>
-  );
-}
-
-/**
  * The vehicles on screen, side by side on the attributes that separate them.
  * Only worth drawing for two or more with a sheet — one column compares with
  * nothing, and vehicles without a sheet would be a column of dashes.
@@ -809,7 +741,6 @@ function StepRide({
                 </div>
               </button>
 
-              <VehicleDetails bike={b} />
             </div>
             </div>
           );
