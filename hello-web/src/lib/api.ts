@@ -94,6 +94,7 @@ export async function fetchBikes(): Promise<Bike[] | null> {
       ...bike,
       image: resolveImage(bike.image),
       engineCc: bike.engineCc ?? local?.engineCc,
+      views: bike.views ?? local?.views,
       bodyType: bike.bodyType ?? local?.bodyType,
       imagePosition: bike.imagePosition ?? local?.imagePosition,
     };

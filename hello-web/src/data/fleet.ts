@@ -27,6 +27,14 @@ export const formatPrice = (amount: number) => `${CURRENCY}${amount}`;
  */
 export const priceLabel = (amount: number) => (amount <= 0 ? 'Free' : formatPrice(amount));
 
+/** One photograph of a vehicle, labelled by the angle it was taken from. */
+export interface VehicleView {
+  label: string;
+  src: string;
+  /** Focal point for this shot's crop, like Bike.imagePosition. */
+  position?: string;
+}
+
 export interface Bike {
   id: string;
   title: string;
@@ -55,6 +63,16 @@ export interface Bike {
    * a mistake. Defaults to the category.
    */
   bodyType?: string;
+  /**
+   * The same vehicle from more than one angle. A customer choosing a scooter
+   * wants to see the back of it — where the luggage and a passenger go — not
+   * just the flattering three-quarter shot.
+   *
+   * The first entry is what the card shows at rest, and the switcher only
+   * appears once there are two. Vehicles with a single photograph leave this
+   * unset and behave exactly as before.
+   */
+  views?: VehicleView[];
   features: string[];
 }
 
@@ -113,6 +131,11 @@ export const bikes: Bike[] = [
     category: 'Scooter',
     pricePerDay: 6,
     image: asset('/fleet/tvs-ntorq.jpg'),
+    views: [
+      { label: 'Front', src: asset('/fleet/tvs-ntorq-front.jpg') },
+      { label: 'Side', src: asset('/fleet/tvs-ntorq.jpg') },
+      { label: 'Rear', src: asset('/fleet/tvs-ntorq-rear.jpg'), position: 'center 40%' },
+    ],
     engineCc: 125,
     features: [
       '124.8cc, the most powerful scooter we rent',
@@ -132,6 +155,10 @@ export const bikes: Bike[] = [
     pricePerDay: 10,
     image: asset('/fleet/bajaj-pulsar.jpg'),
     imagePosition: 'center 50%',
+    views: [
+      { label: 'Front', src: asset('/fleet/bajaj-pulsar-front.jpg'), position: 'center 45%' },
+      { label: 'Side', src: asset('/fleet/bajaj-pulsar.jpg'), position: 'center 50%' },
+    ],
     features: [
       'Manual transmission',
       'Perimeter frame, agile on mountain roads',
@@ -270,7 +297,7 @@ export const orderOf = (category: string) => {
  * Shared so the fleet page and the booking step show a class the same way.
  */
 export const categoryImage: Record<string, string> = {
-  Scooter: asset('/photos/ntorq-front.jpg'),
+  Scooter: asset('/fleet/tvs-ntorq-front.jpg'),
   Motorbike: asset('/fleet/bajaj-pulsar.jpg'),
   'Tuk Tuk': asset('/fleet/bajaj-re-tuktuk.jpg'),
   Car: asset('/fleet/toyota-kdh.jpg'),

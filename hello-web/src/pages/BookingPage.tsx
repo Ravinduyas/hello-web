@@ -509,6 +509,85 @@ const COMPARE_ATTRS: { label: string; read: (spec: VehicleSpec | undefined) => s
 ];
 
 /**
+ * One vehicle, with a switcher when there is more than one photograph of it.
+ *
+ * The state lives here rather than in the step so each card remembers the angle
+ * you left it on — turning one scooter around should not reset the others.
+ */
+function RideCard({ bike, active, onSelect }: { bike: Bike; active: boolean; onSelect: () => void }) {
+  const views = bike.views ?? [];
+  const [viewIndex, setViewIndex] = useState(0);
+  const shown = views[viewIndex];
+  const src = shown?.src ?? bike.image;
+  const position = shown?.position ?? bike.imagePosition ?? 'center';
+
+  return (
+    <div
+      className={`h-full rounded-2xl border-2 overflow-hidden transition-all ${
+        active ? 'border-brand shadow-md' : 'border-dark/10 hover:border-dark/30'
+      }`}
+    >
+      <div className="relative aspect-[3/2] overflow-hidden bg-beige">
+        {/* Selecting the vehicle is the photograph's job; the view buttons sit
+            over it and must not also select, so they are siblings rather than
+            nested inside the button. */}
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-pressed={active}
+          aria-label={`Choose the ${bike.title}`}
+          className="absolute inset-0 w-full h-full"
+        >
+          <img
+            src={src}
+            alt={shown ? `${bike.title} — ${shown.label.toLowerCase()} view` : bike.title}
+            loading="lazy"
+            style={{ objectPosition: position }}
+            className="w-full h-full object-cover"
+          />
+        </button>
+
+        {active && (
+          <span className="absolute top-3 right-3 w-7 h-7 bg-brand rounded-full flex items-center justify-center pointer-events-none">
+            <Check className="w-4 h-4 text-white" />
+          </span>
+        )}
+
+        {views.length > 1 && (
+          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
+            {views.map((view, i) => (
+              <button
+                key={view.label}
+                type="button"
+                onClick={() => setViewIndex(i)}
+                aria-pressed={i === viewIndex}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm transition-colors ${
+                  i === viewIndex
+                    ? 'bg-dark text-beige'
+                    : 'bg-white/80 text-dark/70 hover:bg-white'
+                }`}
+              >
+                {view.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <button type="button" onClick={onSelect} className="block w-full text-left p-4 pb-3">
+        <span className="text-[10px] font-bold text-brand uppercase tracking-widest">
+          {bike.bodyType ?? bike.category}
+        </span>
+        <p className="font-display font-bold leading-tight">{bike.title}</p>
+        {getSpec(bike.id)?.headline && (
+          <p className="text-xs text-dark/45 leading-snug mt-0.5">{getSpec(bike.id)?.headline}</p>
+        )}
+      </button>
+    </div>
+  );
+}
+
+/**
  * The vehicles on screen, side by side on the attributes that separate them.
  * Only worth drawing for two or more with a sheet — one column compares with
  * nothing, and vehicles without a sheet would be a column of dashes.
@@ -692,59 +771,14 @@ function StepRide({
           whole class lands on one row with nothing orphaned, and the
           comparison reads across without scrolling. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {visible.map(b => {
-          const active = b.id === selected;
-          return (
-            // A div, not a button: the details disclosure below is interactive
-            // and may not be nested inside one. The outer wrapper exists only
-            // to carry the rule between engine sizes without disturbing the
-            // card's own border.
-            <div
-              key={b.id}
-              className={bandStartIds.has(b.id) ? 'lg:border-l lg:border-dark/25 lg:pl-4' : ''}
-            >
-            <div
-              className={`h-full rounded-2xl border-2 overflow-hidden transition-all ${
-                active ? 'border-brand shadow-md' : 'border-dark/10 hover:border-dark/30'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => onSelect(b.id)}
-                aria-pressed={active}
-                className="block w-full text-left"
-              >
-                <div className="relative aspect-[3/2] overflow-hidden bg-beige">
-                  <img
-                    src={b.image}
-                    alt={b.title}
-                    loading="lazy"
-                    style={{ objectPosition: b.imagePosition ?? 'center' }}
-                    className="w-full h-full object-cover"
-                  />
-                  {active && (
-                    <span className="absolute top-3 right-3 w-7 h-7 bg-brand rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-white" />
-                    </span>
-                  )}
-                </div>
-                <div className="p-4 pb-3">
-                  <span className="text-[10px] font-bold text-brand uppercase tracking-widest">
-                    {b.bodyType ?? b.category}
-                  </span>
-                  <p className="font-display font-bold leading-tight">{b.title}</p>
-                  {getSpec(b.id)?.headline && (
-                    <p className="text-xs text-dark/45 leading-snug mt-0.5">
-                      {getSpec(b.id)?.headline}
-                    </p>
-                  )}
-                </div>
-              </button>
-
-            </div>
-            </div>
-          );
-        })}
+        {visible.map(b => (
+          <div
+            key={b.id}
+            className={bandStartIds.has(b.id) ? 'lg:border-l lg:border-dark/25 lg:pl-4' : ''}
+          >
+            <RideCard bike={b} active={b.id === selected} onSelect={() => onSelect(b.id)} />
+          </div>
+        ))}
       </div>
 
       <CompareTable bikes={visible} />
