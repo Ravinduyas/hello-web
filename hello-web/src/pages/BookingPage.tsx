@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   ArrowLeft,
@@ -8,6 +8,7 @@ import {
   Bike as BikeIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -458,6 +459,7 @@ export default function BookingPage() {
                     chosen={cart.map(i => i.bikeId)}
                     onToggle={toggleVehicle}
                     category={category}
+                    onChangeCategory={setCategory}
                   />
                 )}
 
@@ -668,6 +670,85 @@ function CompareTable({ bikes }: { bikes: Bike[] }) {
 }
 
 /**
+ * The class on show, and the way to change it.
+ *
+ * It closes on a click outside and on Escape, because a menu that can only be
+ * dismissed by choosing something makes the customer commit to an answer just
+ * to get rid of the question.
+ */
+function ClassMenu({
+  classes,
+  current,
+  onPick,
+}: {
+  classes: { category: string; label: string }[];
+  current: string;
+  onPick: (category: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const label = classes.find(c => c.category === current)?.label ?? current;
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex items-center gap-2 pl-3.5 pr-3 py-1.5 rounded-full bg-dark text-beige text-[11px] font-bold uppercase tracking-widest hover:bg-dark/85 transition-colors"
+      >
+        {label}
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 top-full mt-2 z-20 min-w-[190px] rounded-2xl border border-dark/10 bg-white shadow-xl shadow-dark/10 p-1.5"
+        >
+          {classes.map(c => (
+            <button
+              key={c.category}
+              type="button"
+              role="menuitem"
+              aria-current={c.category === current}
+              onClick={() => {
+                onPick(c.category);
+                setOpen(false);
+              }}
+              className={`w-full flex items-center justify-between gap-3 text-left px-3 py-2 rounded-xl text-sm transition-colors ${
+                c.category === current ? 'bg-beige font-bold' : 'hover:bg-beige/60'
+              }`}
+            >
+              {c.label}
+              {c.category === current && <Check className="w-4 h-4 text-brand shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * How wide a capacity's enclosure is, and how many columns of cards it holds.
  *
  * Written out rather than composed, because Tailwind finds class names by
@@ -692,11 +773,13 @@ function StepRide({
   chosen,
   onToggle,
   category,
+  onChangeCategory,
 }: {
   bikes: Bike[];
   chosen: string[];
   onToggle: (id: string) => void;
   category: string | null;
+  onChangeCategory: (category: string) => void;
 }) {
   // Arriving from a category card on the fleet page shows just that class;
   // the fleet page no longer lists models, so this is where a visitor meets
@@ -771,18 +854,20 @@ function StepRide({
       )}
 
       <p className="text-dark/40 text-xs mt-3">
-        Want a vehicle from another class too? Go back a step and pick it — this list is kept.
+        Want a vehicle from another class too? Switch class below — this list is kept.
       </p>
 
-      {/* Which class is being shown, as a label. Changing it is the Back
-          button's job, and the step rail's — a third way to do it, sitting in
-          the same strip, was one too many. Engine size is not a filter either:
-          it is a heading over the very cards it describes, below. */}
+      {/* Which class is being shown — and the way to a different one. The
+          chip is the control rather than a label with a link beside it: the
+          thing that names the class you are in is the thing you press to
+          leave it. */}
       {category && shown.length > 0 && (
         <div className="mt-4 mb-5">
-          <span className="px-3.5 py-1.5 rounded-full bg-dark text-beige text-[11px] font-bold uppercase tracking-widest">
-            {category}
-          </span>
+          <ClassMenu
+            classes={summariseCategories(bikes).map(c => ({ category: c.category, label: c.meta.label }))}
+            current={category}
+            onPick={onChangeCategory}
+          />
         </div>
       )}
 
