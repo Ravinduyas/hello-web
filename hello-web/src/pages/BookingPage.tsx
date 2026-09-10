@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { bikes as defaultBikes, extras as defaultExtras, formatPrice, priceLabel, shopLocation, summariseCategories, type Bike, type Extra } from '../data/fleet';
+import { bikes as defaultBikes, extras as defaultExtras, formatPrice, priceLabel, orderOf, shopLocation, summariseCategories, type Bike, type Extra } from '../data/fleet';
 import { getSpec, type VehicleSpec } from '../data/specs';
 import { asset } from '../lib/asset';
 import { ClassCardButton } from '../components/ClassCard';
@@ -681,9 +681,9 @@ function ClassMenu({
   current,
   onPick,
 }: {
-  classes: { category: string; label: string }[];
-  current: string;
-  onPick: (category: string) => void;
+  classes: { category: string | null; label: string }[];
+  current: string | null;
+  onPick: (category: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -704,7 +704,7 @@ function ClassMenu({
     };
   }, [open]);
 
-  const label = classes.find(c => c.category === current)?.label ?? current;
+  const label = classes.find(c => c.category === current)?.label ?? 'All vehicles';
 
   return (
     <div ref={ref} className="relative inline-block">
@@ -726,7 +726,7 @@ function ClassMenu({
         >
           {classes.map(c => (
             <button
-              key={c.category}
+              key={c.category ?? 'all'}
               type="button"
               role="menuitem"
               aria-current={c.category === current}
@@ -779,7 +779,7 @@ function StepRide({
   chosen: string[];
   onToggle: (id: string) => void;
   category: string | null;
-  onChangeCategory: (category: string) => void;
+  onChangeCategory: (category: string | null) => void;
 }) {
   // Arriving from a category card on the fleet page shows just that class;
   // the fleet page no longer lists models, so this is where a visitor meets
@@ -795,7 +795,14 @@ function StepRide({
   const capacities = Array.from(
     new Set(inCategory.map(b => b.engineCc).filter((cc): cc is number => typeof cc === 'number')),
   ).sort((a, b) => a - b);
-  const showCapacities = capacities.length > 1;
+  /*
+   * Only group by capacity when every vehicle on screen has one. Showing all
+   * classes at once puts tuk-tuks and cars beside the scooters, and they have
+   * no engine size to be filed under — grouped, they would have been left out
+   * of the grid altogether.
+   */
+  const showCapacities =
+    capacities.length > 1 && inCategory.every(b => typeof b.engineCc === 'number');
 
   // The cheapest rate at a given capacity, for the band heading.
   const rateAt = (cc: number) =>
@@ -803,9 +810,14 @@ function StepRide({
 
   const visible = inCategory
     .slice()
-    // Smallest engine first, so the row reads 110cc then 125cc and the two
-    // groups below are contiguous rather than interleaved.
-    .sort((a, b) => (a.engineCc ?? 0) - (b.engineCc ?? 0));
+    // Class order first: with every class on screen at once this is the order
+    // the class screen offers them in, so scooters lead instead of trailing
+    // the cars because they are the only ones with an engine size to sort by.
+    // Then smallest engine first, so a class priced by capacity reads 110cc
+    // before 125cc and its groups stay contiguous.
+    .sort(
+      (a, b) => orderOf(a.category) - orderOf(b.category) || (a.engineCc ?? 0) - (b.engineCc ?? 0),
+    );
 
   /**
    * The row split by engine size — 110cc on the left, 125cc on the right.
@@ -861,10 +873,13 @@ function StepRide({
           chip is the control rather than a label with a link beside it: the
           thing that names the class you are in is the thing you press to
           leave it. */}
-      {category && shown.length > 0 && (
+      {shown.length > 0 && (
         <div className="mt-4 mb-5">
           <ClassMenu
-            classes={summariseCategories(bikes).map(c => ({ category: c.category, label: c.meta.label }))}
+            classes={[
+              { category: null, label: 'All vehicles' },
+              ...summariseCategories(bikes).map(c => ({ category: c.category, label: c.meta.label })),
+            ]}
             current={category}
             onPick={onChangeCategory}
           />
