@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus, Search, ArrowUpDown } from 'lucide-react';
+import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus, Search, ArrowUpDown, Clock, AlertTriangle } from 'lucide-react';
 import Drawer from '../components/Drawer';
 import {
   fetchBookings,
@@ -31,6 +31,33 @@ const RANGES: { key: DateRange; label: string }[] = [
   { key: 'month', label: 'This month' },
   { key: 'custom', label: 'Custom' },
 ];
+
+/**
+ * Where a booking stands against today, which its status does not say.
+ *
+ * A booking is "confirmed" whether the bike went out this morning or was due
+ * back a week ago — the shop only finds out by reading dates off every row.
+ * These are worked out from the dates each time they are needed rather than
+ * stored, because the answer changes at midnight on its own.
+ */
+type Timing = 'upcoming' | 'out' | 'due' | 'latePickup' | 'lateReturn';
+
+const TIMING_FILTERS: { key: Timing | 'all'; label: string }[] = [
+  { key: 'all', label: 'Any timing' },
+  { key: 'out', label: 'Out now' },
+  { key: 'due', label: 'Back today' },
+  { key: 'lateReturn', label: 'Return overdue' },
+  { key: 'latePickup', label: 'Pickup passed' },
+  { key: 'upcoming', label: 'Upcoming' },
+];
+
+/** Only the states worth interrupting someone about are drawn on a row. */
+const timingStyles: Partial<Record<Timing, string>> = {
+  latePickup: 'bg-amber-100 text-amber-800',
+  lateReturn: 'bg-red-100 text-red-700',
+  due: 'bg-brand/10 text-brand',
+  out: 'bg-dark/5 text-dark/70',
+};
 
 /**
  * Which of a booking's dates the range applies to.
@@ -92,6 +119,47 @@ function rangeBounds(range: DateRange, from: string, to: string): [string, strin
       return [from, to];
     default:
       return ['', ''];
+  }
+}
+
+/** Whole days between two ISO dates, for saying how late something is. */
+const daysBetween = (from: string, to: string) =>
+  Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000);
+
+/**
+ * A booking's standing against today.
+ *
+ * A cancelled booking has none: nothing is owed and nothing is out, so
+ * flagging it as overdue would be noise on a row that is already closed.
+ * A pickup date that has passed only matters while a booking is still
+ * pending — once confirmed, the bike is out and the return is what counts.
+ */
+function timingOf(b: Booking, today: string): Timing | null {
+  if (b.status === 'cancelled') return null;
+  if (b.status === 'pending' && b.pickupDate < today) return 'latePickup';
+  if (b.status === 'confirmed' && b.dropoffDate < today) return 'lateReturn';
+  if (b.pickupDate > today) return 'upcoming';
+  if (b.pickupDate <= today && today <= b.dropoffDate) return today === b.dropoffDate ? 'due' : 'out';
+  return null;
+}
+
+/** What the badge says, including how late where lateness is the point. */
+function timingLabel(t: Timing, b: Booking, today: string): string {
+  switch (t) {
+    case 'lateReturn': {
+      const late = daysBetween(b.dropoffDate, today);
+      return `Return overdue · ${late} day${late === 1 ? '' : 's'}`;
+    }
+    case 'latePickup': {
+      const late = daysBetween(b.pickupDate, today);
+      return `Pickup passed · ${late} day${late === 1 ? '' : 's'}`;
+    }
+    case 'due':
+      return 'Back today';
+    case 'out':
+      return 'Out now';
+    default:
+      return '';
   }
 }
 
@@ -178,6 +246,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   const [customTo, setCustomTo] = useState('');
   const [search, setSearch] = useState('');
   const [pay, setPay] = useState<PayState | 'all'>('all');
+  const [timing, setTiming] = useState<Timing | 'all'>('all');
   const [sort, setSort] = useState<Sort>('newest');
   const [payId, setPayId] = useState<string | null>(null);
 
@@ -243,6 +312,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
    * before — each number then says what that status would actually show,
    * rather than counting rows the other filters have already excluded.
    */
+  const today = isoLocal(new Date());
   const [rangeFrom, rangeTo] = rangeBounds(range, customFrom, customTo);
   const query = search.trim().toLowerCase();
   const dateFiltered = bookings.filter(b => {
@@ -250,7 +320,8 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     return (!rangeFrom || d >= rangeFrom) && (!rangeTo || d <= rangeTo);
   });
   const searched = query ? dateFiltered.filter(b => haystack(b).includes(query)) : dateFiltered;
-  const narrowed = pay === 'all' ? searched : searched.filter(b => payStateOf(b) === pay);
+  const paid_ = pay === 'all' ? searched : searched.filter(b => payStateOf(b) === pay);
+  const narrowed = timing === 'all' ? paid_ : paid_.filter(b => timingOf(b, today) === timing);
   const visible = (filter === 'all' ? narrowed : narrowed.filter(b => b.status === filter))
     .slice()
     .sort((a, b) => compare(a, b, sort));
@@ -260,13 +331,17 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     confirmed: narrowed.filter(b => b.status === 'confirmed').length,
     cancelled: narrowed.filter(b => b.status === 'cancelled').length,
   };
-  const filtering = !!query || range !== 'all' || pay !== 'all' || filter !== 'all';
+  const filtering = !!query || range !== 'all' || pay !== 'all' || timing !== 'all' || filter !== 'all';
+  // Counted before any filter, so the warning is the same number whatever the
+  // list is currently showing — and does not vanish because of a filter.
+  const overdue = bookings.filter(b => timingOf(b, today) === 'lateReturn').length;
   function clearFilters() {
     setSearch('');
     setRange('all');
     setCustomFrom('');
     setCustomTo('');
     setPay('all');
+    setTiming('all');
     setFilter('all');
   }
   const payBooking = payId ? bookings.find(b => b.id === payId) ?? null : null;
@@ -322,6 +397,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
           ]}
         />
         <PillSelect value={pay} onChange={setPay} label="Payment" options={PAY_FILTERS} icon={Wallet} />
+        <PillSelect value={timing} onChange={setTiming} label="Timing" options={TIMING_FILTERS} icon={Clock} />
         <PillSelect value={sort} onChange={setSort} label="Sort by" options={SORTS} icon={ArrowUpDown} />
       </div>
 
@@ -332,6 +408,20 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
           <span className="text-dark/40">→</span>
           <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input max-w-[170px]" aria-label="To date" />
         </div>
+      )}
+
+      {/* A bike that has not come back is the one thing on this page worth
+          interrupting someone about, so it is said once at the top rather than
+          left to be noticed row by row. */}
+      {overdue > 0 && timing !== 'lateReturn' && (
+        <button
+          onClick={() => setTiming('lateReturn')}
+          className="flex items-center gap-2 w-full text-left bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 mb-3 text-sm font-bold hover:bg-red-100 transition"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          {overdue} booking{overdue === 1 ? ' is' : 's are'} past their return date — show
+          {overdue === 1 ? ' it' : ' them'}
+        </button>
       )}
 
       {/* What the filters left, and the way out of them. */}
@@ -366,6 +456,14 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                         search matches it, and it was nowhere on the row to
                         read back to them. */}
                     <span className="font-display text-xs font-bold tracking-wide text-dark/70">{b.reference}</span>
+                    {(() => {
+                      const t = timingOf(b, today);
+                      return t && timingStyles[t] ? (
+                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${timingStyles[t]}`}>
+                          {timingLabel(t, b, today)}
+                        </span>
+                      ) : null;
+                    })()}
                     {b.plate && (
                       <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-dark/5 text-dark/70">
                         Plate {b.plate}
