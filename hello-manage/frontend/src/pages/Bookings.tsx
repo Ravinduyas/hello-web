@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus } from 'lucide-react';
+import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus, Search, ArrowUpDown } from 'lucide-react';
 import Drawer from '../components/Drawer';
 import {
   fetchBookings,
@@ -32,6 +32,40 @@ const RANGES: { key: DateRange; label: string }[] = [
   { key: 'custom', label: 'Custom' },
 ];
 
+/**
+ * Which of a booking's dates the range applies to.
+ *
+ * It was always the pickup, which answers "who is collecting this week" and
+ * nothing else. The shop also needs "what comes back this week" to plan the
+ * yard, and "what was booked this week" to see the week's trade.
+ */
+type DateField = 'pickup' | 'dropoff' | 'created';
+const DATE_FIELDS: { key: DateField; label: string }[] = [
+  { key: 'pickup', label: 'By pickup' },
+  { key: 'dropoff', label: 'By return' },
+  { key: 'created', label: 'By booked' },
+];
+
+/** Where a booking stands on money, derived rather than stored. */
+type PayState = 'unpaid' | 'part' | 'paid';
+const PAY_FILTERS: { key: PayState | 'all'; label: string }[] = [
+  { key: 'all', label: 'Any payment' },
+  { key: 'unpaid', label: 'Unpaid' },
+  { key: 'part', label: 'Part paid' },
+  { key: 'paid', label: 'Paid in full' },
+];
+
+/** How the list is ordered. */
+type Sort = 'newest' | 'oldest' | 'pickup' | 'dropoff' | 'due' | 'name';
+const SORTS: { key: Sort; label: string }[] = [
+  { key: 'newest', label: 'Newest booked' },
+  { key: 'oldest', label: 'Oldest booked' },
+  { key: 'pickup', label: 'Pickup soonest' },
+  { key: 'dropoff', label: 'Return soonest' },
+  { key: 'due', label: 'Most owed' },
+  { key: 'name', label: 'Customer A–Z' },
+];
+
 const pad = (n: number) => String(n).padStart(2, '0');
 const isoLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
@@ -61,6 +95,77 @@ function rangeBounds(range: DateRange, from: string, to: string): [string, strin
   }
 }
 
+/** The date a booking is filtered on. createdAt is a timestamp; cut it to a day. */
+const dateOf = (b: Booking, field: DateField) =>
+  field === 'created' ? b.createdAt.slice(0, 10) : field === 'dropoff' ? b.dropoffDate : b.pickupDate;
+
+const payStateOf = (b: Booking): PayState => {
+  if (paidOf(b) <= 0) return 'unpaid';
+  return dueOf(b) > 0 ? 'part' : 'paid';
+};
+
+/**
+ * What a search looks at: the reference someone quotes on the phone, the person,
+ * the machine, and the plate — whichever of those the counter happens to have.
+ */
+const haystack = (b: Booking) =>
+  [b.reference, b.renter.firstName, b.renter.lastName, b.renter.email, b.renter.phone, b.bikeTitle, b.plate]
+    .join(' ')
+    .toLowerCase();
+
+const nameOf = (b: Booking) => `${b.renter.firstName} ${b.renter.lastName}`.trim();
+
+function compare(a: Booking, b: Booking, sort: Sort): number {
+  switch (sort) {
+    case 'oldest':
+      return a.createdAt.localeCompare(b.createdAt);
+    case 'pickup':
+      return a.pickupDate.localeCompare(b.pickupDate) || a.createdAt.localeCompare(b.createdAt);
+    case 'dropoff':
+      return a.dropoffDate.localeCompare(b.dropoffDate) || a.createdAt.localeCompare(b.createdAt);
+    case 'due':
+      return dueOf(b) - dueOf(a);
+    case 'name':
+      return nameOf(a).localeCompare(nameOf(b));
+    default:
+      return b.createdAt.localeCompare(a.createdAt);
+  }
+}
+
+/** A pill-shaped select with the chevron laid over it. */
+function PillSelect<T extends string>({
+  value,
+  onChange,
+  label,
+  options,
+  icon: Icon,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  label: string;
+  options: { key: T; label: string }[];
+  icon?: typeof ChevronDown;
+}) {
+  return (
+    <div className="relative">
+      {Icon && <Icon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-dark/40" />}
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value as T)}
+        aria-label={label}
+        className={`appearance-none cursor-pointer bg-white border border-dark/15 rounded-full ${Icon ? 'pl-9' : 'pl-4'} pr-9 py-2 text-sm font-bold text-dark hover:border-dark/30 focus:outline-none focus:border-brand`}
+      >
+        {options.map(o => (
+          <option key={o.key} value={o.key}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dark/40" />
+    </div>
+  );
+}
+
 export default function Bookings({ onLogout }: { onLogout: () => void }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -68,8 +173,12 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | BookingStatus>('all');
   const [range, setRange] = useState<DateRange>('all');
+  const [dateField, setDateField] = useState<DateField>('pickup');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [search, setSearch] = useState('');
+  const [pay, setPay] = useState<PayState | 'all'>('all');
+  const [sort, setSort] = useState<Sort>('newest');
   const [payId, setPayId] = useState<string | null>(null);
 
   // `silent` polls update data without the spinner or clobbering the UI with a
@@ -128,17 +237,38 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     }
   }
 
+  /*
+   * Dates, then text, then money, then status, then order. Status is applied
+   * last of the filters so the counts beside it can be taken from the set just
+   * before — each number then says what that status would actually show,
+   * rather than counting rows the other filters have already excluded.
+   */
   const [rangeFrom, rangeTo] = rangeBounds(range, customFrom, customTo);
-  const dateFiltered = bookings.filter(
-    b => (!rangeFrom || b.pickupDate >= rangeFrom) && (!rangeTo || b.pickupDate <= rangeTo),
-  );
-  const visible = filter === 'all' ? dateFiltered : dateFiltered.filter(b => b.status === filter);
+  const query = search.trim().toLowerCase();
+  const dateFiltered = bookings.filter(b => {
+    const d = dateOf(b, dateField);
+    return (!rangeFrom || d >= rangeFrom) && (!rangeTo || d <= rangeTo);
+  });
+  const searched = query ? dateFiltered.filter(b => haystack(b).includes(query)) : dateFiltered;
+  const narrowed = pay === 'all' ? searched : searched.filter(b => payStateOf(b) === pay);
+  const visible = (filter === 'all' ? narrowed : narrowed.filter(b => b.status === filter))
+    .slice()
+    .sort((a, b) => compare(a, b, sort));
   const counts = {
-    all: dateFiltered.length,
-    pending: dateFiltered.filter(b => b.status === 'pending').length,
-    confirmed: dateFiltered.filter(b => b.status === 'confirmed').length,
-    cancelled: dateFiltered.filter(b => b.status === 'cancelled').length,
+    all: narrowed.length,
+    pending: narrowed.filter(b => b.status === 'pending').length,
+    confirmed: narrowed.filter(b => b.status === 'confirmed').length,
+    cancelled: narrowed.filter(b => b.status === 'cancelled').length,
   };
+  const filtering = !!query || range !== 'all' || pay !== 'all' || filter !== 'all';
+  function clearFilters() {
+    setSearch('');
+    setRange('all');
+    setCustomFrom('');
+    setCustomTo('');
+    setPay('all');
+    setFilter('all');
+  }
   const payBooking = payId ? bookings.find(b => b.id === payId) ?? null : null;
 
   return (
@@ -150,52 +280,71 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
           </span>
         </span>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Date range menu (by pickup date) */}
-          <div className="relative">
-            <select
-              value={range}
-              onChange={e => setRange(e.target.value as DateRange)}
-              aria-label="Date range"
-              className="appearance-none cursor-pointer bg-white border border-dark/15 rounded-full pl-4 pr-9 py-2 text-sm font-bold text-dark hover:border-dark/30 focus:outline-none focus:border-brand"
-            >
-              {RANGES.map(r => (
-                <option key={r.key} value={r.key}>{r.label}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dark/40" />
-          </div>
+        <button onClick={() => load()} className="btn-outline" disabled={loading} aria-label="Refresh">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
 
-          {/* Status menu */}
-          <div className="relative">
-            <select
-              value={filter}
-              onChange={e => setFilter(e.target.value as 'all' | BookingStatus)}
-              aria-label="Status"
-              className="appearance-none cursor-pointer bg-white border border-dark/15 rounded-full pl-4 pr-9 py-2 text-sm font-bold text-dark hover:border-dark/30 focus:outline-none focus:border-brand"
+      {/* Search, filters and order. One reference, name, phone or plate is what
+          the counter actually has to hand when someone walks in. */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-dark/35" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search reference, name, phone, plate…"
+            aria-label="Search bookings"
+            className="w-full bg-white border border-dark/15 rounded-full pl-11 pr-10 py-2 text-sm hover:border-dark/30 focus:outline-none focus:border-brand"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-dark/40 hover:text-dark"
             >
-              <option value="all">All ({counts.all})</option>
-              <option value="pending">Pending ({counts.pending})</option>
-              <option value="confirmed">Confirmed ({counts.confirmed})</option>
-              <option value="cancelled">Cancelled ({counts.cancelled})</option>
-            </select>
-            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dark/40" />
-          </div>
-
-          <button onClick={() => load()} className="btn-outline" disabled={loading} aria-label="Refresh">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
+
+        <PillSelect value={dateField} onChange={setDateField} label="Which date to filter on" options={DATE_FIELDS} icon={Calendar} />
+        <PillSelect value={range} onChange={setRange} label="Date range" options={RANGES} />
+        <PillSelect
+          value={filter}
+          onChange={setFilter}
+          label="Status"
+          options={[
+            { key: 'all' as const, label: `All (${counts.all})` },
+            { key: 'pending' as const, label: `Pending (${counts.pending})` },
+            { key: 'confirmed' as const, label: `Confirmed (${counts.confirmed})` },
+            { key: 'cancelled' as const, label: `Cancelled (${counts.cancelled})` },
+          ]}
+        />
+        <PillSelect value={pay} onChange={setPay} label="Payment" options={PAY_FILTERS} icon={Wallet} />
+        <PillSelect value={sort} onChange={setSort} label="Sort by" options={SORTS} icon={ArrowUpDown} />
       </div>
 
       {/* Custom date range inputs */}
       {range === 'custom' && (
-        <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input max-w-[170px]" aria-label="From date" />
           <span className="text-dark/40">→</span>
           <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input max-w-[170px]" aria-label="To date" />
         </div>
       )}
+
+      {/* What the filters left, and the way out of them. */}
+      <div className="flex items-center gap-3 mb-6 text-xs text-dark/45">
+        <span>
+          {visible.length} of {bookings.length} booking{bookings.length === 1 ? '' : 's'}
+        </span>
+        {filtering && (
+          <button onClick={clearFilters} className="font-bold text-brand hover:underline">
+            Clear filters
+          </button>
+        )}
+      </div>
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
@@ -213,6 +362,10 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                     <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${statusStyles[b.status]}`}>
                       {b.status}
                     </span>
+                    {/* The reference the customer quotes on the phone. The
+                        search matches it, and it was nowhere on the row to
+                        read back to them. */}
+                    <span className="font-display text-xs font-bold tracking-wide text-dark/70">{b.reference}</span>
                     {b.plate && (
                       <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-dark/5 text-dark/70">
                         Plate {b.plate}
