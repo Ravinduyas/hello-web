@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { createLogger, defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import sitemap from './vite-plugin-sitemap';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 
@@ -26,11 +27,22 @@ export default defineConfig(({ command, mode }) => {
   // prefix on every asset URL. Dev stays at '/'. Override with BASE_PATH if the
   // repo is renamed or the site moves to a custom domain (then use '/').
   const base = env.BASE_PATH || (command === 'build' ? '/hello-web/' : '/');
+  // Where the site actually answers, for the absolute URLs a sitemap and a
+  // robots.txt must carry. Amplify and any custom domain set SITE_URL; the
+  // default matches the GitHub Pages project site the base above assumes.
+  const siteUrl = env.SITE_URL || 'https://ravinduyas.github.io';
+  if (command === 'build' && !env.SITE_URL) {
+    console.log(
+      `  ➜  SITE_URL not set — sitemap.xml points at ${siteUrl}${base}. ` +
+        'Set SITE_URL to the live domain to fix it.',
+    );
+  }
+
   return {
     root,
     base,
     customLogger: logger,
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), sitemap({ siteUrl })],
     server: {
       port: 3000,
       host: '0.0.0.0',

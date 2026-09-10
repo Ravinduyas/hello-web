@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { ReactElement } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ROUTE_PATHS, type RoutePath } from './data/routes';
 import { BASE_URL } from './lib/asset';
 import ScrollToTop from './components/ScrollToTop';
 import Navbar from './components/Navbar';
@@ -45,6 +47,24 @@ function HomePage() {
 }
 
 /**
+ * What each public path renders.
+ *
+ * Typed against the shared route list, so a page and its URL cannot fall out
+ * of step — and neither can sitemap.xml, which the build writes from that same
+ * list. A path added there is a type error here until it has a page.
+ */
+const PAGES: Record<RoutePath, ReactElement> = {
+  '/': <HomePage />,
+  '/fleet': <FleetPage />,
+  '/book': <BookingPage />,
+  '/tours': <TourPlansPage />,
+  '/driving-permit': <DrivingPermitPage />,
+  '/about': <AboutPage />,
+  '/blog': <BlogPage />,
+  '/contact': <ContactPage />,
+};
+
+/**
  * Booking runs without the site's furniture — no navbar, trust band or footer.
  *
  * Once someone is filling in a booking, a menu inviting them to read the blog
@@ -60,17 +80,13 @@ function Shell() {
       {!bare && <Navbar />}
       <div id="main-content">
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/tours" element={<TourPlansPage />} />
-          <Route path="/driving-permit" element={<DrivingPermitPage />} />
-          <Route path="/fleet" element={<FleetPage />} />
-          <Route path="/book" element={<BookingPage />} />
+          {ROUTE_PATHS.map(path => (
+            <Route key={path} path={path} element={PAGES[path]} />
+          ))}
           {/* The Locations page was folded into Contact; keep the old URL
-              working for anyone arriving from a bookmark or search result. */}
+              working for anyone arriving from a bookmark or search result.
+              A redirect is not a page, so it stays out of the sitemap. */}
           <Route path="/locations" element={<Navigate to="/contact#store" replace />} />
-          <Route path="/blog" element={<BlogPage />} />
-          <Route path="/contact" element={<ContactPage />} />
         </Routes>
       </div>
       {!bare && (
