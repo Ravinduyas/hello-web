@@ -476,8 +476,13 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-display text-2xl font-black text-brand">{money(b.total)}</p>
-                  <p className="text-[10px] text-dark/40 uppercase tracking-wide">{new Date(b.createdAt).toLocaleDateString()}</p>
+                  {/* Named, because a lone figure beside a row of other figures
+                      is just another number. */}
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-dark/40">Total</p>
+                  <p className="font-display text-2xl font-black text-brand tabular-nums">{money(b.total)}</p>
+                  <p className="text-[10px] text-dark/40 uppercase tracking-wide mt-0.5">
+                    Booked {new Date(b.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
 
@@ -492,15 +497,22 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                 <p className="text-xs text-dark/40 mt-3">Extras: {b.extras.map(e => e.label).join(', ')}</p>
               )}
 
-              {/* Billing summary */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs">
-                <span className="text-dark/50">Paid <b className="text-emerald-700">{money(paidOf(b))}</b></span>
-                <span className="text-dark/50">Due <b className={dueOf(b) > 0 ? 'text-red-600' : 'text-dark/60'}>{money(dueOf(b))}</b></span>
+              {/* Billing, as states rather than three numbers in a row. A
+                  booking that owes nothing and holds nothing should look
+                  settled at a glance, without anyone reading the figures. */}
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <Money label="Paid" value={money(paidOf(b))} tone={paidOf(b) > 0 ? 'good' : 'muted'} />
+                <Money
+                  label={dueOf(b) > 0 ? 'Due' : 'Settled'}
+                  value={money(dueOf(b))}
+                  tone={dueOf(b) > 0 ? 'owed' : 'muted'}
+                />
                 {b.deposit > 0 && (
-                  <span className="text-dark/50">
-                    Deposit <b className="text-dark">{money(b.deposit)}</b>
-                    {b.depositReturned && <span className="text-dark/40"> · returned</span>}
-                  </span>
+                  <Money
+                    label={b.depositReturned ? 'Deposit returned' : 'Deposit held'}
+                    value={money(b.deposit)}
+                    tone={b.depositReturned ? 'muted' : 'held'}
+                  />
                 )}
               </div>
 
@@ -743,6 +755,38 @@ function PaymentsForm({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * One figure from a booking's billing, coloured by what it means rather than
+ * printed in the same grey as everything else.
+ *
+ * The three of these are what the counter actually acts on — whether money is
+ * owed, and whether a deposit is still the shop's to give back — and they were
+ * the smallest, faintest text on the row. Colour does the reading here: green
+ * is settled, red is owed, amber is money being held that is not ours.
+ */
+function Money({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'good' | 'owed' | 'held' | 'muted';
+}) {
+  const tones = {
+    good: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    owed: 'bg-red-50 text-red-700 border-red-200',
+    held: 'bg-amber-50 text-amber-800 border-amber-200',
+    muted: 'bg-dark/[0.04] text-dark/55 border-dark/10',
+  };
+  return (
+    <span className={`inline-flex items-baseline gap-2 rounded-full border px-3 py-1 ${tones[tone]}`}>
+      <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">{label}</span>
+      <b className="font-display text-sm tabular-nums">{value}</b>
+    </span>
   );
 }
 
