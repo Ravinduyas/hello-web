@@ -8,6 +8,7 @@ import {
   Bike as BikeIcon,
   ChevronLeft,
   ChevronRight,
+  X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
@@ -22,6 +23,24 @@ import { createBooking, fetchExtras, fetchBikes } from '../lib/api';
 /* ------------------------------------------------------------------ */
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+/**
+ * One vehicle in a booking, with the dates that vehicle is wanted for.
+ *
+ * The dates sit on the vehicle rather than on the booking because a group
+ * rarely wants everything for the same days — a scooter for the week and a
+ * tuk-tuk for the day out is the ordinary case, not the awkward one.
+ */
+interface CartItem {
+  bikeId: string;
+  pickupDate: string;
+  dropoffDate: string;
+}
+
+const emptyItem = (bikeId: string): CartItem => ({ bikeId, pickupDate: '', dropoffDate: '' });
+
+/** A cart item resolved against the fleet: the vehicle, and how long for. */
+type BookingItem = CartItem & { bike: Bike; days: number };
 
 /** Whole rental days between two ISO dates (min 1 once both are set). */
 function rentalDays(pickup: string, dropoff: string): number {
@@ -69,11 +88,13 @@ export default function BookingPage() {
   const location = useLocation();
 
   const [step, setStep] = useState(0);
-  const [bikeId, setBikeId] = useState<string | null>(params.get('bike'));
+  // Arriving with ?bike= starts the cart with that vehicle already in it.
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const seed = params.get('bike');
+    return seed ? [emptyItem(seed)] : [];
+  });
   // Set when the visitor arrives from a category card rather than a vehicle.
   const [category, setCategory] = useState<string | null>(params.get('category'));
-  const [pickupDate, setPickupDate] = useState('');
-  const [dropoffDate, setDropoffDate] = useState('');
   // Fleet & extras come from the admin-managed API; fall back to bundled defaults if it's unreachable.
   const [bikes, setBikes] = useState<Bike[]>(defaultBikes);
   const [extras, setExtras] = useState<Extra[]>(defaultExtras);
@@ -86,12 +107,34 @@ export default function BookingPage() {
     license: '',
   });
   const [confirmed, setConfirmed] = useState(false);
-  const [reference, setReference] = useState('');
+  const [references, setReferences] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const bike = bikes.find(b => b.id === bikeId);
-  const days = rentalDays(pickupDate, dropoffDate);
+  /** The cart against the live fleet, dropping anything no longer offered. */
+  const items = useMemo(
+    () =>
+      cart.flatMap(item => {
+        const bike = bikes.find(b => b.id === item.bikeId);
+        return bike ? [{ ...item, bike, days: rentalDays(item.pickupDate, item.dropoffDate) }] : [];
+      }),
+    [cart, bikes],
+  );
+
+  /**
+   * The booking end to end: the first pickup to the last return.
+   *
+   * Per-day extras are charged over this rather than once per vehicle. A phone
+   * mount is hired for the trip, not for each machine, and it is held from the
+   * day the first vehicle is collected to the day the last one comes back.
+   */
+  const dated = items.filter(i => i.days > 0);
+  const spanDays = dated.length
+    ? rentalDays(
+        dated.map(i => i.pickupDate).sort()[0],
+        dated.map(i => i.dropoffDate).sort()[dated.length - 1],
+      )
+    : 0;
 
   /* ---- Arriving at the page ---------------------------------------
    *
@@ -109,8 +152,9 @@ export default function BookingPage() {
     if (paramCategory) {
       setCategory(paramCategory);
     }
-    // A vehicle from the class you just left cannot stay selected.
-    setBikeId(paramBike ?? null);
+    // Arriving with an explicit vehicle replaces the cart: the link is a
+    // fresh intent, not an addition to whatever was left half-chosen.
+    setCart(paramBike ? [emptyItem(paramBike)] : []);
     // The class screen is already answered by the link, so land on the ride.
     setStep(1);
   }, [paramCategory, paramBike]);
@@ -120,12 +164,10 @@ export default function BookingPage() {
   useEffect(() => {
     if (!confirmed) return;
     setConfirmed(false);
-    setReference('');
+    setReferences([]);
     setStep(0);
-    setBikeId(paramBike ?? null);
+    setCart(paramBike ? [emptyItem(paramBike)] : []);
     setCategory(paramCategory);
-    setPickupDate('');
-    setDropoffDate('');
     setChosenExtras([]);
     setError('');
     // location.key changes on every navigation, including to the same URL.
@@ -155,54 +197,112 @@ export default function BookingPage() {
   /* ---- Price breakdown ------------------------------------------- */
   const summary = useMemo(() => {
     const lines: { label: string; amount: number }[] = [];
-    if (bike && days > 0) {
-      lines.push({ label: `${bike.title} · ${days} day${days > 1 ? 's' : ''}`, amount: bike.pricePerDay * days });
+    for (const item of items) {
+      if (item.days < 1) continue;
+      lines.push({
+        label: `${item.bike.title} · ${item.days} day${item.days > 1 ? 's' : ''}`,
+        amount: item.bike.pricePerDay * item.days,
+      });
     }
+    const chargeDays = Math.max(spanDays, 1);
     for (const ex of extras) {
       if (!chosenExtras.includes(ex.id)) continue;
-      const amount = ex.perDay ? ex.price * Math.max(days, 1) : ex.price;
-      lines.push({ label: ex.perDay ? `${ex.label} (×${Math.max(days, 1)})` : ex.label, amount });
+      const amount = ex.perDay ? ex.price * chargeDays : ex.price;
+      lines.push({ label: ex.perDay ? `${ex.label} (×${chargeDays})` : ex.label, amount });
     }
     const total = lines.reduce((sum, l) => sum + l.amount, 0);
     return { lines, total };
-  }, [bike, days, chosenExtras, extras]);
+  }, [items, spanDays, chosenExtras, extras]);
 
   /* ---- Per-step validation --------------------------------------- */
   const stepValid = [
     !!category,
-    !!bike,
-    !!pickupDate && !!dropoffDate && days > 0,
+    items.length > 0,
+    items.length > 0 && items.every(i => i.days > 0),
     true, // extras are optional
     !!renter.firstName && !!renter.lastName && /\S+@\S+\.\S+/.test(renter.email) && !!renter.phone,
   ];
+
+  /** Add a vehicle to the booking, or take it back out. */
+  function toggleVehicle(id: string) {
+    setCart(prev =>
+      prev.some(i => i.bikeId === id) ? prev.filter(i => i.bikeId !== id) : [...prev, emptyItem(id)],
+    );
+  }
+
+  function setItemDates(bikeId: string, fields: DateFields) {
+    setCart(prev =>
+      prev.map(item => {
+        if (item.bikeId !== bikeId) return item;
+        const next = { ...item };
+        if (fields.pickupDate !== undefined) {
+          next.pickupDate = fields.pickupDate;
+          // keep drop-off on or after pickup
+          if (next.dropoffDate && fields.pickupDate > next.dropoffDate) next.dropoffDate = fields.pickupDate;
+        }
+        if (fields.dropoffDate !== undefined) next.dropoffDate = fields.dropoffDate;
+        return next;
+      }),
+    );
+  }
 
   function toggleExtra(id: string) {
     setChosenExtras(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
   }
 
+  /**
+   * One booking per vehicle.
+   *
+   * The shop assigns a physical machine and a number plate to a booking, so a
+   * row per vehicle is what lets it do that, and what puts each vehicle on its
+   * own line of the timeline. The extras ride on the first row only — charging
+   * them on every row would bill one phone mount once per scooter.
+   */
   async function submitBooking() {
-    if (!bike) return;
+    if (!items.length) return;
     setSubmitting(true);
     setError('');
+
+    const extraLines = extras
+      .filter(ex => chosenExtras.includes(ex.id))
+      .map(ex => ({
+        id: ex.id,
+        label: ex.label,
+        amount: ex.perDay ? ex.price * Math.max(spanDays, 1) : ex.price,
+      }));
+    const extrasTotal = extraLines.reduce((sum, line) => sum + line.amount, 0);
+    const booked: string[] = [];
+
     try {
-      const { reference } = await createBooking({
-        bikeId: bike.id,
-        bikeTitle: bike.title,
-        pickupLocation: shopLocation.name,
-        dropoffLocation: shopLocation.name,
-        pickupDate,
-        dropoffDate,
-        days,
-        extras: extras
-          .filter(ex => chosenExtras.includes(ex.id))
-          .map(ex => ({ id: ex.id, label: ex.label, amount: ex.perDay ? ex.price * days : ex.price })),
-        total: summary.total,
-        renter,
-      });
-      setReference(reference);
+      for (const [i, item] of items.entries()) {
+        const { reference } = await createBooking({
+          bikeId: item.bike.id,
+          bikeTitle: item.bike.title,
+          pickupLocation: shopLocation.name,
+          dropoffLocation: shopLocation.name,
+          pickupDate: item.pickupDate,
+          dropoffDate: item.dropoffDate,
+          days: item.days,
+          extras: i === 0 ? extraLines : [],
+          total: item.bike.pricePerDay * item.days + (i === 0 ? extrasTotal : 0),
+          renter,
+        });
+        booked.push(reference);
+      }
+      setReferences(booked);
       setConfirmed(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+      const message = e instanceof Error ? e.message : 'Something went wrong. Please try again.';
+      /*
+       * A vehicle already booked stays booked. Saying so is the difference
+       * between a customer ringing the shop about the one that failed and a
+       * customer pressing Confirm again, taking the first scooter twice.
+       */
+      setError(
+        booked.length
+          ? `${message} — but ${booked.length} of ${items.length} vehicles are already reserved (${booked.join(', ')}). Please call us to add the rest rather than booking again.`
+          : message,
+      );
     } finally {
       setSubmitting(false);
     }
@@ -237,19 +337,32 @@ export default function BookingPage() {
             your passport &amp; a valid licence to pick up.
           </p>
 
-          <div className="bg-beige rounded-2xl p-6 text-left space-y-3 mb-8">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-dark/40">Reference</span>
-              <span className="font-display font-bold tracking-wide">{reference}</span>
+          {/* One block per vehicle: each is its own reservation at the shop,
+              with its own reference to quote and its own dates. */}
+          <div className="bg-beige rounded-2xl p-6 text-left mb-8">
+            {items.map((item, i) => (
+              <div key={item.bikeId} className={`space-y-3 ${i > 0 ? 'border-t border-dark/10 mt-4 pt-4' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-dark/40">Reference</span>
+                  <span className="font-display font-bold tracking-wide">{references[i] ?? '—'}</span>
+                </div>
+                <Row icon={BikeIcon} label="Ride" value={item.bike.title} />
+                <Row
+                  icon={Calendar}
+                  label="Dates"
+                  value={`${item.pickupDate} → ${item.dropoffDate} (${item.days} day${item.days > 1 ? 's' : ''})`}
+                />
+              </div>
+            ))}
+
+            <div className="space-y-3 border-t border-dark/10 mt-4 pt-4">
+              <Row icon={MapPin} label="Pickup & return" value={shopLocation.address} />
+              <div className="flex items-center justify-between">
+                <span className="font-bold">Total</span>
+                <span className="font-display text-2xl font-black text-brand">{formatPrice(summary.total)}</span>
+              </div>
+              <p className="text-xs text-dark/40">Pay at pickup — no card needed to reserve.</p>
             </div>
-            <Row icon={BikeIcon} label="Ride" value={bike?.title ?? ''} />
-            <Row icon={Calendar} label="Dates" value={`${pickupDate} → ${dropoffDate} (${days} day${days > 1 ? 's' : ''})`} />
-            <Row icon={MapPin} label="Pickup & return" value={shopLocation.address} />
-            <div className="flex items-center justify-between border-t border-dark/10 pt-3">
-              <span className="font-bold">Total</span>
-              <span className="font-display text-2xl font-black text-brand">{formatPrice(summary.total)}</span>
-            </div>
-            <p className="text-xs text-dark/40">Pay at pickup — no card needed to reserve.</p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -331,9 +444,9 @@ export default function BookingPage() {
                     selected={category}
                     onPick={c => {
                       setCategory(c);
-                      // A vehicle from the class you just left cannot stay
-                      // selected once a different class is chosen.
-                      setBikeId(null);
+                      // The cart survives the change. Coming back here and
+                      // picking another class is how a second vehicle is
+                      // added, so clearing it would undo the booking.
                       setStep(1);
                     }}
                   />
@@ -342,28 +455,24 @@ export default function BookingPage() {
                 {step === 1 && (
                   <StepRide
                     bikes={bikes}
-                    selected={bikeId}
-                    onSelect={setBikeId}
+                    chosen={cart.map(i => i.bikeId)}
+                    onToggle={toggleVehicle}
                     category={category}
                   />
                 )}
 
                 {step === 2 && (
-                  <StepDates
-                    pickupDate={pickupDate}
-                    dropoffDate={dropoffDate}
-                    onChange={f => {
-                      if (f.pickupDate !== undefined) {
-                        setPickupDate(f.pickupDate);
-                        // keep drop-off on/after pickup
-                        if (dropoffDate && f.pickupDate > dropoffDate) setDropoffDate(f.pickupDate);
-                      }
-                      if (f.dropoffDate !== undefined) setDropoffDate(f.dropoffDate);
-                    }}
-                  />
+                  <StepDates items={items} onChange={setItemDates} />
                 )}
 
-                {step === 3 && <StepExtras extras={extras} chosen={chosenExtras} onToggle={toggleExtra} days={Math.max(days, 1)} />}
+                {step === 3 && (
+                  <StepExtras
+                    extras={extras}
+                    chosen={chosenExtras}
+                    onToggle={toggleExtra}
+                    days={Math.max(spanDays, 1)}
+                  />
+                )}
 
                 {step === 4 && <StepDetails renter={renter} onChange={r => setRenter(r)} />}
               </motion.div>
@@ -381,10 +490,7 @@ export default function BookingPage() {
       </div>
 
       <BookingBar
-        bike={bike}
-        days={days}
-        pickupDate={pickupDate}
-        dropoffDate={dropoffDate}
+        items={items}
         extrasCount={chosenExtras.length}
         total={summary.total}
         canGoBack={step > 0 && !submitting}
@@ -561,13 +667,13 @@ function CompareTable({ bikes }: { bikes: Bike[] }) {
 
 function StepRide({
   bikes,
-  selected,
-  onSelect,
+  chosen,
+  onToggle,
   category,
 }: {
   bikes: Bike[];
-  selected: string | null;
-  onSelect: (id: string) => void;
+  chosen: string[];
+  onToggle: (id: string) => void;
   category: string | null;
 }) {
   // Arriving from a category card on the fleet page shows just that class;
@@ -621,7 +727,37 @@ function StepRide({
   return (
     <div>
       <h2 className="font-display text-2xl font-bold">Choose your ride</h2>
-      <p className="text-dark/50 text-sm">Every bike comes with a helmet and 24/7 roadside support.</p>
+      <p className="text-dark/50 text-sm">
+        Take as many as you need — every bike comes with a helmet and 24/7 roadside support.
+      </p>
+
+      {/* What is in the booking so far, including vehicles from classes this
+          screen is not showing. Without it, going back for a tuk-tuk would
+          make the scooter you already chose look like it had been dropped. */}
+      {chosen.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mt-4">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-dark/40">In this booking</span>
+          {chosen.map(id => {
+            const picked = bikes.find(b => b.id === id);
+            return picked ? (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onToggle(id)}
+                aria-label={`Remove ${picked.title} from this booking`}
+                className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1 rounded-full bg-dark text-beige text-xs font-bold hover:bg-dark/80 transition-colors"
+              >
+                {picked.title}
+                <X className="w-3 h-3" />
+              </button>
+            ) : null;
+          })}
+        </div>
+      )}
+
+      <p className="text-dark/40 text-xs mt-3">
+        Want a vehicle from another class too? Go back a step and pick it — this list is kept.
+      </p>
 
       {/* Which class is being shown, as a label. Changing it is the Back
           button's job, and the step rail's — a third way to do it, sitting in
@@ -665,7 +801,7 @@ function StepRide({
             key={b.id}
             className={bandStartIds.has(b.id) ? 'lg:border-l lg:border-dark/25 lg:pl-4' : ''}
           >
-            <RideCard bike={b} active={b.id === selected} onSelect={() => onSelect(b.id)} />
+            <RideCard bike={b} active={chosen.includes(b.id)} onSelect={() => onToggle(b.id)} />
           </div>
         ))}
       </div>
@@ -684,16 +820,32 @@ interface DateFields {
   dropoffDate?: string;
 }
 
-function StepDates(props: {
-  pickupDate: string;
-  dropoffDate: string;
-  onChange: (f: DateFields) => void;
+/**
+ * When each vehicle is wanted.
+ *
+ * One calendar per vehicle rather than one for the booking: the scooter is
+ * often taken for the week and the tuk-tuk for a single day out, and a shared
+ * range would either overcharge for the tuk-tuk or hold the scooter too briefly.
+ * A booking of one vehicle reads exactly as it did before — the vehicle's name
+ * only appears once there is another one to tell it apart from.
+ */
+function StepDates({
+  items,
+  onChange,
+}: {
+  items: BookingItem[];
+  onChange: (bikeId: string, fields: DateFields) => void;
 }) {
-  const { pickupDate, dropoffDate, onChange } = props;
+  const many = items.length > 1;
+
   return (
     <div>
       <h2 className="font-display text-2xl font-bold mb-1">Rental dates</h2>
-      <p className="text-dark/50 text-sm mb-6">Choose when you'll pick up and return the bike.</p>
+      <p className="text-dark/50 text-sm mb-6">
+        {many
+          ? 'Each vehicle has its own dates — take the scooter for the week and the tuk-tuk for a day if you like.'
+          : "Choose when you'll pick up and return the bike."}
+      </p>
 
       <div className="flex items-start gap-3 bg-beige rounded-2xl p-4 mb-6">
         <MapPin className="w-5 h-5 text-brand mt-0.5 shrink-0" />
@@ -703,21 +855,44 @@ function StepDates(props: {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
-        <RangeCalendar pickupDate={pickupDate} dropoffDate={dropoffDate} onChange={onChange} />
+      <div className="space-y-8">
+        {items.map((item, i) => (
+          <div key={item.bikeId} className={i > 0 ? 'border-t border-dark/10 pt-8' : ''}>
+            {many && (
+              <div className="flex items-center gap-3 mb-4">
+                <img
+                  src={item.bike.image}
+                  alt=""
+                  style={{ objectPosition: item.bike.imagePosition ?? 'center' }}
+                  className="w-14 h-11 object-cover rounded-lg shrink-0"
+                />
+                <div className="min-w-0">
+                  <p className="font-bold text-sm leading-tight truncate">{item.bike.title}</p>
+                  <p className="text-dark/45 text-xs">{formatPrice(item.bike.pricePerDay)} / day</p>
+                </div>
+              </div>
+            )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-          <DateReadout label="Pickup" value={pickupDate} placeholder="Pick a date" />
-          <DateReadout label="Drop-off" value={dropoffDate} placeholder="Pick a date" />
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+              <RangeCalendar
+                pickupDate={item.pickupDate}
+                dropoffDate={item.dropoffDate}
+                onChange={fields => onChange(item.bikeId, fields)}
+              />
 
-          {pickupDate && dropoffDate && (
-            <p className="col-span-2 lg:col-span-1 text-sm text-dark/60 bg-beige rounded-2xl px-4 py-3">
-              {rentalDays(pickupDate, dropoffDate)} day
-              {rentalDays(pickupDate, dropoffDate) > 1 ? 's' : ''} — pick up and return at{' '}
-              {shopLocation.name}.
-            </p>
-          )}
-        </div>
+              <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+                <DateReadout label="Pickup" value={item.pickupDate} placeholder="Pick a date" />
+                <DateReadout label="Drop-off" value={item.dropoffDate} placeholder="Pick a date" />
+
+                {item.days > 0 && (
+                  <p className="col-span-2 lg:col-span-1 text-sm text-dark/60 bg-beige rounded-2xl px-4 py-3">
+                    {item.days} day{item.days > 1 ? 's' : ''} — pick up and return at {shopLocation.name}.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -987,10 +1162,7 @@ function Row({ icon: Icon, label, value }: { icon: typeof MapPin; label: string;
  * step meant scrolling past a form to reach them.
  */
 function BookingBar({
-  bike,
-  days,
-  pickupDate,
-  dropoffDate,
+  items,
   extrasCount,
   total,
   canGoBack,
@@ -1000,10 +1172,7 @@ function BookingBar({
   onBack,
   onNext,
 }: {
-  bike: Bike | undefined;
-  days: number;
-  pickupDate: string;
-  dropoffDate: string;
+  items: BookingItem[];
   extrasCount: number;
   total: number;
   canGoBack: boolean;
@@ -1013,24 +1182,40 @@ function BookingBar({
   onBack: () => void;
   onNext: () => void;
 }) {
+  const lead = items[0];
+  // The span the booking covers, and the days actually being charged for —
+  // which are not the same number once two vehicles are out for different
+  // stretches, so both are worth saying.
+  const dated = items.filter(i => i.days > 0);
+  const firstPickup = dated.map(i => i.pickupDate).sort()[0];
+  const lastReturn = dated.map(i => i.dropoffDate).sort()[dated.length - 1];
+  const chargedDays = dated.reduce((sum, i) => sum + i.days, 0);
+
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 bg-dark text-beige border-t border-beige/10">
       {/* One row that never wraps: summary on the left, giving up width by
           truncating, and the controls on the right at their natural size. */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 lg:gap-6 min-w-0">
-          {bike && (
+          {lead && (
             <div className="flex items-center gap-3 min-w-0">
               <img
-                src={bike.image}
+                src={lead.bike.image}
                 alt=""
-                style={{ objectPosition: bike.imagePosition ?? 'center' }}
+                style={{ objectPosition: lead.bike.imagePosition ?? 'center' }}
                 className="hidden sm:block w-14 h-11 object-cover rounded-lg shrink-0"
               />
               <div className="min-w-0">
-                <p className="font-bold text-sm leading-tight truncate">{bike.title}</p>
+                {/* One vehicle names itself; several are counted and then
+                    listed, because a truncated list of four titles tells you
+                    nothing about how many you have chosen. */}
+                <p className="font-bold text-sm leading-tight truncate">
+                  {items.length === 1 ? lead.bike.title : `${items.length} vehicles`}
+                </p>
                 <p className="text-beige/45 text-xs truncate">
-                  {bike.bodyType ?? bike.category} · {formatPrice(bike.pricePerDay)}/day
+                  {items.length === 1
+                    ? `${lead.bike.bodyType ?? lead.bike.category} · ${formatPrice(lead.bike.pricePerDay)}/day`
+                    : items.map(i => i.bike.title).join(', ')}
                 </p>
               </div>
             </div>
@@ -1038,9 +1223,10 @@ function BookingBar({
 
           {/* Dates and extras need room the controls have first claim on. */}
           <div className="hidden xl:flex flex-col gap-0.5 text-xs text-beige/55 shrink-0">
-            {days > 0 && (
+            {dated.length > 0 && (
               <span className="whitespace-nowrap">
-                {longDate(pickupDate)} → {longDate(dropoffDate)} · {days} day{days > 1 ? 's' : ''}
+                {longDate(firstPickup)} → {longDate(lastReturn)} · {chargedDays} rental day
+                {chargedDays > 1 ? 's' : ''}
               </span>
             )}
             {extrasCount > 0 && (
