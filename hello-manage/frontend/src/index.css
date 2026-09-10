@@ -50,3 +50,49 @@
     @apply text-[10px] font-bold uppercase tracking-widest text-dark/40;
   }
 }
+
+/*
+ * Printing a statement.
+ *
+ * The report is a document inside an application, so printing hides the
+ * application rather than the report: visibility instead of display, so the
+ * report keeps its own layout while the shell around it stops existing.
+ * Backgrounds are forced on — a table that reads by its shading on screen is
+ * unreadable as bare text.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-report,
+  .print-report * {
+    visibility: visible;
+  }
+
+  .print-report {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* A rental should not be cut in half by a page break. */
+  .break-inside-avoid {
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}

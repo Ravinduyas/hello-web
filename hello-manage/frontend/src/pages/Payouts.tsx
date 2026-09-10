@@ -1,12 +1,14 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, ChevronDown, Pencil, Percent, DollarSign, Plus, Trash2 } from 'lucide-react';
+import { RefreshCw, ChevronDown, Pencil, Percent, DollarSign, Plus, Trash2, Printer } from 'lucide-react';
 import Drawer from '../components/Drawer';
 import {
-  fetchOwners, fetchUnits, fetchBookings, updateOwner, paidOf, dueOf,
+  fetchOwners, fetchUnits, fetchBookings, fetchBikes, updateOwner, paidOf, dueOf,
   fetchTransactions, createTransaction, deleteTransaction,
-  UnauthorizedError, type Owner, type Unit, type Booking, type Transaction,
+  UnauthorizedError, type Owner, type Unit, type Booking, type Bike, type Transaction,
 } from '../lib/api';
 import { ownerCommission } from '../lib/commission';
+import { buildMonthlyReport, monthLabel } from '../lib/report';
+import MonthlyReportDoc from '../components/MonthlyReport';
 
 import { money } from '../lib/money';
 
@@ -19,13 +21,23 @@ const RANGES: { key: DateRange; label: string }[] = [
   { key: 'custom', label: 'Custom' },
 ];
 
-type SubTab = 'payouts' | 'payments' | 'transactions' | 'reports';
+type SubTab = 'payouts' | 'payments' | 'transactions' | 'reports' | 'monthly';
 const SUBTABS: { key: SubTab; label: string }[] = [
   { key: 'payouts', label: 'Owner payouts' },
   { key: 'payments', label: 'Customer payments' },
   { key: 'transactions', label: 'Transactions' },
   { key: 'reports', label: 'Reports' },
+  { key: 'monthly', label: 'Monthly statement' },
 ];
+
+/** The month a statement opens on: the one just finished, which is the one
+ *  being paid out. */
+function lastMonth(): string {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+}
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const isoLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -54,6 +66,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bikes, setBikes] = useState<Bike[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,6 +75,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
   const [customTo, setCustomTo] = useState('');
   const [editing, setEditing] = useState<Owner | null>(null);
   const [reportBy, setReportBy] = useState<'plate' | 'customer'>('plate');
+  const [month, setMonth] = useState(lastMonth());
 
   // Add-transaction form
   const [txnKind, setTxnKind] = useState<'in' | 'out'>('out');
@@ -75,10 +89,17 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
     setLoading(true);
     setError('');
     try {
-      const [o, u, b, tx] = await Promise.all([fetchOwners(), fetchUnits(), fetchBookings(), fetchTransactions()]);
+      const [o, u, b, k, tx] = await Promise.all([
+        fetchOwners(),
+        fetchUnits(),
+        fetchBookings(),
+        fetchBikes(),
+        fetchTransactions(),
+      ]);
       setOwners(o);
       setUnits(u);
       setBookings(b);
+      setBikes(k);
       setTransactions(tx);
     } catch (err) {
       if (err instanceof UnauthorizedError) return onLogout();
@@ -203,7 +224,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div className="no-print flex flex-wrap items-center justify-between gap-3 mb-5">
         <span className="eyebrow">[ Finance ]</span>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
@@ -226,7 +247,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
       </div>
 
       {/* Sub-tabs */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="no-print flex flex-wrap gap-2 mb-6">
         {SUBTABS.map(s => (
           <button
             key={s.key}
@@ -241,7 +262,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
       </div>
 
       {range === 'custom' && (
-        <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
+        <div className="no-print flex flex-wrap items-center justify-end gap-2 mb-6">
           <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input max-w-[170px]" aria-label="From date" />
           <span className="text-dark/40">→</span>
           <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input max-w-[170px]" aria-label="To date" />
@@ -443,6 +464,34 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
             </div>
           )}
           <p className="text-[11px] text-dark/40 mt-3">Rental payments are pulled in automatically (“auto”). Add other income &amp; expenses above. Filtered by payment date.</p>
+        </>
+      ) : tab === 'monthly' ? (
+        <>
+          {/* The statement is a document, so its controls sit outside it and
+              leave the page when it is printed. */}
+          <div className="no-print flex flex-wrap items-end justify-between gap-3 mb-5 bg-white rounded-2xl px-5 py-4">
+            <div>
+              <label htmlFor="stmt-month" className="label">
+                Statement month
+              </label>
+              <input
+                id="stmt-month"
+                type="month"
+                value={month}
+                onChange={e => setMonth(e.target.value)}
+                className="input max-w-[200px] mt-1"
+              />
+              <p className="text-[11px] text-dark/40 mt-2 max-w-md">
+                Every confirmed rental that started in {monthLabel(month)}, under the owner of the machine it
+                went out on, and under its plate. Print to paper, or choose “Save as PDF” in the print dialog.
+              </p>
+            </div>
+            <button onClick={() => window.print()} className="btn-primary">
+              <Printer className="w-4 h-4" /> Print / Save as PDF
+            </button>
+          </div>
+
+          <MonthlyReportDoc report={buildMonthlyReport(month, owners, units, bikes, bookings)} shop="Hello Rent · Weligama" />
         </>
       ) : (
         <>
