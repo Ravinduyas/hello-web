@@ -63,16 +63,6 @@ export interface Bike {
    * a mistake. Defaults to the category.
    */
   bodyType?: string;
-  /**
-   * The same vehicle from more than one angle. A customer choosing a scooter
-   * wants to see the back of it — where the luggage and a passenger go — not
-   * just the flattering three-quarter shot.
-   *
-   * The first entry is what the card shows at rest, and the switcher only
-   * appears once there are two. Vehicles with a single photograph leave this
-   * unset and behave exactly as before.
-   */
-  views?: VehicleView[];
   features: string[];
 }
 
@@ -131,11 +121,6 @@ export const bikes: Bike[] = [
     category: 'Scooter',
     pricePerDay: 6,
     image: asset('/fleet/tvs-ntorq.jpg'),
-    views: [
-      { label: 'Front', src: asset('/fleet/tvs-ntorq-front.jpg') },
-      { label: 'Side', src: asset('/fleet/tvs-ntorq.jpg') },
-      { label: 'Rear', src: asset('/fleet/tvs-ntorq-rear.jpg'), position: 'center 40%' },
-    ],
     engineCc: 125,
     features: [
       '124.8cc, the most powerful scooter we rent',
@@ -155,10 +140,6 @@ export const bikes: Bike[] = [
     pricePerDay: 10,
     image: asset('/fleet/bajaj-pulsar.jpg'),
     imagePosition: 'center 50%',
-    views: [
-      { label: 'Front', src: asset('/fleet/bajaj-pulsar-front.jpg'), position: 'center 45%' },
-      { label: 'Side', src: asset('/fleet/bajaj-pulsar.jpg'), position: 'center 50%' },
-    ],
     features: [
       'Manual transmission',
       'Perimeter frame, agile on mountain roads',

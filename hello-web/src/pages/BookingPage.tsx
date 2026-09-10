@@ -550,19 +550,8 @@ const COMPARE_ATTRS: { label: string; read: (spec: VehicleSpec | undefined) => s
   { label: 'Storage', read: spec => specRow(spec, 'Storage') },
 ];
 
-/**
- * One vehicle, with a switcher when there is more than one photograph of it.
- *
- * The state lives here rather than in the step so each card remembers the angle
- * you left it on — turning one scooter around should not reset the others.
- */
+/** One vehicle, as a single photograph of it. */
 function RideCard({ bike, active, onSelect }: { bike: Bike; active: boolean; onSelect: () => void }) {
-  const views = bike.views ?? [];
-  const [viewIndex, setViewIndex] = useState(0);
-  const shown = views[viewIndex];
-  const src = shown?.src ?? bike.image;
-  const position = shown?.position ?? bike.imagePosition ?? 'center';
-
   return (
     <div
       className={`h-full rounded-2xl border-2 overflow-hidden transition-all ${
@@ -570,9 +559,6 @@ function RideCard({ bike, active, onSelect }: { bike: Bike; active: boolean; onS
       }`}
     >
       <div className="relative aspect-[3/2] overflow-hidden bg-beige">
-        {/* Selecting the vehicle is the photograph's job; the view buttons sit
-            over it and must not also select, so they are siblings rather than
-            nested inside the button. */}
         <button
           type="button"
           onClick={onSelect}
@@ -581,10 +567,10 @@ function RideCard({ bike, active, onSelect }: { bike: Bike; active: boolean; onS
           className="absolute inset-0 w-full h-full"
         >
           <img
-            src={src}
-            alt={shown ? `${bike.title} — ${shown.label.toLowerCase()} view` : bike.title}
+            src={bike.image}
+            alt={bike.title}
             loading="lazy"
-            style={{ objectPosition: position }}
+            style={{ objectPosition: bike.imagePosition ?? 'center' }}
             className="w-full h-full object-cover"
           />
         </button>
@@ -593,26 +579,6 @@ function RideCard({ bike, active, onSelect }: { bike: Bike; active: boolean; onS
           <span className="absolute top-3 right-3 w-7 h-7 bg-brand rounded-full flex items-center justify-center pointer-events-none">
             <Check className="w-4 h-4 text-white" />
           </span>
-        )}
-
-        {views.length > 1 && (
-          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
-            {views.map((view, i) => (
-              <button
-                key={view.label}
-                type="button"
-                onClick={() => setViewIndex(i)}
-                aria-pressed={i === viewIndex}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm transition-colors ${
-                  i === viewIndex
-                    ? 'bg-dark text-beige'
-                    : 'bg-white/80 text-dark/70 hover:bg-white'
-                }`}
-              >
-                {view.label}
-              </button>
-            ))}
-          </div>
         )}
       </div>
 
