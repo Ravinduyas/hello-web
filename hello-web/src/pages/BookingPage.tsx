@@ -801,7 +801,7 @@ function StepRide({
               key={band.cc}
               className={`${BAND_SPAN[band.vehicles.length] ?? 'lg:col-span-1'} rounded-2xl border border-dark/20 px-2 pt-1 pb-2`}
             >
-              <legend className="px-2 text-[11px] font-bold uppercase tracking-widest text-brand">
+              <legend className="mx-auto px-3 text-[11px] font-bold uppercase tracking-widest text-brand">
                 {band.cc}cc
                 <span className="text-dark/30"> · </span>
                 <span className="text-dark/70">{formatPrice(rateAt(band.cc))} / day</span>
