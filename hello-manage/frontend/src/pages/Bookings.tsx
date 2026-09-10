@@ -256,8 +256,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
               <div className="flex flex-wrap items-center gap-2 mt-5">
                 {b.status !== 'confirmed' && (
                   <ConfirmControl
-                    plates={units.filter(u => u.bikeId === b.bikeId && u.status === 'available')}
-                    onConfirm={unitId => changeStatus(b.id, 'confirmed', unitId)}
+                    onConfirm={() => changeStatus(b.id, 'confirmed')}
                   />
                 )}
                 <button
@@ -293,93 +292,88 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
         subtitle={payBooking ? `${payBooking.bikeTitle} · ${payBooking.renter.firstName} ${payBooking.renter.lastName}`.trim() : ''}
         widthClass="max-w-md"
       >
-        {payBooking && <PaymentsForm booking={payBooking} onApply={ops => applyBilling(payBooking.id, ops)} />}
+        {payBooking && (
+          <PaymentsForm
+            booking={payBooking}
+            plates={units.filter(
+              u => u.bikeId === payBooking.bikeId && (u.status === 'available' || u.id === payBooking.unitId),
+            )}
+            onAssign={unitId => changeStatus(payBooking.id, 'confirmed', unitId)}
+            onApply={ops => applyBilling(payBooking.id, ops)}
+          />
+        )}
       </Drawer>
     </div>
   );
 }
 
-/** Confirm button that expands into a plate picker. The admin must choose an
- *  available plate (physical unit) of the booking's model before confirming. */
-function ConfirmControl({ plates, onConfirm }: { plates: Unit[]; onConfirm: (unitId: string) => Promise<void> | void }) {
-  const [open, setOpen] = useState(false);
-  const [unitId, setUnitId] = useState('');
+/**
+ * Confirms a booking, and nothing else.
+ *
+ * It used to insist on a plate first. But confirming is the shop agreeing to
+ * the rental — a model and some dates — and which machine goes out is not
+ * known until the customer is at the counter. Tying the two together meant a
+ * booking could not be accepted until a plate was set aside for it, days early.
+ * The plate is asked for where it is actually decided: at payment.
+ */
+function ConfirmControl({ onConfirm }: { onConfirm: () => Promise<void> | void }) {
   const [busy, setBusy] = useState(false);
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 text-white hover:brightness-110 transition"
-      >
-        <Check className="w-4 h-4" /> Confirm
-      </button>
-    );
-  }
-
-  if (plates.length === 0) {
-    return (
-      <span className="inline-flex items-center gap-2 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
-        No available plates for this model — add one in Fleet.
-        <button onClick={() => setOpen(false)} aria-label="Cancel" className="text-amber-800/70 hover:text-amber-900">
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </span>
-    );
-  }
-
   async function confirm() {
-    if (!unitId) return;
     setBusy(true);
     try {
-      await onConfirm(unitId);
+      await onConfirm();
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <span className="inline-flex items-center gap-2">
-      <select
-        value={unitId}
-        onChange={e => setUnitId(e.target.value)}
-        aria-label="Plate to assign"
-        className="text-sm rounded-full border border-dark/15 bg-white px-3 py-1.5 focus:outline-none focus:border-brand"
-      >
-        <option value="">Select plate…</option>
-        {plates.map(u => (
-          <option key={u.id} value={u.id}>
-            {u.plate}
-          </option>
-        ))}
-      </select>
-      <button
-        onClick={confirm}
-        disabled={!unitId || busy}
-        className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 text-white hover:brightness-110 transition disabled:opacity-40 disabled:pointer-events-none"
-      >
-        <Check className="w-4 h-4" /> {busy ? 'Assigning…' : 'Assign & confirm'}
-      </button>
-      <button
-        onClick={() => setOpen(false)}
-        aria-label="Cancel"
-        className="text-sm font-bold inline-flex items-center justify-center w-9 h-9 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    </span>
+    <button
+      onClick={confirm}
+      disabled={busy}
+      className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 text-white hover:brightness-110 transition disabled:opacity-40 disabled:pointer-events-none"
+    >
+      <Check className="w-4 h-4" /> {busy ? 'Confirming…' : 'Confirm'}
+    </button>
   );
 }
 
 /** Payments & deposit manager (drawer body). Operates on the live booking and
  *  applies each change immediately via onApply. */
-function PaymentsForm({ booking, onApply }: { booking: Booking; onApply: (ops: Parameters<typeof updateBilling>[1]) => Promise<void> }) {
+function PaymentsForm({
+  booking,
+  plates,
+  onAssign,
+  onApply,
+}: {
+  booking: Booking;
+  plates: Unit[];
+  onAssign: (unitId: string) => Promise<void> | void;
+  onApply: (ops: Parameters<typeof updateBilling>[1]) => Promise<void>;
+}) {
   const paid = paidOf(booking);
   const due = dueOf(booking);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [deposit, setDeposit] = useState(String(booking.deposit || ''));
   const [busy, setBusy] = useState(false);
+  const [unitId, setUnitId] = useState(booking.unitId || '');
+  const [assigning, setAssigning] = useState(false);
+
+  // Money cannot be taken against a booking with no machine behind it: the
+  // backend refuses it, and the counter needs to know which bike went out.
+  const assigned = !!booking.plate;
+
+  async function assign() {
+    if (!unitId) return;
+    setAssigning(true);
+    try {
+      await onAssign(unitId);
+    } finally {
+      setAssigning(false);
+    }
+  }
 
   async function addPayment(e: React.FormEvent) {
     e.preventDefault();
@@ -406,16 +400,59 @@ function PaymentsForm({ booking, onApply }: { booking: Booking; onApply: (ops: P
         </div>
       </div>
 
+      {/* Which machine is going out. Asked here because this is where it is
+          settled — the customer is at the counter and a bike is being handed
+          over. Payment is held back until it is answered. */}
+      <div className={`rounded-2xl p-4 border ${assigned ? 'border-dark/10 bg-beige' : 'border-amber-200 bg-amber-50'}`}>
+        <p className="label">Plate</p>
+        {assigned ? (
+          <div className="flex items-center gap-2 mt-2">
+            <span className="font-display font-bold tracking-wide">{booking.plate}</span>
+            <span className="text-xs text-dark/45">assigned to this booking</span>
+          </div>
+        ) : plates.length === 0 ? (
+          <p className="text-sm text-amber-800 mt-2">
+            No available plates for this model — add one in Fleet before taking payment.
+          </p>
+        ) : (
+          <div className="flex gap-2 mt-2">
+            <select
+              value={unitId}
+              onChange={e => setUnitId(e.target.value)}
+              aria-label="Plate to assign"
+              className="input flex-1"
+            >
+              <option value="">Select plate…</option>
+              {plates.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.plate}
+                </option>
+              ))}
+            </select>
+            <button onClick={assign} disabled={!unitId || assigning} className="btn-primary shrink-0 disabled:opacity-40 disabled:pointer-events-none">
+              <Check className="w-4 h-4" /> {assigning ? 'Assigning…' : 'Assign'}
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Add payment */}
       <form onSubmit={addPayment} className="space-y-3">
         <p className="label">Record a payment</p>
         <div className="flex gap-2">
           <input type="number" min={0} step="0.5" className="input max-w-[130px]" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
           <input className="input flex-1" placeholder="Note (cash, card…)" value={note} onChange={e => setNote(e.target.value)} />
-          <button type="submit" className="btn-primary shrink-0" disabled={busy || !(Number(amount) > 0)}>
+          <button
+            type="submit"
+            className="btn-primary shrink-0 disabled:opacity-40 disabled:pointer-events-none"
+            disabled={busy || !assigned || !(Number(amount) > 0)}
+          >
             <Plus className="w-4 h-4" /> Add
           </button>
         </div>
+        {!assigned && (
+          <p className="text-xs text-amber-800">Assign a plate above before recording payment.</p>
+        )}
         {due > 0 && (
           <button type="button" onClick={() => setAmount(String(due))} className="text-xs font-bold text-brand hover:underline">
             Pay full due ({money(due)})

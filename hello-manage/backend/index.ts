@@ -281,11 +281,12 @@ app.patch('/api/admin/bookings/:id', requireAuth, (req: Request, res: Response) 
     return res.status(400).json({ error: 'Invalid status' });
   }
   try {
+    // A plate may come with the confirmation, but it is not required for one:
+    // the shop confirms a model and dates, and picks the machine at the counter.
+    // Sent on its own it assigns the plate to an already-confirmed booking.
+    const unitId = typeof req.body?.unitId === 'string' ? req.body.unitId.trim() : '';
     let updated: Booking | null;
-    if (status === 'confirmed') {
-      // Confirming requires picking a physical plate to assign.
-      const unitId = typeof req.body?.unitId === 'string' ? req.body.unitId.trim() : '';
-      if (!unitId) return res.status(400).json({ error: 'Select a plate to confirm this booking.' });
+    if (status === 'confirmed' && unitId) {
       updated = assignAndConfirm(req.params.id, unitId);
     } else {
       updated = updateBookingStatus(req.params.id, status);
@@ -310,9 +311,14 @@ app.patch('/api/admin/bookings/:id/billing', requireAuth, (req: Request, res: Re
   if (b.deposit !== undefined) ops.deposit = Number(b.deposit) || 0;
   if (b.depositReturned !== undefined) ops.depositReturned = !!b.depositReturned;
 
-  const updated = updateBookingBilling(req.params.id, ops);
-  if (!updated) return res.status(404).json({ error: 'Not found' });
-  res.json(updated);
+  try {
+    const updated = updateBookingBilling(req.params.id, ops);
+    if (!updated) return res.status(404).json({ error: 'Not found' });
+    res.json(updated);
+  } catch (err) {
+    // The unassigned-plate rule lands here.
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Could not update billing' });
+  }
 });
 
 app.delete('/api/admin/bookings/:id', requireAuth, (req: Request, res: Response) => {

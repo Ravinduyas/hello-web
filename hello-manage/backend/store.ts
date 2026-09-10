@@ -394,6 +394,15 @@ export function updateBookingBilling(
   const row = getBookingRow(id);
   if (!row) return null;
   const current = rowToBooking(row);
+  /*
+   * Taking money is the point at which a particular machine leaves the yard, so
+   * that is where the plate is required — not at confirmation, which only
+   * promises a model and some dates. Enforced here rather than in the route so
+   * it holds for anything that bills a booking.
+   */
+  if (ops.addPayment && !current.unitId) {
+    throw new Error('Assign a plate before taking payment for this booking.');
+  }
   let payments = current.payments;
   if (ops.addPayment && ops.addPayment.amount > 0) {
     payments = [...payments, { id: randomUUID(), amount: ops.addPayment.amount, at: new Date().toISOString(), note: ops.addPayment.note || '' }];
@@ -441,14 +450,20 @@ export function createConfirmedBooking(booking: Booking): Booking {
   return confirmed;
 }
 
-/** Move a booking to pending/cancelled. Releases any assigned plate back to the
- *  fleet (confirm is handled separately by assignAndConfirm). */
+/**
+ * Move a booking between statuses without touching which plate it holds.
+ *
+ * Leaving the confirmed state frees the physical bike; confirming does not
+ * demand one. A booking is confirmed when the shop has agreed to the rental,
+ * which is a promise about a model and some dates — the machine that will
+ * actually go out is chosen later, when the customer is at the counter paying.
+ */
 export function updateBookingStatus(id: string, status: BookingStatus): Booking | null {
   const booking = getBookingRow(id);
   if (!booking) return null;
   db.exec('BEGIN IMMEDIATE');
   try {
-    if (booking.unitId) {
+    if (booking.unitId && status !== 'confirmed') {
       // Leaving the confirmed state frees the physical bike.
       db.prepare("UPDATE units SET status = 'available' WHERE id = ?").run(booking.unitId);
       db.prepare("UPDATE bookings SET status = ?, unitId = '', plate = '' WHERE id = ?").run(status, id);
