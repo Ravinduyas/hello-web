@@ -14,7 +14,7 @@ const touringPicks = [
     copy: 'The strongest automatic we rent — enough power for long days and 22L of storage.',
   },
   {
-    title: 'Bajaj Pulsar, up to 160cc',
+    title: 'Bajaj Pulsar N160',
     copy: 'Manual, perimeter frame and a 12L tank. The one for mountain passes and distance.',
   },
   {

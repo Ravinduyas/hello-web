@@ -102,7 +102,7 @@ export const FLEET_BIKES: SeedBike[] = [
   /* ---- Motorbikes — manual ("big bike") -------------------------- */
   {
     id: 'bajaj-pulsar',
-    title: 'Bajaj Pulsar 150 / 200',
+    title: 'Bajaj Pulsar N160',
     category: 'Motorbike',
     pricePerDay: 10,
     image: '/fleet/bajaj-pulsar.jpg',

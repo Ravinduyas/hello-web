@@ -134,7 +134,7 @@ export const bikes: Bike[] = [
   /* ---------------------------------------------------------------- */
   {
     id: 'bajaj-pulsar',
-    title: 'Bajaj Pulsar 150 / 200',
+    title: 'Bajaj Pulsar N160',
     category: 'Motorbike',
     pricePerDay: 10,
     image: asset('/fleet/bajaj-pulsar.jpg'),
