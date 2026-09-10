@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, Route } from 'lucide-react';
+import { Route } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Link } from 'react-router-dom';
-import { bikes as defaultBikes, formatPrice, summariseCategories, type Bike } from '../data/fleet';
+import { bikes as defaultBikes, summariseCategories, type Bike } from '../data/fleet';
 import { asset } from '../lib/asset';
 import { fetchBikes } from '../lib/api';
+import { ClassCardLink } from '../components/ClassCard';
 
 // Lucky's own advice: for a trip around the whole island, take exactly one of
 // these three rather than choosing on looks.
@@ -109,44 +109,7 @@ export default function FleetPage() {
               viewport={{ once: true }}
               transition={{ delay: idx * 0.08 }}
             >
-              <Link
-                to={`/book?category=${encodeURIComponent(cat.category)}`}
-                target="_blank"
-                rel="noopener"
-                aria-label={`Rent ${cat.meta.label} — opens in a new tab`}
-                className="group relative block h-[440px] lg:h-[500px] rounded-3xl overflow-hidden"
-              >
-                <img
-                  src={cat.image}
-                  alt={cat.meta.label}
-                  loading="lazy"
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                {/* Espresso-tinted gradient, darkest at the foot for legibility. */}
-                <div className="absolute inset-0 bg-gradient-to-t from-dark/85 via-dark/30 to-dark/10" />
-
-                {cat.meta.transmission && (
-                  <span className="absolute top-6 left-6 eyebrow !text-white/70">
-                    {cat.meta.transmission}
-                  </span>
-                )}
-
-                <div className="absolute inset-x-0 bottom-0 p-7 md:p-8 text-beige">
-                  <h3 className="display-xl text-3xl md:text-4xl">{cat.meta.label}</h3>
-                  {cat.meta.blurb && (
-                    <p className="text-beige/70 text-sm leading-relaxed mt-3">{cat.meta.blurb}</p>
-                  )}
-
-                  <div className="flex items-center justify-between mt-7 pt-5 border-t border-beige/20">
-                    <span className="font-display text-base font-bold">
-                      From {formatPrice(cat.from)} / day
-                    </span>
-                    <span className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wide group-hover:gap-3 transition-all">
-                      Rent <ArrowRight className="w-4 h-4" />
-                    </span>
-                  </div>
-                </div>
-              </Link>
+              <ClassCardLink summary={cat} />
             </motion.div>
           ))}
         </div>

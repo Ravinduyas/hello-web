@@ -14,6 +14,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { bikes as defaultBikes, extras as defaultExtras, formatPrice, priceLabel, shopLocation, summariseCategories, type Bike, type Extra } from '../data/fleet';
 import { getSpec, type VehicleSpec } from '../data/specs';
 import { asset } from '../lib/asset';
+import { ClassCardButton } from '../components/ClassCard';
 import { createBooking, fetchExtras, fetchBikes } from '../lib/api';
 
 /* ------------------------------------------------------------------ */
@@ -425,9 +426,11 @@ function StepClass({
       <h2 className="font-display text-2xl font-bold">What would you like to ride?</h2>
       <p className="text-dark/50 text-sm">Pick a class, then the vehicle. Every one comes with a helmet.</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+      {/* The same four columns the fleet page uses, so a visitor who browsed
+          the fleet meets the classes laid out exactly as they left them. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-8 mt-5">
         {summaries.map(cat => (
-          <ClassCard
+          <ClassCardButton
             key={cat.category}
             summary={cat}
             selected={selected === cat.category}
@@ -439,53 +442,6 @@ function StepClass({
   );
 }
 
-/** One class card: its representative photograph, and choosing it. */
-function ClassCard({
-  summary,
-  selected,
-  onPick,
-}: {
-  summary: ReturnType<typeof summariseCategories>[number];
-  selected: boolean;
-  onPick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      aria-pressed={selected}
-      aria-label={`Choose ${summary.meta.label}`}
-      // Tall enough for the photograph to read as a vehicle: at h-56 a wide
-      // card cropped these to a letterbox strip of the middle.
-      className={`group relative block h-72 md:h-80 w-full rounded-2xl overflow-hidden text-left border-2 transition-all ${
-        selected ? 'border-brand' : 'border-transparent hover:border-brand'
-      }`}
-    >
-      <img
-        src={summary.image}
-        alt={summary.meta.label}
-        loading="lazy"
-        style={{ objectPosition: summary.imagePosition ?? 'center' }}
-        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-dark/85 via-dark/30 to-dark/10" />
-
-      {summary.meta.transmission && (
-        <span className="absolute top-4 left-4 eyebrow !text-white/70">{summary.meta.transmission}</span>
-      )}
-
-      <div className="absolute inset-x-0 bottom-0 p-5 text-beige">
-        <h3 className="display-xl text-2xl">{summary.meta.label}</h3>
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-beige/20">
-          <span className="font-display text-sm font-bold">From {formatPrice(summary.from)} / day</span>
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide group-hover:gap-2.5 transition-all">
-            Choose <ArrowRight className="w-3.5 h-3.5" />
-          </span>
-        </div>
-      </div>
-    </button>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  Step 2 — choose a ride                                            */
