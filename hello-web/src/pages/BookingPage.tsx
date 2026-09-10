@@ -665,6 +665,26 @@ function CompareTable({ bikes }: { bikes: Bike[] }) {
   );
 }
 
+/**
+ * How wide a capacity's enclosure is, and how many columns of cards it holds.
+ *
+ * Written out rather than composed, because Tailwind finds class names by
+ * reading the source: a string built at runtime never reaches the stylesheet.
+ */
+const BAND_SPAN: Record<number, string> = {
+  1: 'lg:col-span-1',
+  2: 'lg:col-span-2',
+  3: 'lg:col-span-3',
+  4: 'lg:col-span-4',
+};
+
+const BAND_COLS: Record<number, string> = {
+  1: 'lg:grid-cols-1',
+  2: 'lg:grid-cols-2',
+  3: 'lg:grid-cols-3',
+  4: 'lg:grid-cols-4',
+};
+
 function StepRide({
   bikes,
   chosen,
@@ -705,24 +725,17 @@ function StepRide({
   /**
    * The row split by engine size — 110cc on the left, 125cc on the right.
    *
-   * The cards stay in one grid; these are only headings laid over the same
-   * columns, each spanning as many as its capacity has vehicles, with a rule
-   * down the left of every group after the first. Splitting the grid itself
-   * would have made the lone 125cc card as wide as the three beside it.
+   * Each capacity is drawn as an enclosure with its rate cut into the top
+   * edge, so a card belongs to a price by sitting inside it rather than by
+   * sitting under a heading that a wrapped row could separate it from.
+   *
+   * The enclosures share the four columns the cards would have had, each
+   * spanning as many as its capacity has vehicles — so the lone 125cc card
+   * stays a quarter of the row instead of swelling to match the three beside it.
    */
   const capacityBands = showCapacities
-    ? capacities.map(cc => ({ cc, span: visible.filter(b => b.engineCc === cc).length }))
+    ? capacities.map(cc => ({ cc, vehicles: visible.filter(b => b.engineCc === cc) }))
     : [];
-
-  // The first vehicle of each band after the first carries the dividing rule,
-  // so the line runs on down through the cards rather than stopping at the
-  // heading.
-  const bandStartIds = new Set(
-    capacityBands
-      .slice(1)
-      .map(band => visible.find(b => b.engineCc === band.cc)?.id)
-      .filter((id): id is string => Boolean(id)),
-  );
 
   return (
     <div>
@@ -771,40 +784,45 @@ function StepRide({
         </div>
       )}
 
-      {/* Engine-size headings, on the same four columns as the cards below so
-          each sits exactly over its own vehicles. Hidden under lg, where the
-          cards wrap and the columns no longer line up. */}
-      {capacityBands.length > 1 && (
-        <div className="hidden lg:grid lg:grid-cols-4 gap-4 mb-3">
-          {capacityBands.map((band, i) => (
-            <div
+      {/* A class priced by engine size is drawn as one enclosure per capacity,
+          the rate sitting in the top edge. Below lg the enclosures stack and
+          each keeps its own label, which is where the old headings-over-columns
+          arrangement gave up and hid itself.
+
+          A class with a single rate needs no enclosure — it would be a box
+          drawn around everything, saying only what the class chip already
+          says. */}
+      {capacityBands.length > 1 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {capacityBands.map(band => (
+            <fieldset
               key={band.cc}
-              style={{ gridColumn: `span ${band.span} / span ${band.span}` }}
-              className={i > 0 ? 'border-l border-dark/25 pl-4' : ''}
+              className={`${BAND_SPAN[band.vehicles.length] ?? 'lg:col-span-1'} rounded-2xl border border-dark/20 px-2 pt-1 pb-2`}
             >
-              <p className="text-[11px] font-bold uppercase tracking-widest text-brand">
+              <legend className="px-2 text-[11px] font-bold uppercase tracking-widest text-brand">
                 {band.cc}cc
                 <span className="text-dark/30"> · </span>
                 <span className="text-dark/70">{formatPrice(rateAt(band.cc))} / day</span>
-              </p>
-            </div>
+              </legend>
+
+              <div className={`grid grid-cols-1 sm:grid-cols-2 ${BAND_COLS[band.vehicles.length] ?? 'lg:grid-cols-1'} gap-4`}>
+                {band.vehicles.map(b => (
+                  <RideCard key={b.id} bike={b} active={chosen.includes(b.id)} onSelect={() => onToggle(b.id)} />
+                ))}
+              </div>
+            </fieldset>
+          ))}
+        </div>
+      ) : (
+        /* Four across from lg: scooters and motorbikes are classes of four, so
+           a whole class lands on one row with nothing orphaned, and the
+           comparison reads across without scrolling. */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {visible.map(b => (
+            <RideCard key={b.id} bike={b} active={chosen.includes(b.id)} onSelect={() => onToggle(b.id)} />
           ))}
         </div>
       )}
-
-      {/* Four across from lg: scooters and motorbikes are classes of four, so a
-          whole class lands on one row with nothing orphaned, and the
-          comparison reads across without scrolling. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {visible.map(b => (
-          <div
-            key={b.id}
-            className={bandStartIds.has(b.id) ? 'lg:border-l lg:border-dark/25 lg:pl-4' : ''}
-          >
-            <RideCard bike={b} active={chosen.includes(b.id)} onSelect={() => onToggle(b.id)} />
-          </div>
-        ))}
-      </div>
 
       <CompareTable bikes={visible} />
     </div>
