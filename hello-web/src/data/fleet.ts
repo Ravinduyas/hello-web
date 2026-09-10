@@ -27,11 +27,10 @@ export const formatPrice = (amount: number) => `${CURRENCY}${amount}`;
  */
 export const priceLabel = (amount: number) => (amount <= 0 ? 'Free' : formatPrice(amount));
 
-/** One photograph of a vehicle, labelled by the angle it was taken from. */
-export interface VehicleView {
-  label: string;
+/** The photograph that stands for a class on a card. */
+export interface CategoryPhoto {
   src: string;
-  /** Focal point for this shot's crop, like Bike.imagePosition. */
+  /** Focal point for the card crop, like Bike.imagePosition. */
   position?: string;
 }
 
@@ -277,23 +276,12 @@ export const orderOf = (category: string) => {
  *
  * Shared so the fleet page and the booking step show a class the same way.
  */
-export const categoryViews: Record<string, VehicleView[]> = {
-  Scooter: [
-    { label: 'Front', src: asset('/fleet/tvs-ntorq-front.jpg') },
-    { label: 'Side', src: asset('/fleet/tvs-ntorq.jpg') },
-    { label: 'Rear', src: asset('/fleet/tvs-ntorq-rear.jpg'), position: 'center 40%' },
-  ],
-  Motorbike: [
-    { label: 'Front', src: asset('/fleet/bajaj-pulsar-front.jpg'), position: 'center 45%' },
-    { label: 'Side', src: asset('/fleet/bajaj-pulsar.jpg'), position: 'center 50%' },
-  ],
-  'Tuk Tuk': [{ label: 'Side', src: asset('/fleet/bajaj-re-tuktuk.jpg'), position: '35% 60%' }],
-  Car: [{ label: 'Front', src: asset('/fleet/toyota-kdh.jpg') }],
+export const categoryPhoto: Record<string, CategoryPhoto> = {
+  Scooter: { src: asset('/fleet/tvs-ntorq-front.jpg') },
+  Motorbike: { src: asset('/fleet/bajaj-pulsar-front.jpg'), position: 'center 45%' },
+  'Tuk Tuk': { src: asset('/fleet/bajaj-re-tuktuk.jpg'), position: '35% 60%' },
+  Car: { src: asset('/fleet/toyota-kdh.jpg') },
 };
-
-/** The first view of a class — what a card shows before anyone touches it. */
-export const categoryImage = (category: string): string | undefined =>
-  categoryViews[category]?.[0]?.src;
 
 /* ------------------------------------------------------------------ */
 /*  How each class is presented                                        */
@@ -409,8 +397,8 @@ export function summariseCategories(list: Bike[]) {
         category,
         meta: getCategoryMeta(category),
         from: Math.min(...items.map(b => b.pricePerDay)),
-        views: categoryViews[category] ?? [],
-        image: categoryImage(category) ?? items[0]?.image,
+        image: categoryPhoto[category]?.src ?? items[0]?.image,
+        imagePosition: categoryPhoto[category]?.position,
         count: items.length,
       };
     })

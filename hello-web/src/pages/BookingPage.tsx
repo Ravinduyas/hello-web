@@ -439,14 +439,7 @@ function StepClass({
   );
 }
 
-/**
- * One class card, with a switcher when there is more than one photograph of the
- * vehicle that represents the class.
- *
- * The angle is per-card state, so turning the scooters around leaves the
- * motorbikes as they were — and the buttons sit beside the choose target rather
- * than inside it, because looking at the back of a scooter is not choosing one.
- */
+/** One class card: its representative photograph, and choosing it. */
 function ClassCard({
   summary,
   selected,
@@ -456,64 +449,41 @@ function ClassCard({
   selected: boolean;
   onPick: () => void;
 }) {
-  const [viewIndex, setViewIndex] = useState(0);
-  const shown = summary.views[viewIndex];
-
   return (
-    <div
-      className={`group relative h-72 md:h-80 rounded-2xl overflow-hidden border-2 transition-all ${
+    <button
+      type="button"
+      onClick={onPick}
+      aria-pressed={selected}
+      aria-label={`Choose ${summary.meta.label}`}
+      // Tall enough for the photograph to read as a vehicle: at h-56 a wide
+      // card cropped these to a letterbox strip of the middle.
+      className={`group relative block h-72 md:h-80 w-full rounded-2xl overflow-hidden text-left border-2 transition-all ${
         selected ? 'border-brand' : 'border-transparent hover:border-brand'
       }`}
     >
-      <button
-        type="button"
-        onClick={onPick}
-        aria-pressed={selected}
-        aria-label={`Choose ${summary.meta.label}`}
-        className="absolute inset-0 w-full h-full text-left"
-      >
-        <img
-          src={shown?.src ?? summary.image}
-          alt={shown ? `${summary.meta.label} — ${shown.label.toLowerCase()} view` : summary.meta.label}
-          loading="lazy"
-          style={{ objectPosition: shown?.position ?? 'center' }}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-dark/85 via-dark/30 to-dark/10" />
+      <img
+        src={summary.image}
+        alt={summary.meta.label}
+        loading="lazy"
+        style={{ objectPosition: summary.imagePosition ?? 'center' }}
+        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-dark/85 via-dark/30 to-dark/10" />
 
-        {summary.meta.transmission && (
-          <span className="absolute top-4 left-4 eyebrow !text-white/70">{summary.meta.transmission}</span>
-        )}
-
-        <div className="absolute inset-x-0 bottom-0 p-5 text-beige">
-          <h3 className="display-xl text-2xl">{summary.meta.label}</h3>
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-beige/20">
-            <span className="font-display text-sm font-bold">From {formatPrice(summary.from)} / day</span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide group-hover:gap-2.5 transition-all">
-              Choose <ArrowRight className="w-3.5 h-3.5" />
-            </span>
-          </div>
-        </div>
-      </button>
-
-      {summary.views.length > 1 && (
-        <div className="absolute top-4 right-4 flex flex-col gap-1 items-end">
-          {summary.views.map((view, i) => (
-            <button
-              key={view.label}
-              type="button"
-              onClick={() => setViewIndex(i)}
-              aria-pressed={i === viewIndex}
-              className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm transition-colors ${
-                i === viewIndex ? 'bg-beige text-dark' : 'bg-dark/45 text-beige/85 hover:bg-dark/70'
-              }`}
-            >
-              {view.label} view
-            </button>
-          ))}
-        </div>
+      {summary.meta.transmission && (
+        <span className="absolute top-4 left-4 eyebrow !text-white/70">{summary.meta.transmission}</span>
       )}
-    </div>
+
+      <div className="absolute inset-x-0 bottom-0 p-5 text-beige">
+        <h3 className="display-xl text-2xl">{summary.meta.label}</h3>
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-beige/20">
+          <span className="font-display text-sm font-bold">From {formatPrice(summary.from)} / day</span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide group-hover:gap-2.5 transition-all">
+            Choose <ArrowRight className="w-3.5 h-3.5" />
+          </span>
+        </div>
+      </div>
+    </button>
   );
 }
 
