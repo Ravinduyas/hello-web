@@ -49,7 +49,10 @@ import {
   type Unit,
   type UnitStatus,
   type Owner,
+  seed,
 } from './store.ts';
+import { connect } from './mongo.ts';
+import { MONGODB_URI, MONGODB_DB } from './env.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -122,8 +125,8 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 /* ================================================================== */
 
 /** Customer-facing extras list — only active ones, minimal shape. */
-app.get('/api/extras', (_req: Request, res: Response) => {
-  const extras = listExtras({ activeOnly: true }).map(e => ({
+app.get('/api/extras', async (_req: Request, res: Response) => {
+  const extras = (await listExtras({ activeOnly: true })).map(e => ({
     id: e.id,
     label: e.label,
     description: e.description,
@@ -134,13 +137,13 @@ app.get('/api/extras', (_req: Request, res: Response) => {
 });
 
 /** Category names, in admin order — used for the public fleet filter. */
-app.get('/api/categories', (_req: Request, res: Response) => {
-  res.json(listCategories().map(c => c.name));
+app.get('/api/categories', async (_req: Request, res: Response) => {
+  res.json((await listCategories()).map(c => c.name));
 });
 
 /** Customer-facing fleet — only active bikes, minimal shape. */
-app.get('/api/bikes', (_req: Request, res: Response) => {
-  const bikes = listBikes({ activeOnly: true }).map(b => ({
+app.get('/api/bikes', async (_req: Request, res: Response) => {
+  const bikes = (await listBikes({ activeOnly: true })).map(b => ({
     id: b.id,
     title: b.title,
     category: b.category,
@@ -155,7 +158,7 @@ function makeReference(): string {
   return 'HR-' + randomUUID().replace(/-/g, '').slice(0, 5).toUpperCase();
 }
 
-app.post('/api/bookings', (req: Request, res: Response) => {
+app.post('/api/bookings', async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const renter = b.renter ?? {};
   const invalid =
@@ -198,7 +201,7 @@ app.post('/api/bookings', (req: Request, res: Response) => {
       license: renter.license ? String(renter.license) : undefined,
     },
   };
-  addBooking(booking);
+  await addBooking(booking);
   res.status(201).json({ id: booking.id, reference: booking.reference, status: booking.status });
 });
 
@@ -206,7 +209,7 @@ app.post('/api/bookings', (req: Request, res: Response) => {
 /*  ADMIN API                                                         */
 /* ================================================================== */
 
-app.post('/api/admin/login', (req: Request, res: Response) => {
+app.post('/api/admin/login', async (req: Request, res: Response) => {
   const { username, password } = req.body ?? {};
   if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
     return res.json({ token: issueToken(username) });
@@ -215,16 +218,16 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
 });
 
 /* ---- Bookings ---- */
-app.get('/api/admin/bookings', requireAuth, (_req: Request, res: Response) => {
-  res.json(listBookings());
+app.get('/api/admin/bookings', requireAuth, async (_req: Request, res: Response) => {
+  res.json(await listBookings());
 });
 
 /** Walk-in rental booked at the shop counter — created already confirmed against
  *  a chosen plate, which is reserved immediately. */
-app.post('/api/admin/bookings', requireAuth, (req: Request, res: Response) => {
+app.post('/api/admin/bookings', requireAuth, async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const renter = b.renter ?? {};
-  const bike = getBikeById(String(b.bikeId ?? ''));
+  const bike = await getBikeById(String(b.bikeId ?? ''));
   if (!bike) return res.status(400).json({ error: 'Pick a bike model.' });
   const unitId = typeof b.unitId === 'string' ? b.unitId.trim() : '';
   if (!unitId) return res.status(400).json({ error: 'Pick a plate.' });
@@ -269,13 +272,13 @@ app.post('/api/admin/bookings', requireAuth, (req: Request, res: Response) => {
   };
 
   try {
-    res.status(201).json(createConfirmedBooking(booking));
+    res.status(201).json(await createConfirmedBooking(booking));
   } catch (err) {
     res.status(409).json({ error: err instanceof Error ? err.message : 'Could not create rental' });
   }
 });
 
-app.patch('/api/admin/bookings/:id', requireAuth, (req: Request, res: Response) => {
+app.patch('/api/admin/bookings/:id', requireAuth, async (req: Request, res: Response) => {
   const status = req.body?.status as BookingStatus;
   if (!['pending', 'confirmed', 'cancelled'].includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
@@ -287,9 +290,9 @@ app.patch('/api/admin/bookings/:id', requireAuth, (req: Request, res: Response) 
     const unitId = typeof req.body?.unitId === 'string' ? req.body.unitId.trim() : '';
     let updated: Booking | null;
     if (status === 'confirmed' && unitId) {
-      updated = assignAndConfirm(req.params.id, unitId);
+      updated = await assignAndConfirm(req.params.id, unitId);
     } else {
-      updated = updateBookingStatus(req.params.id, status);
+      updated = await updateBookingStatus(req.params.id, status);
     }
     if (!updated) return res.status(404).json({ error: 'Not found' });
     res.json(updated);
@@ -299,7 +302,7 @@ app.patch('/api/admin/bookings/:id', requireAuth, (req: Request, res: Response) 
 });
 
 /** Payments & deposit for a booking: add/remove a payment, set the deposit, mark it returned. */
-app.patch('/api/admin/bookings/:id/billing', requireAuth, (req: Request, res: Response) => {
+app.patch('/api/admin/bookings/:id/billing', requireAuth, async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const ops: { addPayment?: { amount: number; note: string }; removePaymentId?: string; deposit?: number; depositReturned?: boolean } = {};
   if (b.addPayment) {
@@ -312,7 +315,7 @@ app.patch('/api/admin/bookings/:id/billing', requireAuth, (req: Request, res: Re
   if (b.depositReturned !== undefined) ops.depositReturned = !!b.depositReturned;
 
   try {
-    const updated = updateBookingBilling(req.params.id, ops);
+    const updated = await updateBookingBilling(req.params.id, ops);
     if (!updated) return res.status(404).json({ error: 'Not found' });
     res.json(updated);
   } catch (err) {
@@ -321,8 +324,8 @@ app.patch('/api/admin/bookings/:id/billing', requireAuth, (req: Request, res: Re
   }
 });
 
-app.delete('/api/admin/bookings/:id', requireAuth, (req: Request, res: Response) => {
-  if (!deleteBooking(req.params.id)) return res.status(404).json({ error: 'Not found' });
+app.delete('/api/admin/bookings/:id', requireAuth, async (req: Request, res: Response) => {
+  if (!await deleteBooking(req.params.id)) return res.status(404).json({ error: 'Not found' });
   res.status(204).end();
 });
 
@@ -331,11 +334,11 @@ function slugify(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'extra';
 }
 
-app.get('/api/admin/extras', requireAuth, (_req: Request, res: Response) => {
-  res.json(listExtras());
+app.get('/api/admin/extras', requireAuth, async (_req: Request, res: Response) => {
+  res.json(await listExtras());
 });
 
-app.post('/api/admin/extras', requireAuth, (req: Request, res: Response) => {
+app.post('/api/admin/extras', requireAuth, async (req: Request, res: Response) => {
   const b = req.body ?? {};
   if (!b.label || typeof b.label !== 'string') {
     return res.status(400).json({ error: 'Label is required' });
@@ -343,7 +346,7 @@ app.post('/api/admin/extras', requireAuth, (req: Request, res: Response) => {
   // Unique id from the label slug.
   let id = slugify(b.label);
   let n = 2;
-  while (getExtra(id)) id = `${slugify(b.label)}-${n++}`;
+  while (await getExtra(id)) id = `${slugify(b.label)}-${n++}`;
 
   const extra: Extra = {
     id,
@@ -352,13 +355,13 @@ app.post('/api/admin/extras', requireAuth, (req: Request, res: Response) => {
     price: Number(b.price) || 0,
     perDay: b.perDay !== false, // default per-day
     active: b.active !== false, // default active
-    sortOrder: Number.isFinite(b.sortOrder) ? Number(b.sortOrder) : listExtras().length,
+    sortOrder: Number.isFinite(b.sortOrder) ? Number(b.sortOrder) : (await listExtras()).length,
   };
-  addExtra(extra);
+  await addExtra(extra);
   res.status(201).json(extra);
 });
 
-app.patch('/api/admin/extras/:id', requireAuth, (req: Request, res: Response) => {
+app.patch('/api/admin/extras/:id', requireAuth, async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const patch: Partial<Omit<Extra, 'id'>> = {};
   if (b.label !== undefined) patch.label = String(b.label);
@@ -368,95 +371,95 @@ app.patch('/api/admin/extras/:id', requireAuth, (req: Request, res: Response) =>
   if (b.active !== undefined) patch.active = !!b.active;
   if (b.sortOrder !== undefined) patch.sortOrder = Number(b.sortOrder) || 0;
 
-  const updated = updateExtra(req.params.id, patch);
+  const updated = await updateExtra(req.params.id, patch);
   if (!updated) return res.status(404).json({ error: 'Not found' });
   res.json(updated);
 });
 
-app.delete('/api/admin/extras/:id', requireAuth, (req: Request, res: Response) => {
-  if (!deleteExtra(req.params.id)) return res.status(404).json({ error: 'Not found' });
+app.delete('/api/admin/extras/:id', requireAuth, async (req: Request, res: Response) => {
+  if (!await deleteExtra(req.params.id)) return res.status(404).json({ error: 'Not found' });
   res.status(204).end();
 });
 
 /* ---- Bikes / fleet (full CRUD) ---- */
-function normCategory(v: unknown): string {
+async function normCategory(v: unknown): Promise<string> {
   const s = typeof v === 'string' ? v.trim() : '';
   if (s) return s;
   // Fall back to the first managed category so a bike always has one.
-  return listCategories()[0]?.name ?? 'Scooter';
+  return (await listCategories())[0]?.name ?? 'Scooter';
 }
 function normFeatures(v: unknown): string[] {
   if (Array.isArray(v)) return v.map(String).map(s => s.trim()).filter(Boolean);
   return [];
 }
 
-app.get('/api/admin/bikes', requireAuth, (_req: Request, res: Response) => {
-  res.json(listBikes());
+app.get('/api/admin/bikes', requireAuth, async (_req: Request, res: Response) => {
+  res.json(await listBikes());
 });
 
-app.post('/api/admin/bikes', requireAuth, (req: Request, res: Response) => {
+app.post('/api/admin/bikes', requireAuth, async (req: Request, res: Response) => {
   const b = req.body ?? {};
   if (!b.title || typeof b.title !== 'string') {
     return res.status(400).json({ error: 'Title is required' });
   }
   let id = slugify(b.title);
   let n = 2;
-  while (getBikeById(id)) id = `${slugify(b.title)}-${n++}`;
+  while (await getBikeById(id)) id = `${slugify(b.title)}-${n++}`;
 
   const bike: Bike = {
     id,
     title: String(b.title),
-    category: normCategory(b.category),
+    category: await normCategory(b.category),
     pricePerDay: Number(b.pricePerDay) || 0,
     image: String(b.image ?? ''),
     features: normFeatures(b.features),
     active: b.active !== false,
-    sortOrder: Number.isFinite(b.sortOrder) ? Number(b.sortOrder) : listBikes().length,
+    sortOrder: Number.isFinite(b.sortOrder) ? Number(b.sortOrder) : (await listBikes()).length,
   };
-  addBike(bike);
+  await addBike(bike);
   res.status(201).json(bike);
 });
 
-app.patch('/api/admin/bikes/:id', requireAuth, (req: Request, res: Response) => {
+app.patch('/api/admin/bikes/:id', requireAuth, async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const patch: Partial<Omit<Bike, 'id'>> = {};
   if (b.title !== undefined) patch.title = String(b.title);
-  if (b.category !== undefined) patch.category = normCategory(b.category);
+  if (b.category !== undefined) patch.category = await normCategory(b.category);
   if (b.pricePerDay !== undefined) patch.pricePerDay = Number(b.pricePerDay) || 0;
   if (b.image !== undefined) patch.image = String(b.image);
   if (b.features !== undefined) patch.features = normFeatures(b.features);
   if (b.active !== undefined) patch.active = !!b.active;
   if (b.sortOrder !== undefined) patch.sortOrder = Number(b.sortOrder) || 0;
 
-  const updated = updateBike(req.params.id, patch);
+  const updated = await updateBike(req.params.id, patch);
   if (!updated) return res.status(404).json({ error: 'Not found' });
   res.json(updated);
 });
 
-app.delete('/api/admin/bikes/:id', requireAuth, (req: Request, res: Response) => {
-  if (!deleteBike(req.params.id)) return res.status(404).json({ error: 'Not found' });
+app.delete('/api/admin/bikes/:id', requireAuth, async (req: Request, res: Response) => {
+  if (!await deleteBike(req.params.id)) return res.status(404).json({ error: 'Not found' });
   res.status(204).end();
 });
 
 /* ---- Categories ---- */
-app.get('/api/admin/categories', requireAuth, (_req: Request, res: Response) => {
-  res.json(listCategories());
+app.get('/api/admin/categories', requireAuth, async (_req: Request, res: Response) => {
+  res.json(await listCategories());
 });
 
-app.post('/api/admin/categories', requireAuth, (req: Request, res: Response) => {
+app.post('/api/admin/categories', requireAuth, async (req: Request, res: Response) => {
   const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
   if (!name) return res.status(400).json({ error: 'Category name is required' });
-  res.status(201).json(addCategory(name));
+  res.status(201).json(await addCategory(name));
 });
 
-app.delete('/api/admin/categories/:name', requireAuth, (req: Request, res: Response) => {
+app.delete('/api/admin/categories/:name', requireAuth, async (req: Request, res: Response) => {
   const name = decodeURIComponent(req.params.name);
   // Block deleting a category still in use, so no bike is orphaned.
-  const inUse = bikesUsingCategory(name);
+  const inUse = await bikesUsingCategory(name);
   if (inUse > 0) {
     return res.status(409).json({ error: `${inUse} bike(s) still use "${name}". Reassign them first.` });
   }
-  if (!deleteCategory(name)) return res.status(404).json({ error: 'Not found' });
+  if (!await deleteCategory(name)) return res.status(404).json({ error: 'Not found' });
   res.status(204).end();
 });
 
@@ -465,21 +468,21 @@ function normStatus(v: unknown): UnitStatus {
   return v === 'rented' ? 'rented' : v === 'maintenance' ? 'maintenance' : 'available';
 }
 
-app.get('/api/admin/units', requireAuth, (req: Request, res: Response) => {
+app.get('/api/admin/units', requireAuth, async (req: Request, res: Response) => {
   const bikeId = typeof req.query.bikeId === 'string' ? req.query.bikeId : undefined;
-  res.json(listUnits(bikeId));
+  res.json(await listUnits(bikeId));
 });
 
-app.post('/api/admin/units', requireAuth, (req: Request, res: Response) => {
+app.post('/api/admin/units', requireAuth, async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const bikeId = String(b.bikeId ?? '');
   const plate = typeof b.plate === 'string' ? b.plate.trim() : '';
-  if (!bikeId || !getBikeById(bikeId)) return res.status(400).json({ error: 'Unknown model' });
+  if (!bikeId || !await getBikeById(bikeId)) return res.status(400).json({ error: 'Unknown model' });
   if (!plate) return res.status(400).json({ error: 'Plate number is required' });
-  if (findUnitByPlate(plate)) return res.status(409).json({ error: `Plate "${plate}" already exists` });
+  if (await findUnitByPlate(plate)) return res.status(409).json({ error: `Plate "${plate}" already exists` });
 
   const ownerId = typeof b.ownerId === 'string' ? b.ownerId.trim() : '';
-  if (ownerId && !getOwner(ownerId)) return res.status(400).json({ error: 'Unknown owner' });
+  if (ownerId && !await getOwner(ownerId)) return res.status(400).json({ error: 'Unknown owner' });
 
   const unit: Unit = {
     id: randomUUID(),
@@ -490,17 +493,17 @@ app.post('/api/admin/units', requireAuth, (req: Request, res: Response) => {
     notes: String(b.notes ?? ''),
     createdAt: new Date().toISOString(),
   };
-  addUnit(unit);
+  await addUnit(unit);
   res.status(201).json(unit);
 });
 
-app.patch('/api/admin/units/:id', requireAuth, (req: Request, res: Response) => {
+app.patch('/api/admin/units/:id', requireAuth, async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const patch: Partial<Pick<Unit, 'plate' | 'status' | 'ownerId' | 'notes'>> = {};
   if (b.plate !== undefined) {
     const plate = String(b.plate).trim();
     if (!plate) return res.status(400).json({ error: 'Plate cannot be empty' });
-    const existing = findUnitByPlate(plate);
+    const existing = await findUnitByPlate(plate);
     if (existing && existing.id !== req.params.id) {
       return res.status(409).json({ error: `Plate "${plate}" already exists` });
     }
@@ -509,22 +512,22 @@ app.patch('/api/admin/units/:id', requireAuth, (req: Request, res: Response) => 
   if (b.status !== undefined) patch.status = normStatus(b.status);
   if (b.ownerId !== undefined) {
     const ownerId = typeof b.ownerId === 'string' ? b.ownerId.trim() : '';
-    if (ownerId && !getOwner(ownerId)) return res.status(400).json({ error: 'Unknown owner' });
+    if (ownerId && !await getOwner(ownerId)) return res.status(400).json({ error: 'Unknown owner' });
     patch.ownerId = ownerId;
   }
   if (b.notes !== undefined) patch.notes = String(b.notes);
 
-  const updated = updateUnit(req.params.id, patch);
+  const updated = await updateUnit(req.params.id, patch);
   if (!updated) return res.status(404).json({ error: 'Not found' });
   res.json(updated);
 });
 
 /* ---- Owners (fleet owners) ---- */
-app.get('/api/admin/owners', requireAuth, (_req: Request, res: Response) => {
-  res.json(listOwners());
+app.get('/api/admin/owners', requireAuth, async (_req: Request, res: Response) => {
+  res.json(await listOwners());
 });
 
-app.post('/api/admin/owners', requireAuth, (req: Request, res: Response) => {
+app.post('/api/admin/owners', requireAuth, async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const name = typeof b.name === 'string' ? b.name.trim() : '';
   if (!name) return res.status(400).json({ error: 'Owner name is required' });
@@ -539,11 +542,11 @@ app.post('/api/admin/owners', requireAuth, (req: Request, res: Response) => {
     commissionFlat: Number(b.commissionFlat) || 0,
     createdAt: new Date().toISOString(),
   };
-  addOwner(owner);
+  await addOwner(owner);
   res.status(201).json(owner);
 });
 
-app.patch('/api/admin/owners/:id', requireAuth, (req: Request, res: Response) => {
+app.patch('/api/admin/owners/:id', requireAuth, async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const patch: Partial<Omit<Owner, 'id' | 'createdAt'>> = {};
   if (b.name !== undefined) {
@@ -558,32 +561,32 @@ app.patch('/api/admin/owners/:id', requireAuth, (req: Request, res: Response) =>
   if (b.commissionPct !== undefined) patch.commissionPct = Number(b.commissionPct) || 0;
   if (b.commissionFlat !== undefined) patch.commissionFlat = Number(b.commissionFlat) || 0;
 
-  const updated = updateOwner(req.params.id, patch);
+  const updated = await updateOwner(req.params.id, patch);
   if (!updated) return res.status(404).json({ error: 'Not found' });
   res.json(updated);
 });
 
-app.delete('/api/admin/owners/:id', requireAuth, (req: Request, res: Response) => {
-  const inUse = bikesOwnedBy(req.params.id);
+app.delete('/api/admin/owners/:id', requireAuth, async (req: Request, res: Response) => {
+  const inUse = await bikesOwnedBy(req.params.id);
   if (inUse > 0) {
     return res.status(409).json({ error: `${inUse} bike(s) are assigned to this owner. Reassign them first.` });
   }
-  if (!deleteOwner(req.params.id)) return res.status(404).json({ error: 'Not found' });
+  if (!await deleteOwner(req.params.id)) return res.status(404).json({ error: 'Not found' });
   res.status(204).end();
 });
 
-app.delete('/api/admin/units/:id', requireAuth, (req: Request, res: Response) => {
-  if (!getUnit(req.params.id)) return res.status(404).json({ error: 'Not found' });
-  deleteUnit(req.params.id);
+app.delete('/api/admin/units/:id', requireAuth, async (req: Request, res: Response) => {
+  if (!await getUnit(req.params.id)) return res.status(404).json({ error: 'Not found' });
+  await deleteUnit(req.params.id);
   res.status(204).end();
 });
 
 /* ---- Transactions (manual business payments) ---- */
-app.get('/api/admin/transactions', requireAuth, (_req: Request, res: Response) => {
-  res.json(listTransactions());
+app.get('/api/admin/transactions', requireAuth, async (_req: Request, res: Response) => {
+  res.json(await listTransactions());
 });
 
-app.post('/api/admin/transactions', requireAuth, (req: Request, res: Response) => {
+app.post('/api/admin/transactions', requireAuth, async (req: Request, res: Response) => {
   const b = req.body ?? {};
   const kind = b.kind === 'out' ? 'out' : 'in';
   const amount = Number(b.amount) || 0;
@@ -596,11 +599,11 @@ app.post('/api/admin/transactions', requireAuth, (req: Request, res: Response) =
     at: b.at ? String(b.at) : new Date().toISOString(),
     note: String(b.note ?? ''),
   };
-  res.status(201).json(addTransaction(transaction));
+  res.status(201).json(await addTransaction(transaction));
 });
 
-app.delete('/api/admin/transactions/:id', requireAuth, (req: Request, res: Response) => {
-  if (!deleteTransaction(req.params.id)) return res.status(404).json({ error: 'Not found' });
+app.delete('/api/admin/transactions/:id', requireAuth, async (req: Request, res: Response) => {
+  if (!await deleteTransaction(req.params.id)) return res.status(404).json({ error: 'Not found' });
   res.status(204).end();
 });
 
@@ -611,14 +614,40 @@ app.delete('/api/admin/transactions/:id', requireAuth, (req: Request, res: Respo
 const adminDist = join(__dirname, '..', 'frontend', 'dist');
 if (existsSync(adminDist)) {
   app.use(express.static(adminDist));
-  app.get(/^(?!\/api\/).*/, (_req: Request, res: Response) => {
+  app.get(/^(?!\/api\/).*/, async (_req: Request, res: Response) => {
     res.sendFile(join(adminDist, 'index.html'));
   });
 }
 
-const server = app.listen(PORT, () => {
-  console.log(`Hello Manage API listening on http://localhost:${PORT}`);
+/*
+ * Express 4 has no idea what to do with a handler that returns a rejected
+ * promise: it simply never answers, and the request hangs until the browser
+ * gives up. Every handler is async now that the store is, so anything that
+ * rejects is funnelled into the normal error path instead.
+ */
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('Request failed:', err);
+  if (!res.headersSent) res.status(500).json({ error: 'Something went wrong on the server.' });
 });
+
+/*
+ * Connect, seed, then listen — in that order, so no request can reach a store
+ * function before there is a database behind it.
+ */
+const server = await connect()
+  .then(async () => {
+    await seed();
+    return app.listen(PORT, () => {
+      console.log(`Hello Manage API listening on http://localhost:${PORT} (MongoDB ${MONGODB_DB})`);
+    });
+  })
+  .catch((err: Error) => {
+    console.error(
+      `Could not reach MongoDB at ${MONGODB_URI} — ${err.message}\n` +
+        'Start the server, or point MONGODB_URI at another one in backend/.env.',
+    );
+    process.exit(1);
+  });
 
 // A port already in use is an ordinary thing to hit — another copy of this
 // server is usually still running. Say so in one line and exit, rather than

@@ -49,12 +49,52 @@ admin appear instantly on the public booking page.
   `/api/admin/bookings` and `/api/admin/extras`.
 
 Credentials and other settings live in `backend/.env` (see `backend/.env.example`).
-The SQLite file is created at `backend/data/hellorent.db` on first run (gitignored).
+
+## The database
+
+MongoDB, at `MONGODB_URI` (default `mongodb://127.0.0.1:27017`), database `MONGODB_DB`
+(default `hellorent`). Collections: `bookings`, `bikes`, `units`, `owners`, `extras`,
+`categories`, `transactions`. Each document is keyed by the record's own id.
+
+**It has to be a replica set, even with one node.** Assigning a plate writes to the
+booking and to the unit together, and MongoDB only offers a transaction on a replica
+set — standalone, half of that could land and leave a machine rented to nobody. One
+node is enough; this is not about redundancy.
+
+Locally:
+
+```bash
+mongod --dbpath <path> --port 27017 --bind_ip 127.0.0.1 --replSet rs0
+mongosh --eval 'rs.initiate()'   # once, ever
+```
+
+On Windows the installer sets up a service that runs standalone. To make it a replica
+set, add to `C:\Program Files\MongoDB\Server\<version>\bin\mongod.cfg`:
+
+```yaml
+replication:
+  replSetName: rs0
+```
+
+then restart the service (as administrator) and run `rs.initiate()` once.
+Atlas is already a replica set, so a `mongodb+srv://` URI needs none of this.
+
+### Coming from the SQLite build
+
+```bash
+npm run migrate:mongo            # from backend/data/hellorent.db
+npm run migrate:mongo -- --force # replace collections that already hold data
+```
+
+It only reads the SQLite file and never deletes it — keep it until you are satisfied
+the move worked. Columns that held JSON (a booking's extras and payments, a bike's
+features) become real arrays, and the 0/1 integers become booleans.
 
 ## Production
 
-- Backend: `npm install && npm start` in `backend/` (Node 24+). Put the DB file on a
-  persistent disk via `DB_FILE`. If you build the admin UI (`npm run build:frontend`,
+- Backend: `npm install && npm start` in `backend/` (Node 24+). Point `MONGODB_URI` at
+  the production database — Atlas, or a MongoDB on a persistent disk. If you build the
+  admin UI (`npm run build:frontend`,
   or `npm run build` in `frontend/`), the backend serves it from `frontend/dist`.
 - Public site: from `../hello-web` run `npm run build`, host the static `dist/`, and
   set `VITE_API_BASE` to the backend origin (allowed in `CORS_ORIGINS`).

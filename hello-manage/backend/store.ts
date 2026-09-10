@@ -1,452 +1,122 @@
-import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { FLEET_BIKES, FLEET_CATEGORIES, FLEET_EXTRAS } from './fleet-data.ts';
+import { collections, fromDoc, fromDocs, maybe, toDoc, withTransaction, type Doc } from './mongo.ts';
+import type {
+  Bike,
+  Booking,
+  BookingStatus,
+  Category,
+  Extra,
+  Owner,
+  Transaction,
+  Unit,
+  UnitStatus,
+} from './types.ts';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = join(__dirname, 'data');
-const DB_FILE = process.env.DB_FILE || join(DATA_DIR, 'hellorent.db');
-
-/* ================================================================== */
-/*  Types                                                             */
-/* ================================================================== */
-
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
-
-export interface BookingExtra {
-  id: string;
-  label: string;
-  amount: number;
-}
-
-/** A single customer payment against a booking. */
-export interface Payment {
-  id: string;
-  amount: number;
-  at: string;
-  note: string;
-}
-
-export interface Booking {
-  id: string;
-  reference: string;
-  status: BookingStatus;
-  createdAt: string;
-  bikeId: string;
-  bikeTitle: string;
-  /** Physical unit (plate) assigned when the booking is confirmed. '' = none. */
-  unitId: string;
-  /** Denormalised plate of the assigned unit, for display. '' = none. */
-  plate: string;
-  pickupLocation: string;
-  dropoffLocation: string;
-  pickupDate: string;
-  dropoffDate: string;
-  days: number;
-  extras: BookingExtra[];
-  total: number;
-  /** Customer payments toward the rental total (paid = sum, due = total - paid). */
-  payments: Payment[];
-  /** Refundable security deposit held while the bike is out. */
-  deposit: number;
-  depositReturned: boolean;
-  renter: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    license?: string;
-  };
-}
-
-export interface Extra {
-  id: string;
-  label: string;
-  description: string;
-  price: number;
-  perDay: boolean;
-  active: boolean;
-  sortOrder: number;
-}
-
-/** Categories are admin-managed, so this is a free-form string (a category name). */
-export type BikeCategory = string;
-
-export interface Bike {
-  id: string;
-  title: string;
-  category: BikeCategory;
-  pricePerDay: number;
-  image: string;
-  features: string[];
-  active: boolean;
-  sortOrder: number;
-}
-
-export interface Category {
-  name: string;
-  sortOrder: number;
-}
-
-export type UnitStatus = 'available' | 'rented' | 'maintenance';
-
-/** A single physical bike (one number plate) belonging to a model (bikes row). */
-export interface Unit {
-  id: string;
-  bikeId: string;
-  plate: string;
-  status: UnitStatus;
-  /** Fleet owner that owns this physical bike. '' = unassigned. */
-  ownerId: string;
-  notes: string;
-  createdAt: string;
-}
-
-/** A manually-recorded business payment: money in (income) or out (expense). */
-export interface Transaction {
-  id: string;
-  kind: 'in' | 'out';
-  category: string;
-  amount: number;
-  at: string;
-  note: string;
-}
-
-/** A fleet owner — a person whose bikes the company rents out. */
-export interface Owner {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  nic: string;
-  notes: string;
-  /** Shop commission on this owner's rentals: a % of revenue plus a flat amount per rental. */
-  commissionPct: number;
-  commissionFlat: number;
-  createdAt: string;
-}
+export * from './types.ts';
 
 /* ================================================================== */
-/*  Database — embedded SQLite (node:sqlite, no native build)          */
+/*  Store — MongoDB                                                    */
 /* ================================================================== */
 
-mkdirSync(DATA_DIR, { recursive: true });
+/**
+ * Every read and write the system makes, over MongoDB.
+ *
+ * The shapes are the ones SQLite served: what used to be a JSON column —
+ * a booking's extras, its payments, a bike's features — is now a real array in
+ * the document, so nothing is stringified on the way in or parsed on the way
+ * out. Booleans are booleans rather than 0 and 1 for the same reason.
+ *
+ * Anything that has to change two documents at once goes through
+ * `withTransaction`, which is the whole reason the server runs as a
+ * single-node replica set rather than standalone.
+ */
 
-const db = new DatabaseSync(DB_FILE);
-db.exec('PRAGMA journal_mode = WAL;');
+const c = collections;
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS bookings (
-    id              TEXT PRIMARY KEY,
-    reference       TEXT NOT NULL,
-    status          TEXT NOT NULL,
-    createdAt       TEXT NOT NULL,
-    bikeId          TEXT NOT NULL,
-    bikeTitle       TEXT NOT NULL,
-    pickupLocation  TEXT NOT NULL,
-    dropoffLocation TEXT NOT NULL,
-    pickupDate      TEXT NOT NULL,
-    dropoffDate     TEXT NOT NULL,
-    days            INTEGER NOT NULL,
-    total           REAL NOT NULL,
-    extras          TEXT NOT NULL,
-    renter          TEXT NOT NULL,
-    unitId          TEXT NOT NULL DEFAULT '',
-    plate           TEXT NOT NULL DEFAULT '',
-    payments        TEXT NOT NULL DEFAULT '[]',
-    deposit         REAL NOT NULL DEFAULT 0,
-    depositReturned INTEGER NOT NULL DEFAULT 0
-  );
-`);
-db.exec('CREATE INDEX IF NOT EXISTS idx_bookings_createdAt ON bookings(createdAt);');
+/* ================================================================== */
+/*  Seeding — first run only                                           */
+/* ================================================================== */
 
-// Migration: add columns to bookings for DBs created before the feature existed.
-const bookingCols = db.prepare('PRAGMA table_info(bookings)').all() as unknown as { name: string }[];
-const addBookingCol = (name: string, ddl: string) => {
-  if (!bookingCols.some(c => c.name === name)) db.exec(`ALTER TABLE bookings ADD COLUMN ${ddl}`);
-};
-addBookingCol('unitId', "unitId TEXT NOT NULL DEFAULT ''");
-addBookingCol('plate', "plate TEXT NOT NULL DEFAULT ''");
-addBookingCol('payments', "payments TEXT NOT NULL DEFAULT '[]'");
-addBookingCol('deposit', 'deposit REAL NOT NULL DEFAULT 0');
-addBookingCol('depositReturned', 'depositReturned INTEGER NOT NULL DEFAULT 0');
+/**
+ * Fills empty collections the way the SQLite build did on a fresh file.
+ *
+ * Each is guarded on being empty rather than on a flag, so it is safe to run at
+ * every boot and never overwrites a shop's own edits.
+ */
+export async function seed(): Promise<void> {
+  if ((await c().extras.countDocuments()) === 0 && FLEET_EXTRAS.length) {
+    await c().extras.insertMany(FLEET_EXTRAS.map(e => toDoc<Extra>({ ...e, active: true })));
+  }
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS extras (
-    id          TEXT PRIMARY KEY,
-    label       TEXT NOT NULL,
-    description TEXT NOT NULL,
-    price       REAL NOT NULL,
-    perDay      INTEGER NOT NULL,
-    active      INTEGER NOT NULL DEFAULT 1,
-    sortOrder   INTEGER NOT NULL DEFAULT 0
-  );
-`);
+  if ((await c().bikes.countDocuments()) === 0 && FLEET_BIKES.length) {
+    await c().bikes.insertMany(FLEET_BIKES.map(b => toDoc<Bike>({ ...b, active: true })));
+  }
 
-/* ---- Seed default extras on first run --------------------------- */
-const DEFAULT_EXTRAS: Omit<Extra, 'active'>[] = FLEET_EXTRAS;
-
-const extrasCount = (db.prepare('SELECT COUNT(*) AS n FROM extras').get() as { n: number }).n;
-if (extrasCount === 0) {
-  const seed = db.prepare(
-    'INSERT INTO extras (id, label, description, price, perDay, active, sortOrder) VALUES (?, ?, ?, ?, ?, 1, ?)',
-  );
-  for (const e of DEFAULT_EXTRAS) {
-    seed.run(e.id, e.label, e.description, e.price, e.perDay ? 1 : 0, e.sortOrder);
+  if ((await c().categories.countDocuments()) === 0) {
+    // Take the categories the fleet actually uses, so an existing fleet keeps
+    // its own; fall back to the defaults for a truly empty database.
+    const used = (await c().bikes.distinct('category')).filter(Boolean) as string[];
+    const names = used.length ? used : FLEET_CATEGORIES;
+    if (names.length) {
+      await c().categories.insertMany(names.map((name, i) => ({ _id: name, sortOrder: i })));
+    }
   }
 }
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS bikes (
-    id          TEXT PRIMARY KEY,
-    title       TEXT NOT NULL,
-    category    TEXT NOT NULL,
-    pricePerDay REAL NOT NULL,
-    image       TEXT NOT NULL,
-    features    TEXT NOT NULL,
-    active      INTEGER NOT NULL DEFAULT 1,
-    sortOrder   INTEGER NOT NULL DEFAULT 0
-  );
-`);
-
-/* ---- Seed default fleet on first run ---------------------------- */
-const DEFAULT_BIKES: Omit<Bike, 'active'>[] = FLEET_BIKES;
-
-const bikesCount = (db.prepare('SELECT COUNT(*) AS n FROM bikes').get() as { n: number }).n;
-if (bikesCount === 0) {
-  const seed = db.prepare(
-    'INSERT INTO bikes (id, title, category, pricePerDay, image, features, active, sortOrder) VALUES (?, ?, ?, ?, ?, ?, 1, ?)',
-  );
-  for (const b of DEFAULT_BIKES) {
-    seed.run(b.id, b.title, b.category, b.pricePerDay, b.image, JSON.stringify(b.features), b.sortOrder);
-  }
-}
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS categories (
-    name      TEXT PRIMARY KEY,
-    sortOrder INTEGER NOT NULL DEFAULT 0
-  );
-`);
-
-/* Seed categories from whatever categories the existing bikes already use, so the
-   current fleet keeps its categories. Falls back to the two defaults. */
-const categoriesCount = (db.prepare('SELECT COUNT(*) AS n FROM categories').get() as { n: number }).n;
-if (categoriesCount === 0) {
-  const used = (db.prepare('SELECT DISTINCT category FROM bikes').all() as unknown as { category: string }[])
-    .map(r => r.category)
-    .filter(Boolean);
-  const seedNames = used.length ? used : FLEET_CATEGORIES;
-  const seed = db.prepare('INSERT OR IGNORE INTO categories (name, sortOrder) VALUES (?, ?)');
-  seedNames.forEach((name, i) => seed.run(name, i));
-}
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS units (
-    id        TEXT PRIMARY KEY,
-    bikeId    TEXT NOT NULL,
-    plate     TEXT NOT NULL UNIQUE,
-    status    TEXT NOT NULL DEFAULT 'available',
-    notes     TEXT NOT NULL DEFAULT '',
-    createdAt TEXT NOT NULL
-  );
-`);
-db.exec('CREATE INDEX IF NOT EXISTS idx_units_bikeId ON units(bikeId);');
-
-// Migration: add ownerId to units if an older DB predates fleet owners.
-const unitCols = db.prepare('PRAGMA table_info(units)').all() as unknown as { name: string }[];
-if (!unitCols.some(c => c.name === 'ownerId')) {
-  db.exec("ALTER TABLE units ADD COLUMN ownerId TEXT NOT NULL DEFAULT ''");
-}
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS owners (
-    id            TEXT PRIMARY KEY,
-    name          TEXT NOT NULL,
-    phone         TEXT NOT NULL DEFAULT '',
-    email         TEXT NOT NULL DEFAULT '',
-    nic           TEXT NOT NULL DEFAULT '',
-    notes         TEXT NOT NULL DEFAULT '',
-    commissionPct  REAL NOT NULL DEFAULT 0,
-    commissionFlat REAL NOT NULL DEFAULT 0,
-    createdAt     TEXT NOT NULL
-  );
-`);
-
-// Migration: add commission columns for owners created before commissions.
-const ownerCols = db.prepare('PRAGMA table_info(owners)').all() as unknown as { name: string }[];
-if (!ownerCols.some(c => c.name === 'commissionPct')) {
-  db.exec('ALTER TABLE owners ADD COLUMN commissionPct REAL NOT NULL DEFAULT 0');
-}
-if (!ownerCols.some(c => c.name === 'commissionFlat')) {
-  db.exec('ALTER TABLE owners ADD COLUMN commissionFlat REAL NOT NULL DEFAULT 0');
-}
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS transactions (
-    id       TEXT PRIMARY KEY,
-    kind     TEXT NOT NULL,
-    category TEXT NOT NULL DEFAULT '',
-    amount   REAL NOT NULL,
-    at       TEXT NOT NULL,
-    note     TEXT NOT NULL DEFAULT ''
-  );
-`);
-db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_at ON transactions(at);');
 
 /* ================================================================== */
 /*  Bookings                                                          */
 /* ================================================================== */
 
-interface BookingRow {
-  id: string;
-  reference: string;
-  status: string;
-  createdAt: string;
-  bikeId: string;
-  bikeTitle: string;
-  pickupLocation: string;
-  dropoffLocation: string;
-  pickupDate: string;
-  dropoffDate: string;
-  days: number;
-  total: number;
-  extras: string;
-  renter: string;
-  unitId: string;
-  plate: string;
-  payments: string;
-  deposit: number;
-  depositReturned: number;
-}
+const bookingStatus = (s: string): BookingStatus =>
+  s === 'confirmed' ? 'confirmed' : s === 'cancelled' ? 'cancelled' : 'pending';
 
-function rowToBooking(r: BookingRow): Booking {
+/** Guards against a document written before a field existed. */
+const readBooking = (doc: Doc<Booking>): Booking => {
+  const b = fromDoc<Booking>(doc);
   return {
-    id: r.id,
-    reference: r.reference,
-    status: r.status as BookingStatus,
-    createdAt: r.createdAt,
-    bikeId: r.bikeId,
-    bikeTitle: r.bikeTitle,
-    unitId: r.unitId ?? '',
-    plate: r.plate ?? '',
-    pickupLocation: r.pickupLocation,
-    dropoffLocation: r.dropoffLocation,
-    pickupDate: r.pickupDate,
-    dropoffDate: r.dropoffDate,
-    days: r.days,
-    total: r.total,
-    extras: JSON.parse(r.extras) as BookingExtra[],
-    payments: r.payments ? (JSON.parse(r.payments) as Payment[]) : [],
-    deposit: r.deposit ?? 0,
-    depositReturned: !!r.depositReturned,
-    renter: JSON.parse(r.renter) as Booking['renter'],
+    ...b,
+    status: bookingStatus(b.status),
+    unitId: b.unitId ?? '',
+    plate: b.plate ?? '',
+    extras: b.extras ?? [],
+    payments: b.payments ?? [],
+    deposit: b.deposit ?? 0,
+    depositReturned: !!b.depositReturned,
   };
+};
+
+export async function listBookings(): Promise<Booking[]> {
+  const docs = await c().bookings.find().sort({ createdAt: -1 }).toArray();
+  return docs.map(readBooking);
 }
 
-function getBookingRow(id: string): BookingRow | undefined {
-  return db.prepare('SELECT * FROM bookings WHERE id = ?').get(id) as unknown as BookingRow | undefined;
+export async function getBooking(id: string): Promise<Booking | null> {
+  const doc = await c().bookings.findOne({ _id: id });
+  return doc ? readBooking(doc) : null;
 }
 
-const insertBooking = db.prepare(`
-  INSERT INTO bookings (
-    id, reference, status, createdAt, bikeId, bikeTitle, unitId, plate,
-    pickupLocation, dropoffLocation, pickupDate, dropoffDate,
-    days, total, extras, renter, payments, deposit, depositReturned
-  ) VALUES (
-    :id, :reference, :status, :createdAt, :bikeId, :bikeTitle, :unitId, :plate,
-    :pickupLocation, :dropoffLocation, :pickupDate, :dropoffDate,
-    :days, :total, :extras, :renter, :payments, :deposit, :depositReturned
-  )
-`);
-
-function runInsertBooking(booking: Booking): void {
-  insertBooking.run({
-    id: booking.id,
-    reference: booking.reference,
-    status: booking.status,
-    createdAt: booking.createdAt,
-    bikeId: booking.bikeId,
-    bikeTitle: booking.bikeTitle,
-    unitId: booking.unitId,
-    plate: booking.plate,
-    pickupLocation: booking.pickupLocation,
-    dropoffLocation: booking.dropoffLocation,
-    pickupDate: booking.pickupDate,
-    dropoffDate: booking.dropoffDate,
-    days: booking.days,
-    total: booking.total,
-    extras: JSON.stringify(booking.extras),
-    renter: JSON.stringify(booking.renter),
-    payments: JSON.stringify(booking.payments),
-    deposit: booking.deposit,
-    depositReturned: booking.depositReturned ? 1 : 0,
-  });
-}
-
-/** Add/remove payments and set deposit fields on a booking. */
-export function updateBookingBilling(
-  id: string,
-  ops: { addPayment?: { amount: number; note: string }; removePaymentId?: string; deposit?: number; depositReturned?: boolean },
-): Booking | null {
-  const row = getBookingRow(id);
-  if (!row) return null;
-  const current = rowToBooking(row);
-  /*
-   * Taking money is the point at which a particular machine leaves the yard, so
-   * that is where the plate is required — not at confirmation, which only
-   * promises a model and some dates. Enforced here rather than in the route so
-   * it holds for anything that bills a booking.
-   */
-  if (ops.addPayment && !current.unitId) {
-    throw new Error('Assign a plate before taking payment for this booking.');
-  }
-  let payments = current.payments;
-  if (ops.addPayment && ops.addPayment.amount > 0) {
-    payments = [...payments, { id: randomUUID(), amount: ops.addPayment.amount, at: new Date().toISOString(), note: ops.addPayment.note || '' }];
-  }
-  if (ops.removePaymentId) payments = payments.filter(p => p.id !== ops.removePaymentId);
-  const deposit = ops.deposit !== undefined ? ops.deposit : current.deposit;
-  const depositReturned = ops.depositReturned !== undefined ? ops.depositReturned : current.depositReturned;
-  db.prepare('UPDATE bookings SET payments = ?, deposit = ?, depositReturned = ? WHERE id = ?').run(
-    JSON.stringify(payments),
-    deposit,
-    depositReturned ? 1 : 0,
-    id,
-  );
-  return rowToBooking(getBookingRow(id)!);
-}
-
-export function listBookings(): Booking[] {
-  const rows = db.prepare('SELECT * FROM bookings ORDER BY createdAt DESC').all() as unknown as BookingRow[];
-  return rows.map(rowToBooking);
-}
-
-export function addBooking(booking: Booking): Booking {
-  runInsertBooking(booking);
+export async function addBooking(booking: Booking): Promise<Booking> {
+  await c().bookings.insertOne(toDoc(booking));
   return booking;
 }
 
-/** Create an already-confirmed booking against a chosen plate in one shot — for
- *  walk-in rentals booked at the shop counter. Reserves the unit atomically.
- *  `booking.unitId` must be set; `plate` is filled from the unit. */
-export function createConfirmedBooking(booking: Booking): Booking {
-  const unit = getUnit(booking.unitId);
+/**
+ * Create an already-confirmed booking against a chosen plate in one shot — for
+ * walk-in rentals booked at the shop counter. Reserves the unit atomically.
+ * `booking.unitId` must be set; `plate` is filled from the unit.
+ */
+export async function createConfirmedBooking(booking: Booking): Promise<Booking> {
+  const unit = await getUnit(booking.unitId);
   if (!unit) throw new Error('Pick an available plate.');
   if (unit.bikeId !== booking.bikeId) throw new Error('That plate belongs to a different model.');
   if (unit.status !== 'available') throw new Error(`Plate ${unit.plate} is already ${unit.status}.`);
+
   const confirmed: Booking = { ...booking, status: 'confirmed', plate: unit.plate };
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    runInsertBooking(confirmed);
-    db.prepare("UPDATE units SET status = 'rented' WHERE id = ?").run(confirmed.unitId);
-    db.exec('COMMIT');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
-  }
+  await withTransaction(async () => {
+    await c().bookings.insertOne(toDoc(confirmed));
+    await c().units.updateOne({ _id: confirmed.unitId }, { $set: { status: 'rented' } });
+  });
   return confirmed;
 }
 
@@ -458,68 +128,108 @@ export function createConfirmedBooking(booking: Booking): Booking {
  * which is a promise about a model and some dates — the machine that will
  * actually go out is chosen later, when the customer is at the counter paying.
  */
-export function updateBookingStatus(id: string, status: BookingStatus): Booking | null {
-  const booking = getBookingRow(id);
+export async function updateBookingStatus(id: string, status: BookingStatus): Promise<Booking | null> {
+  const booking = await c().bookings.findOne({ _id: id });
   if (!booking) return null;
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    if (booking.unitId && status !== 'confirmed') {
-      // Leaving the confirmed state frees the physical bike.
-      db.prepare("UPDATE units SET status = 'available' WHERE id = ?").run(booking.unitId);
-      db.prepare("UPDATE bookings SET status = ?, unitId = '', plate = '' WHERE id = ?").run(status, id);
-    } else {
-      db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status, id);
-    }
-    db.exec('COMMIT');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
+
+  if (booking.unitId && status !== 'confirmed') {
+    await withTransaction(async () => {
+      await c().units.updateOne({ _id: booking.unitId }, { $set: { status: 'available' } });
+      await c().bookings.updateOne({ _id: id }, { $set: { status, unitId: '', plate: '' } });
+    });
+  } else {
+    await c().bookings.updateOne({ _id: id }, { $set: { status } });
   }
-  return rowToBooking(getBookingRow(id)!);
+
+  return getBooking(id);
 }
 
-/** Confirm a booking against a specific physical unit (plate), marking that unit
- *  rented. Throws on an invalid/unavailable/mismatched plate. Returns null if the
- *  booking doesn't exist. */
-export function assignAndConfirm(bookingId: string, unitId: string): Booking | null {
-  const booking = getBookingRow(bookingId);
+/**
+ * Confirm a booking against a specific physical unit (plate), marking that unit
+ * rented. Throws on an invalid/unavailable/mismatched plate. Returns null if the
+ * booking doesn't exist.
+ */
+export async function assignAndConfirm(bookingId: string, unitId: string): Promise<Booking | null> {
+  const booking = await c().bookings.findOne({ _id: bookingId });
   if (!booking) return null;
-  const unit = getUnit(unitId);
+  const unit = await getUnit(unitId);
   if (!unit) throw new Error('That plate no longer exists — refresh and try again.');
   if (unit.bikeId !== booking.bikeId) throw new Error('That plate belongs to a different model.');
   if (unit.status !== 'available' && unit.id !== booking.unitId) {
     throw new Error(`Plate ${unit.plate} is already ${unit.status}.`);
   }
-  db.exec('BEGIN IMMEDIATE');
-  try {
+
+  await withTransaction(async () => {
     // Release a previously assigned (different) unit before taking the new one.
     if (booking.unitId && booking.unitId !== unitId) {
-      db.prepare("UPDATE units SET status = 'available' WHERE id = ?").run(booking.unitId);
+      await c().units.updateOne({ _id: booking.unitId }, { $set: { status: 'available' } });
     }
-    db.prepare("UPDATE units SET status = 'rented' WHERE id = ?").run(unitId);
-    db.prepare("UPDATE bookings SET status = 'confirmed', unitId = ?, plate = ? WHERE id = ?").run(unitId, unit.plate, bookingId);
-    db.exec('COMMIT');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
-  }
-  return rowToBooking(getBookingRow(bookingId)!);
+    await c().units.updateOne({ _id: unitId }, { $set: { status: 'rented' } });
+    await c().bookings.updateOne(
+      { _id: bookingId },
+      { $set: { status: 'confirmed', unitId, plate: unit.plate } },
+    );
+  });
+
+  return getBooking(bookingId);
 }
 
-export function deleteBooking(id: string): boolean {
-  const booking = getBookingRow(id);
-  if (!booking) return false;
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    if (booking.unitId) {
-      db.prepare("UPDATE units SET status = 'available' WHERE id = ?").run(booking.unitId);
-    }
-    db.prepare('DELETE FROM bookings WHERE id = ?').run(id);
-    db.exec('COMMIT');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
+/** Add/remove payments and set deposit fields on a booking. */
+export async function updateBookingBilling(
+  id: string,
+  ops: {
+    addPayment?: { amount: number; note: string };
+    removePaymentId?: string;
+    deposit?: number;
+    depositReturned?: boolean;
+  },
+): Promise<Booking | null> {
+  const current = await getBooking(id);
+  if (!current) return null;
+
+  /*
+   * Taking money is the point at which a particular machine leaves the yard, so
+   * that is where the plate is required — not at confirmation, which only
+   * promises a model and some dates. Enforced here rather than in the route so
+   * it holds for anything that bills a booking.
+   */
+  if (ops.addPayment && !current.unitId) {
+    throw new Error('Assign a plate before taking payment for this booking.');
   }
+
+  let payments = current.payments;
+  if (ops.addPayment && ops.addPayment.amount > 0) {
+    payments = [
+      ...payments,
+      { id: randomUUID(), amount: ops.addPayment.amount, at: new Date().toISOString(), note: ops.addPayment.note || '' },
+    ];
+  }
+  if (ops.removePaymentId) payments = payments.filter(p => p.id !== ops.removePaymentId);
+
+  await c().bookings.updateOne(
+    { _id: id },
+    {
+      $set: {
+        payments,
+        deposit: ops.deposit !== undefined ? ops.deposit : current.deposit,
+        depositReturned: ops.depositReturned !== undefined ? ops.depositReturned : current.depositReturned,
+      },
+    },
+  );
+
+  return getBooking(id);
+}
+
+export async function deleteBooking(id: string): Promise<boolean> {
+  const booking = await c().bookings.findOne({ _id: id });
+  if (!booking) return false;
+
+  await withTransaction(async () => {
+    if (booking.unitId) {
+      await c().units.updateOne({ _id: booking.unitId }, { $set: { status: 'available' } });
+    }
+    await c().bookings.deleteOne({ _id: id });
+  });
   return true;
 }
 
@@ -527,297 +237,211 @@ export function deleteBooking(id: string): boolean {
 /*  Extras                                                            */
 /* ================================================================== */
 
-interface ExtraRow {
-  id: string;
-  label: string;
-  description: string;
-  price: number;
-  perDay: number;
-  active: number;
-  sortOrder: number;
+export async function listExtras(opts: { activeOnly?: boolean } = {}): Promise<Extra[]> {
+  const docs = await c()
+    .extras.find(opts.activeOnly ? { active: true } : {})
+    .sort({ sortOrder: 1, label: 1 })
+    .toArray();
+  return fromDocs<Extra>(docs).map(e => ({ ...e, perDay: !!e.perDay, active: !!e.active }));
 }
 
-function rowToExtra(r: ExtraRow): Extra {
-  return {
-    id: r.id,
-    label: r.label,
-    description: r.description,
-    price: r.price,
-    perDay: !!r.perDay,
-    active: !!r.active,
-    sortOrder: r.sortOrder,
-  };
+export async function getExtra(id: string): Promise<Extra | null> {
+  return maybe<Extra>(await c().extras.findOne({ _id: id }));
 }
 
-export function listExtras(opts: { activeOnly?: boolean } = {}): Extra[] {
-  const sql = opts.activeOnly
-    ? 'SELECT * FROM extras WHERE active = 1 ORDER BY sortOrder, label'
-    : 'SELECT * FROM extras ORDER BY sortOrder, label';
-  return (db.prepare(sql).all() as unknown as ExtraRow[]).map(rowToExtra);
-}
-
-export function getExtra(id: string): Extra | null {
-  const row = db.prepare('SELECT * FROM extras WHERE id = ?').get(id) as unknown as ExtraRow | undefined;
-  return row ? rowToExtra(row) : null;
-}
-
-export function addExtra(e: Extra): Extra {
-  db.prepare(
-    'INSERT INTO extras (id, label, description, price, perDay, active, sortOrder) VALUES (?, ?, ?, ?, ?, ?, ?)',
-  ).run(e.id, e.label, e.description, e.price, e.perDay ? 1 : 0, e.active ? 1 : 0, e.sortOrder);
+export async function addExtra(e: Extra): Promise<Extra> {
+  await c().extras.insertOne(toDoc(e));
   return e;
 }
 
-export function updateExtra(id: string, patch: Partial<Omit<Extra, 'id'>>): Extra | null {
-  const current = getExtra(id);
+export async function updateExtra(id: string, patch: Partial<Omit<Extra, 'id'>>): Promise<Extra | null> {
+  const current = await getExtra(id);
   if (!current) return null;
   const next: Extra = { ...current, ...patch, id };
-  db.prepare(
-    'UPDATE extras SET label = ?, description = ?, price = ?, perDay = ?, active = ?, sortOrder = ? WHERE id = ?',
-  ).run(next.label, next.description, next.price, next.perDay ? 1 : 0, next.active ? 1 : 0, next.sortOrder, id);
+  const { id: _drop, ...fields } = next;
+  await c().extras.updateOne({ _id: id }, { $set: fields });
   return next;
 }
 
-export function deleteExtra(id: string): boolean {
-  return db.prepare('DELETE FROM extras WHERE id = ?').run(id).changes > 0;
+export async function deleteExtra(id: string): Promise<boolean> {
+  return (await c().extras.deleteOne({ _id: id })).deletedCount > 0;
 }
 
 /* ================================================================== */
 /*  Bikes (fleet)                                                     */
 /* ================================================================== */
 
-interface BikeRow {
-  id: string;
-  title: string;
-  category: string;
-  pricePerDay: number;
-  image: string;
-  features: string;
-  active: number;
-  sortOrder: number;
+export async function listBikes(opts: { activeOnly?: boolean } = {}): Promise<Bike[]> {
+  const docs = await c()
+    .bikes.find(opts.activeOnly ? { active: true } : {})
+    .sort({ sortOrder: 1, title: 1 })
+    .toArray();
+  return fromDocs<Bike>(docs).map(b => ({ ...b, features: b.features ?? [], active: !!b.active }));
 }
 
-function rowToBike(r: BikeRow): Bike {
-  return {
-    id: r.id,
-    title: r.title,
-    category: r.category,
-    pricePerDay: r.pricePerDay,
-    image: r.image,
-    features: JSON.parse(r.features) as string[],
-    active: !!r.active,
-    sortOrder: r.sortOrder,
-  };
+export async function getBikeById(id: string): Promise<Bike | null> {
+  return maybe<Bike>(await c().bikes.findOne({ _id: id }));
 }
 
-export function listBikes(opts: { activeOnly?: boolean } = {}): Bike[] {
-  const sql = opts.activeOnly
-    ? 'SELECT * FROM bikes WHERE active = 1 ORDER BY sortOrder, title'
-    : 'SELECT * FROM bikes ORDER BY sortOrder, title';
-  return (db.prepare(sql).all() as unknown as BikeRow[]).map(rowToBike);
-}
-
-export function getBikeById(id: string): Bike | null {
-  const row = db.prepare('SELECT * FROM bikes WHERE id = ?').get(id) as unknown as BikeRow | undefined;
-  return row ? rowToBike(row) : null;
-}
-
-export function addBike(b: Bike): Bike {
-  db.prepare(
-    'INSERT INTO bikes (id, title, category, pricePerDay, image, features, active, sortOrder) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-  ).run(b.id, b.title, b.category, b.pricePerDay, b.image, JSON.stringify(b.features), b.active ? 1 : 0, b.sortOrder);
+export async function addBike(b: Bike): Promise<Bike> {
+  await c().bikes.insertOne(toDoc(b));
   return b;
 }
 
-export function updateBike(id: string, patch: Partial<Omit<Bike, 'id'>>): Bike | null {
-  const current = getBikeById(id);
+export async function updateBike(id: string, patch: Partial<Omit<Bike, 'id'>>): Promise<Bike | null> {
+  const current = await getBikeById(id);
   if (!current) return null;
   const next: Bike = { ...current, ...patch, id };
-  db.prepare(
-    'UPDATE bikes SET title = ?, category = ?, pricePerDay = ?, image = ?, features = ?, active = ?, sortOrder = ? WHERE id = ?',
-  ).run(next.title, next.category, next.pricePerDay, next.image, JSON.stringify(next.features), next.active ? 1 : 0, next.sortOrder, id);
+  const { id: _drop, ...fields } = next;
+  await c().bikes.updateOne({ _id: id }, { $set: fields });
   return next;
 }
 
-export function deleteBike(id: string): boolean {
+export async function deleteBike(id: string): Promise<boolean> {
   // Remove the model's individual bikes (units) along with it.
-  db.prepare('DELETE FROM units WHERE bikeId = ?').run(id);
-  return db.prepare('DELETE FROM bikes WHERE id = ?').run(id).changes > 0;
+  let removed = false;
+  await withTransaction(async () => {
+    await c().units.deleteMany({ bikeId: id });
+    removed = (await c().bikes.deleteOne({ _id: id })).deletedCount > 0;
+  });
+  return removed;
 }
 
 /* ================================================================== */
 /*  Categories                                                        */
 /* ================================================================== */
 
-export function listCategories(): Category[] {
-  return db.prepare('SELECT * FROM categories ORDER BY sortOrder, name').all() as unknown as Category[];
+export async function listCategories(): Promise<Category[]> {
+  const docs = await c().categories.find().sort({ sortOrder: 1, _id: 1 }).toArray();
+  return docs.map(d => ({ name: d._id, sortOrder: d.sortOrder }));
 }
 
-export function addCategory(name: string): Category {
-  const sortOrder = listCategories().length;
-  db.prepare('INSERT OR IGNORE INTO categories (name, sortOrder) VALUES (?, ?)').run(name, sortOrder);
-  const row = db.prepare('SELECT * FROM categories WHERE name = ?').get(name) as unknown as Category;
-  return row;
+export async function addCategory(name: string): Promise<Category> {
+  const sortOrder = await c().categories.countDocuments();
+  // Insert-if-absent, which is what INSERT OR IGNORE did.
+  await c().categories.updateOne({ _id: name }, { $setOnInsert: { sortOrder } }, { upsert: true });
+  const doc = await c().categories.findOne({ _id: name });
+  return { name, sortOrder: doc?.sortOrder ?? sortOrder };
 }
 
-export function deleteCategory(name: string): boolean {
-  return db.prepare('DELETE FROM categories WHERE name = ?').run(name).changes > 0;
+export async function deleteCategory(name: string): Promise<boolean> {
+  return (await c().categories.deleteOne({ _id: name })).deletedCount > 0;
 }
 
 /** How many bikes currently use a category — used to warn before deleting. */
-export function bikesUsingCategory(name: string): number {
-  return (db.prepare('SELECT COUNT(*) AS n FROM bikes WHERE category = ?').get(name) as { n: number }).n;
+export async function bikesUsingCategory(name: string): Promise<number> {
+  return c().bikes.countDocuments({ category: name });
 }
 
 /* ================================================================== */
 /*  Units — individual physical bikes (number plates)                 */
 /* ================================================================== */
 
-interface UnitRow {
-  id: string;
-  bikeId: string;
-  plate: string;
-  status: string;
-  ownerId: string | null;
-  notes: string;
-  createdAt: string;
+const unitStatus = (s: string): UnitStatus =>
+  s === 'rented' ? 'rented' : s === 'maintenance' ? 'maintenance' : 'available';
+
+const readUnit = (doc: Doc<Unit>): Unit => {
+  const u = fromDoc<Unit>(doc);
+  return { ...u, status: unitStatus(u.status), ownerId: u.ownerId ?? '', notes: u.notes ?? '' };
+};
+
+export async function listUnits(bikeId?: string): Promise<Unit[]> {
+  const docs = await c()
+    .units.find(bikeId ? { bikeId } : {})
+    .sort({ createdAt: 1 })
+    .toArray();
+  return docs.map(readUnit);
 }
 
-function rowToUnit(r: UnitRow): Unit {
-  const status: UnitStatus =
-    r.status === 'rented' ? 'rented' : r.status === 'maintenance' ? 'maintenance' : 'available';
-  return { id: r.id, bikeId: r.bikeId, plate: r.plate, status, ownerId: r.ownerId ?? '', notes: r.notes, createdAt: r.createdAt };
+export async function getUnit(id: string): Promise<Unit | null> {
+  const doc = await c().units.findOne({ _id: id });
+  return doc ? readUnit(doc) : null;
 }
 
-export function listUnits(bikeId?: string): Unit[] {
-  const rows = bikeId
-    ? (db.prepare('SELECT * FROM units WHERE bikeId = ? ORDER BY createdAt').all(bikeId) as unknown as UnitRow[])
-    : (db.prepare('SELECT * FROM units ORDER BY createdAt').all() as unknown as UnitRow[]);
-  return rows.map(rowToUnit);
+export async function findUnitByPlate(plate: string): Promise<Unit | null> {
+  const doc = await c()
+    .units.find({ plate }, { collation: { locale: 'en', strength: 2 } })
+    .limit(1)
+    .next();
+  return doc ? readUnit(doc) : null;
 }
 
-export function getUnit(id: string): Unit | null {
-  const row = db.prepare('SELECT * FROM units WHERE id = ?').get(id) as unknown as UnitRow | undefined;
-  return row ? rowToUnit(row) : null;
-}
-
-export function findUnitByPlate(plate: string): Unit | null {
-  const row = db.prepare('SELECT * FROM units WHERE plate = ? COLLATE NOCASE').get(plate) as unknown as UnitRow | undefined;
-  return row ? rowToUnit(row) : null;
-}
-
-export function addUnit(unit: Unit): Unit {
-  db.prepare('INSERT INTO units (id, bikeId, plate, status, ownerId, notes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-    unit.id,
-    unit.bikeId,
-    unit.plate,
-    unit.status,
-    unit.ownerId,
-    unit.notes,
-    unit.createdAt,
-  );
+export async function addUnit(unit: Unit): Promise<Unit> {
+  await c().units.insertOne(toDoc(unit));
   return unit;
 }
 
-export function updateUnit(id: string, patch: Partial<Pick<Unit, 'plate' | 'status' | 'ownerId' | 'notes'>>): Unit | null {
-  const current = getUnit(id);
+export async function updateUnit(
+  id: string,
+  patch: Partial<Pick<Unit, 'plate' | 'status' | 'ownerId' | 'notes'>>,
+): Promise<Unit | null> {
+  const current = await getUnit(id);
   if (!current) return null;
   const next: Unit = { ...current, ...patch };
-  db.prepare('UPDATE units SET plate = ?, status = ?, ownerId = ?, notes = ? WHERE id = ?').run(
-    next.plate,
-    next.status,
-    next.ownerId,
-    next.notes,
-    id,
+  await c().units.updateOne(
+    { _id: id },
+    { $set: { plate: next.plate, status: next.status, ownerId: next.ownerId, notes: next.notes } },
   );
   return next;
 }
 
-export function deleteUnit(id: string): boolean {
-  return db.prepare('DELETE FROM units WHERE id = ?').run(id).changes > 0;
+export async function deleteUnit(id: string): Promise<boolean> {
+  return (await c().units.deleteOne({ _id: id })).deletedCount > 0;
 }
 
 /* ================================================================== */
 /*  Owners (fleet owners)                                             */
 /* ================================================================== */
 
-interface OwnerRow {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  nic: string;
-  notes: string;
-  commissionPct: number;
-  commissionFlat: number;
-  createdAt: string;
+export async function listOwners(): Promise<Owner[]> {
+  const docs = await c().owners.find().collation({ locale: 'en', strength: 2 }).sort({ name: 1 }).toArray();
+  return fromDocs<Owner>(docs);
 }
 
-export function listOwners(): Owner[] {
-  return db.prepare('SELECT * FROM owners ORDER BY name COLLATE NOCASE').all() as unknown as OwnerRow[];
+export async function getOwner(id: string): Promise<Owner | null> {
+  return maybe<Owner>(await c().owners.findOne({ _id: id }));
 }
 
-export function getOwner(id: string): Owner | null {
-  const row = db.prepare('SELECT * FROM owners WHERE id = ?').get(id) as unknown as OwnerRow | undefined;
-  return row ?? null;
-}
-
-export function addOwner(owner: Owner): Owner {
-  db.prepare(
-    'INSERT INTO owners (id, name, phone, email, nic, notes, commissionPct, commissionFlat, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-  ).run(owner.id, owner.name, owner.phone, owner.email, owner.nic, owner.notes, owner.commissionPct, owner.commissionFlat, owner.createdAt);
+export async function addOwner(owner: Owner): Promise<Owner> {
+  await c().owners.insertOne(toDoc(owner));
   return owner;
 }
 
-export function updateOwner(id: string, patch: Partial<Omit<Owner, 'id' | 'createdAt'>>): Owner | null {
-  const current = getOwner(id);
+export async function updateOwner(
+  id: string,
+  patch: Partial<Omit<Owner, 'id' | 'createdAt'>>,
+): Promise<Owner | null> {
+  const current = await getOwner(id);
   if (!current) return null;
   const next: Owner = { ...current, ...patch, id };
-  db.prepare('UPDATE owners SET name = ?, phone = ?, email = ?, nic = ?, notes = ?, commissionPct = ?, commissionFlat = ? WHERE id = ?').run(
-    next.name,
-    next.phone,
-    next.email,
-    next.nic,
-    next.notes,
-    next.commissionPct,
-    next.commissionFlat,
-    id,
-  );
+  const { id: _drop, createdAt: _keep, ...fields } = next;
+  await c().owners.updateOne({ _id: id }, { $set: fields });
   return next;
 }
 
-export function deleteOwner(id: string): boolean {
-  return db.prepare('DELETE FROM owners WHERE id = ?').run(id).changes > 0;
+export async function deleteOwner(id: string): Promise<boolean> {
+  return (await c().owners.deleteOne({ _id: id })).deletedCount > 0;
 }
 
 /** How many physical bikes are assigned to an owner — used to block deletion. */
-export function bikesOwnedBy(id: string): number {
-  return (db.prepare('SELECT COUNT(*) AS n FROM units WHERE ownerId = ?').get(id) as { n: number }).n;
+export async function bikesOwnedBy(id: string): Promise<number> {
+  return c().units.countDocuments({ ownerId: id });
 }
 
 /* ================================================================== */
 /*  Transactions — manual business payments (income / expense)        */
 /* ================================================================== */
 
-export function listTransactions(): Transaction[] {
-  return (db.prepare('SELECT * FROM transactions ORDER BY at DESC').all() as unknown as Transaction[]).map(t => ({
-    ...t,
-    kind: t.kind === 'out' ? 'out' : 'in',
-  }));
+export async function listTransactions(): Promise<Transaction[]> {
+  const docs = await c().transactions.find().sort({ at: -1 }).toArray();
+  return fromDocs<Transaction>(docs).map(t => ({ ...t, kind: t.kind === 'out' ? 'out' : 'in' }));
 }
 
-export function addTransaction(t: Transaction): Transaction {
-  db.prepare('INSERT INTO transactions (id, kind, category, amount, at, note) VALUES (?, ?, ?, ?, ?, ?)').run(
-    t.id,
-    t.kind,
-    t.category,
-    t.amount,
-    t.at,
-    t.note,
-  );
+export async function addTransaction(t: Transaction): Promise<Transaction> {
+  await c().transactions.insertOne(toDoc(t));
   return t;
 }
 
-export function deleteTransaction(id: string): boolean {
-  return db.prepare('DELETE FROM transactions WHERE id = ?').run(id).changes > 0;
+export async function deleteTransaction(id: string): Promise<boolean> {
+  return (await c().transactions.deleteOne({ _id: id })).deletedCount > 0;
 }
