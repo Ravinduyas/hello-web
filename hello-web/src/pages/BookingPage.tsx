@@ -71,8 +71,6 @@ export default function BookingPage() {
   const [bikeId, setBikeId] = useState<string | null>(params.get('bike'));
   // Set when the visitor arrives from a category card rather than a vehicle.
   const [category, setCategory] = useState<string | null>(params.get('category'));
-  // Narrows a class by engine size before model — scooters are 110cc or 125cc.
-  const [engineCc, setEngineCc] = useState<number | null>(null);
   const [pickupDate, setPickupDate] = useState('');
   const [dropoffDate, setDropoffDate] = useState('');
   // Fleet & extras come from the admin-managed API; fall back to bundled defaults if it's unreachable.
@@ -109,7 +107,6 @@ export default function BookingPage() {
     if (!paramCategory && !paramBike) return;
     if (paramCategory) {
       setCategory(paramCategory);
-      setEngineCc(null);
     }
     // A vehicle from the class you just left cannot stay selected.
     setBikeId(paramBike ?? null);
@@ -126,7 +123,6 @@ export default function BookingPage() {
     setStep(0);
     setBikeId(paramBike ?? null);
     setCategory(paramCategory);
-    setEngineCc(null);
     setPickupDate('');
     setDropoffDate('');
     setChosenExtras([]);
@@ -344,7 +340,6 @@ export default function BookingPage() {
                     selected={category}
                     onPick={c => {
                       setCategory(c);
-                      setEngineCc(null);
                       // A vehicle from the class you just left cannot stay
                       // selected once a different class is chosen.
                       setBikeId(null);
@@ -359,9 +354,6 @@ export default function BookingPage() {
                     selected={bikeId}
                     onSelect={setBikeId}
                     category={category}
-                    onChangeClass={() => setStep(0)}
-                    engineCc={engineCc}
-                    onPickCapacity={setEngineCc}
                   />
                 )}
 
@@ -690,17 +682,11 @@ function StepRide({
   selected,
   onSelect,
   category,
-  onChangeClass,
-  engineCc,
-  onPickCapacity,
 }: {
   bikes: Bike[];
   selected: string | null;
   onSelect: (id: string) => void;
   category: string | null;
-  onChangeClass: () => void;
-  engineCc: number | null;
-  onPickCapacity: (cc: number | null) => void;
 }) {
   // Arriving from a category card on the fleet page shows just that class;
   // the fleet page no longer lists models, so this is where a visitor meets
@@ -709,22 +695,20 @@ function StepRide({
   const inCategory = shown.length ? shown : bikes;
 
 
-  // Scooters are chosen by engine capacity before model — that is how the
-  // price list is written (110cc €5, 125cc €6). The chooser appears only when
-  // the class actually spans more than one capacity, so it never shows up for
-  // cars or the tuk-tuk.
+  // Scooters come in two engine capacities, and that is how the price list is
+  // written (110cc €5, 125cc €6), so the cards are grouped and headed by
+  // capacity. Only when the class actually spans more than one, so it never
+  // applies to cars or the tuk-tuk.
   const capacities = Array.from(
     new Set(inCategory.map(b => b.engineCc).filter((cc): cc is number => typeof cc === 'number')),
   ).sort((a, b) => a - b);
   const showCapacities = capacities.length > 1;
 
-  // The cheapest rate at a given capacity, for the chooser's label.
+  // The cheapest rate at a given capacity, for the band heading.
   const rateAt = (cc: number) =>
     Math.min(...inCategory.filter(b => b.engineCc === cc).map(b => b.pricePerDay));
 
-  const visible = (
-    showCapacities && engineCc ? inCategory.filter(b => b.engineCc === engineCc) : inCategory
-  )
+  const visible = inCategory
     .slice()
     // Smallest engine first, so the row reads 110cc then 125cc and the two
     // groups below are contiguous rather than interleaved.
@@ -738,10 +722,9 @@ function StepRide({
    * down the left of every group after the first. Splitting the grid itself
    * would have made the lone 125cc card as wide as the three beside it.
    */
-  const capacityBands =
-    showCapacities && !engineCc
-      ? capacities.map(cc => ({ cc, span: visible.filter(b => b.engineCc === cc).length }))
-      : [];
+  const capacityBands = showCapacities
+    ? capacities.map(cc => ({ cc, span: visible.filter(b => b.engineCc === cc).length }))
+    : [];
 
   // The first vehicle of each band after the first carries the dividing rule,
   // so the line runs on down through the cards rather than stopping at the
@@ -758,41 +741,15 @@ function StepRide({
       <h2 className="font-display text-2xl font-bold">Choose your ride</h2>
       <p className="text-dark/50 text-sm">Every bike comes with a helmet and 24/7 roadside support.</p>
 
-      {/* Class and engine size share one strip rather than stacking two
-          labelled blocks — it saves a screenful before the cards. */}
-      {(showCapacities || (category && shown.length > 0)) && (
-        <div className="flex flex-wrap items-center gap-2 mt-4 mb-5">
-          {category && shown.length > 0 && (
-            <>
-              <span className="px-3.5 py-1.5 rounded-full bg-dark text-beige text-[11px] font-bold uppercase tracking-widest">
-                {category}
-              </span>
-              <button
-                type="button"
-                onClick={onChangeClass}
-                className="text-sm text-brand font-medium hover:underline"
-              >
-                Change class
-              </button>
-              {showCapacities && <span className="w-px h-5 bg-dark/15 mx-1.5" aria-hidden="true" />}
-            </>
-          )}
-
-          {capacities.map(cc => (
-            <button
-              key={cc}
-              type="button"
-              onClick={() => onPickCapacity(engineCc === cc ? null : cc)}
-              aria-pressed={engineCc === cc}
-              className={`px-3.5 py-1.5 rounded-full border text-[11px] font-bold uppercase tracking-widest transition-all ${
-                engineCc === cc
-                  ? 'border-brand bg-brand text-beige'
-                  : 'border-dark/15 text-dark hover:border-dark/40'
-              }`}
-            >
-              {cc}cc · {formatPrice(rateAt(cc))}
-            </button>
-          ))}
+      {/* Which class is being shown, as a label. Changing it is the Back
+          button's job, and the step rail's — a third way to do it, sitting in
+          the same strip, was one too many. Engine size is not a filter either:
+          it is a heading over the very cards it describes, below. */}
+      {category && shown.length > 0 && (
+        <div className="mt-4 mb-5">
+          <span className="px-3.5 py-1.5 rounded-full bg-dark text-beige text-[11px] font-bold uppercase tracking-widest">
+            {category}
+          </span>
         </div>
       )}
 
