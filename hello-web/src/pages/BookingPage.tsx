@@ -1210,57 +1210,69 @@ function BookingBar({
   const chargedDays = dated.reduce((sum, i) => sum + i.days, 0);
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 bg-dark text-beige border-t border-beige/10">
+    <div className="fixed inset-x-0 bottom-0 z-40 bg-dark text-beige border-t border-beige/10 shadow-[0_-10px_30px_rgba(0,0,0,0.18)]">
       {/* One row that never wraps: summary on the left, giving up width by
-          truncating, and the controls on the right at their natural size. */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 lg:gap-6 min-w-0">
-          {lead && (
-            <div className="flex items-center gap-3 min-w-0">
+          truncating, and the controls on the right at their natural size.
+          The height is set by the summary rather than by the buttons — a bar
+          the height of a button reads as a toolbar stuck to the page, not as
+          the running account of the booking that it is. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 lg:gap-7 min-w-0 min-h-[48px]">
+          {lead ? (
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
               <img
                 src={lead.bike.image}
                 alt=""
                 style={{ objectPosition: lead.bike.imagePosition ?? 'center' }}
-                className="hidden sm:block w-14 h-11 object-cover rounded-lg shrink-0"
+                className="hidden sm:block w-24 h-16 object-cover rounded-xl shrink-0"
               />
               <div className="min-w-0">
                 {/* One vehicle names itself; several are counted and then
                     listed, because a truncated list of four titles tells you
                     nothing about how many you have chosen. */}
-                <p className="font-bold text-sm leading-tight truncate">
+                <p className="font-bold text-sm sm:text-base leading-tight truncate">
                   {items.length === 1 ? lead.bike.title : `${items.length} vehicles`}
                 </p>
-                <p className="text-beige/45 text-xs truncate">
+                <p className="text-beige/45 text-xs sm:text-[13px] truncate mt-0.5">
                   {items.length === 1
                     ? `${lead.bike.bodyType ?? lead.bike.category} · ${formatPrice(lead.bike.pricePerDay)}/day`
                     : items.map(i => i.bike.title).join(', ')}
                 </p>
               </div>
             </div>
+          ) : (
+            /* Empty until something is chosen. The row carries a minimum
+               height so the bar does not grow the moment a vehicle lands in
+               it: a bar that changes height under you as you move through the
+               steps is the thing that reads as unfinished. */
+            <p className="text-beige/35 text-sm">Nothing chosen yet</p>
           )}
 
-          {/* Dates and extras need room the controls have first claim on. */}
-          <div className="hidden xl:flex flex-col gap-0.5 text-xs text-beige/55 shrink-0">
-            {dated.length > 0 && (
-              <span className="whitespace-nowrap">
-                {longDate(firstPickup)} → {longDate(lastReturn)} · {chargedDays} rental day
-                {chargedDays > 1 ? 's' : ''}
-              </span>
-            )}
-            {extrasCount > 0 && (
-              <span className="whitespace-nowrap">
-                {extrasCount} extra{extrasCount > 1 ? 's' : ''} added
-              </span>
-            )}
-          </div>
+          {/* Dates and extras earn their room from lg; below that the controls
+              have first claim on the width. */}
+          {(dated.length > 0 || extrasCount > 0) && (
+            <div className="hidden lg:flex flex-col gap-1 text-xs text-beige/55 shrink-0 border-l border-beige/10 pl-7">
+              {dated.length > 0 && (
+                <span className="whitespace-nowrap">
+                  {longDate(firstPickup)} → {longDate(lastReturn)} · {chargedDays} rental day
+                  {chargedDays > 1 ? 's' : ''}
+                </span>
+              )}
+              {extrasCount > 0 && (
+                <span className="whitespace-nowrap">
+                  {extrasCount} extra{extrasCount > 1 ? 's' : ''} added
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-3 sm:gap-5 shrink-0">
+        <div className="flex items-center gap-4 sm:gap-6 shrink-0">
           {/* No point announcing a total of nothing on the first step. */}
           {total > 0 && (
-            <div className="text-right leading-none">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-beige/40">Total</p>
-              <p className="font-display text-xl sm:text-2xl font-black text-brand tabular-nums mt-1">
+            <div className="text-right leading-none sm:border-r sm:border-beige/10 sm:pr-6">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-beige/40">Total</p>
+              <p className="font-display text-2xl sm:text-3xl font-black text-brand tabular-nums mt-1.5">
                 {formatPrice(total)}
               </p>
             </div>
