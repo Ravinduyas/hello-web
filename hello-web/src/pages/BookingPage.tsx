@@ -273,18 +273,8 @@ export default function BookingPage() {
       <div className="max-w-7xl mx-auto">
         <header className="mb-5 flex items-start justify-between gap-6">
           <div>
-            {/* The only way back out, since the site nav is hidden here. */}
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 text-sm text-dark/50 hover:text-brand transition-colors mb-4"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="font-display font-bold tracking-tight">Hello Rent</span>
-            </Link>
-            <div>
-              <span className="eyebrow">[ Book your ride ]</span>
-              <h1 className="display-xl text-3xl md:text-4xl mt-2">Reserve in a few taps</h1>
-            </div>
+            <span className="eyebrow">[ Book your ride ]</span>
+            <h1 className="display-xl text-3xl md:text-4xl mt-2">Reserve in a few taps</h1>
           </div>
 
           {/* The logo stands in for the navbar that this route hides — a
