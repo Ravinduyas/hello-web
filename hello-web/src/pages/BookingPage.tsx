@@ -383,7 +383,7 @@ export default function BookingPage() {
     // cards into view without scrolling for them.
     // No navbar on this route, so no clearance to leave for one. The bottom
     // padding clears the standing summary bar instead, which is fixed.
-    <div className="bg-beige min-h-screen pt-8 md:pt-10 pb-36 px-6">
+    <div className="bg-beige min-h-screen pt-8 md:pt-10 pb-44 px-6">
       <div className="max-w-7xl mx-auto">
         <header className="mb-5 flex items-start justify-between gap-6">
           <div>
@@ -491,6 +491,8 @@ export default function BookingPage() {
 
       <BookingBar
         items={items}
+        step={step}
+        stepCount={STEPS.length}
         extrasCount={chosenExtras.length}
         total={summary.total}
         canGoBack={step > 0 && !submitting}
@@ -1181,6 +1183,8 @@ function Row({ icon: Icon, label, value }: { icon: typeof MapPin; label: string;
  */
 function BookingBar({
   items,
+  step,
+  stepCount,
   extrasCount,
   total,
   canGoBack,
@@ -1191,6 +1195,8 @@ function BookingBar({
   onNext,
 }: {
   items: BookingItem[];
+  step: number;
+  stepCount: number;
   extrasCount: number;
   total: number;
   canGoBack: boolean;
@@ -1210,96 +1216,126 @@ function BookingBar({
   const chargedDays = dated.reduce((sum, i) => sum + i.days, 0);
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 bg-dark text-beige border-t border-beige/10 shadow-[0_-10px_30px_rgba(0,0,0,0.18)]">
-      {/* One row that never wraps: summary on the left, giving up width by
-          truncating, and the controls on the right at their natural size.
-          The height is set by the summary rather than by the buttons — a bar
-          the height of a button reads as a toolbar stuck to the page, not as
-          the running account of the booking that it is. */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 lg:gap-7 min-w-0 min-h-[48px]">
-          {lead ? (
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <img
-                src={lead.bike.image}
-                alt=""
-                style={{ objectPosition: lead.bike.imagePosition ?? 'center' }}
-                className="hidden sm:block w-24 h-16 object-cover rounded-xl shrink-0"
-              />
-              <div className="min-w-0">
-                {/* One vehicle names itself; several are counted and then
-                    listed, because a truncated list of four titles tells you
-                    nothing about how many you have chosen. */}
-                <p className="font-bold text-sm sm:text-base leading-tight truncate">
-                  {items.length === 1 ? lead.bike.title : `${items.length} vehicles`}
-                </p>
-                <p className="text-beige/45 text-xs sm:text-[13px] truncate mt-0.5">
-                  {items.length === 1
-                    ? `${lead.bike.bodyType ?? lead.bike.category} · ${formatPrice(lead.bike.pricePerDay)}/day`
-                    : items.map(i => i.bike.title).join(', ')}
-                </p>
-              </div>
-            </div>
-          ) : (
-            /* Empty until something is chosen. The row carries a minimum
-               height so the bar does not grow the moment a vehicle lands in
-               it: a bar that changes height under you as you move through the
-               steps is the thing that reads as unfinished. */
-            <p className="text-beige/35 text-sm">Nothing chosen yet</p>
-          )}
-
-          {/* Dates and extras earn their room from lg; below that the controls
-              have first claim on the width. */}
-          {(dated.length > 0 || extrasCount > 0) && (
-            <div className="hidden lg:flex flex-col gap-1 text-xs text-beige/55 shrink-0 border-l border-beige/10 pl-7">
-              {dated.length > 0 && (
-                <span className="whitespace-nowrap">
-                  {longDate(firstPickup)} → {longDate(lastReturn)} · {chargedDays} rental day
-                  {chargedDays > 1 ? 's' : ''}
-                </span>
-              )}
-              {extrasCount > 0 && (
-                <span className="whitespace-nowrap">
-                  {extrasCount} extra{extrasCount > 1 ? 's' : ''} added
-                </span>
-              )}
-            </div>
-          )}
+    /* Floating espresso card, clear of the page edges — the foot's answer to
+       the cream pill the navbar floats in. A full-bleed strip welded to the
+       bottom of the window belonged to a different site than this one. The
+       wrapper ignores the pointer so the beige either side of the card is
+       still page, not a dead band across the screen. */
+    <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4 sm:px-6 sm:pb-6 pointer-events-none">
+      <div className="max-w-7xl mx-auto pointer-events-auto relative overflow-hidden rounded-2xl bg-dark text-beige border border-beige/10 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.55)]">
+        {/* How far through the booking, drawn along the top edge. The step
+            rail says the same thing in words, but it is at the top of the
+            page and gone the moment anyone scrolls to the cards. */}
+        <div className="absolute inset-x-0 top-0 h-[3px] bg-beige/10">
+          <div
+            className="h-full bg-brand transition-[width] duration-500 ease-out"
+            style={{ width: `${((step + 1) / stepCount) * 100}%` }}
+          />
         </div>
 
-        <div className="flex items-center gap-4 sm:gap-6 shrink-0">
-          {/* No point announcing a total of nothing on the first step. */}
-          {total > 0 && (
-            <div className="text-right leading-none sm:border-r sm:border-beige/10 sm:pr-6">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-beige/40">Total</p>
-              <p className="font-display text-2xl sm:text-3xl font-black text-brand tabular-nums mt-1.5">
-                {formatPrice(total)}
-              </p>
-            </div>
-          )}
+        {/* One row that never wraps: summary on the left, giving up width by
+            truncating, and the controls on the right at their natural size.
+            The height is set by the summary rather than by the buttons — a bar
+            the height of a button reads as a toolbar stuck to the page, not as
+            the running account of the booking that it is. */}
+        <div className="px-4 sm:px-6 py-5 sm:py-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 lg:gap-7 min-w-0 min-h-[48px]">
+            {lead ? (
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                {/* The cart as pictures, overlapped like a dealt hand: three at
+                    most, then a count. How many vehicles are in the booking is
+                    then seen before it is read. */}
+                <div className="hidden sm:flex shrink-0">
+                  {items.slice(0, 3).map((item, i) => (
+                    <img
+                      key={item.bikeId}
+                      src={item.bike.image}
+                      alt=""
+                      style={{ objectPosition: item.bike.imagePosition ?? 'center', zIndex: 3 - i }}
+                      className={`relative w-16 h-16 object-cover rounded-xl ring-2 ring-dark ${i > 0 ? '-ml-4' : ''}`}
+                    />
+                  ))}
+                  {items.length > 3 && (
+                    <span className="relative -ml-4 w-16 h-16 rounded-xl ring-2 ring-dark bg-beige/10 grid place-items-center text-xs font-bold">
+                      +{items.length - 3}
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  {/* One vehicle names itself; several are counted and then
+                      listed, because a truncated list of four titles tells you
+                      nothing about how many you have chosen. */}
+                  <p className="font-bold text-sm sm:text-base leading-tight truncate">
+                    {items.length === 1 ? lead.bike.title : `${items.length} vehicles`}
+                  </p>
+                  <p className="text-beige/45 text-xs sm:text-[13px] truncate mt-0.5">
+                    {items.length === 1
+                      ? `${lead.bike.bodyType ?? lead.bike.category} · ${formatPrice(lead.bike.pricePerDay)}/day`
+                      : items.map(i => i.bike.title).join(', ')}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Empty until something is chosen. The row carries a minimum
+                 height so the bar does not grow the moment a vehicle lands in
+                 it: a bar that changes height under you as you move through the
+                 steps is the thing that reads as unfinished. */
+              <p className="text-beige/35 text-sm">Nothing chosen yet</p>
+            )}
 
-          {/* The label goes before the button does — an arrow alone still reads
-              as "back" once Continue sits beside it. */}
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={!canGoBack}
-            aria-label="Back"
-            className="btn-ghost px-4 sm:px-5 disabled:opacity-25 disabled:pointer-events-none"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Back</span>
-          </button>
+            {/* Dates and extras earn their room from lg; below that the controls
+                have first claim on the width. */}
+            {(dated.length > 0 || extrasCount > 0) && (
+              <div className="hidden lg:flex flex-col gap-1 text-xs text-beige/55 shrink-0 border-l border-beige/10 pl-7">
+                {dated.length > 0 && (
+                  <span className="whitespace-nowrap">
+                    {longDate(firstPickup)} → {longDate(lastReturn)} · {chargedDays} rental day
+                    {chargedDays > 1 ? 's' : ''}
+                  </span>
+                )}
+                {extrasCount > 0 && (
+                  <span className="whitespace-nowrap">
+                    {extrasCount} extra{extrasCount > 1 ? 's' : ''} added
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
 
-          <button
-            type="button"
-            onClick={onNext}
-            disabled={!canContinue}
-            className="btn-primary whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none"
-          >
-            {submitting ? 'Booking…' : isLastStep ? 'Confirm booking' : 'Continue'}
-            <ArrowRight className="w-4 h-4 shrink-0" />
-          </button>
+          <div className="flex items-center gap-4 sm:gap-6 shrink-0">
+            {/* No point announcing a total of nothing on the first step. */}
+            {total > 0 && (
+              <div className="text-right leading-none sm:border-r sm:border-beige/10 sm:pr-6">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-beige/40">Total</p>
+                <p className="font-display text-2xl sm:text-3xl font-black text-brand tabular-nums mt-1.5">
+                  {formatPrice(total)}
+                </p>
+              </div>
+            )}
+
+            {/* The label goes before the button does — an arrow alone still reads
+                as "back" once Continue sits beside it. */}
+            <button
+              type="button"
+              onClick={onBack}
+              disabled={!canGoBack}
+              aria-label="Back"
+              className="btn-ghost px-4 sm:px-5 disabled:opacity-25 disabled:pointer-events-none"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onNext}
+              disabled={!canContinue}
+              className="btn-primary whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none"
+            >
+              {submitting ? 'Booking…' : isLastStep ? 'Confirm booking' : 'Continue'}
+              <ArrowRight className="w-4 h-4 shrink-0" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
