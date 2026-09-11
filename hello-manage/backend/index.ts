@@ -52,6 +52,8 @@ import {
   seed,
 } from './store.ts';
 import { connect } from './mongo.ts';
+import { getEmailSettings, saveEmailSettings, redact, type EmailSettings } from './settings.ts';
+import { sendBookingConfirmed, sendPaymentReceipt, sendTestEmail, verifyEmail } from './mailer.ts';
 import { MONGODB_URI, MONGODB_DB } from './env.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -295,6 +297,13 @@ app.patch('/api/admin/bookings/:id', requireAuth, async (req: Request, res: Resp
       updated = await updateBookingStatus(req.params.id, status);
     }
     if (!updated) return res.status(404).json({ error: 'Not found' });
+
+    // The customer hears that their rental is on. Deliberately not awaited
+    // into the response: a confirmation is a fact about the booking, and a mail
+    // server that is slow or down must not hold up the counter or fail the
+    // request. Failures are logged, and the admin's test button surfaces them.
+    if (status === 'confirmed') void sendBookingConfirmed(updated);
+
     res.json(updated);
   } catch (err) {
     res.status(409).json({ error: err instanceof Error ? err.message : 'Could not update booking' });
@@ -317,6 +326,12 @@ app.patch('/api/admin/bookings/:id/billing', requireAuth, async (req: Request, r
   try {
     const updated = await updateBookingBilling(req.params.id, ops);
     if (!updated) return res.status(404).json({ error: 'Not found' });
+
+    // A receipt for money actually taken, and only for money taken — removing
+    // a mistyped payment is a correction, not something to email anyone about.
+    // Not awaited: the payment is recorded either way.
+    if (ops.addPayment) void sendPaymentReceipt(updated, ops.addPayment.amount);
+
     res.json(updated);
   } catch (err) {
     // The unassigned-plate rule lands here.
@@ -379,6 +394,63 @@ app.patch('/api/admin/extras/:id', requireAuth, async (req: Request, res: Respon
 app.delete('/api/admin/extras/:id', requireAuth, async (req: Request, res: Response) => {
   if (!await deleteExtra(req.params.id)) return res.status(404).json({ error: 'Not found' });
   res.status(204).end();
+});
+
+/* ================================================================== */
+/*  Email settings                                                     */
+/* ================================================================== */
+
+/**
+ * The shop's own mail configuration, editable in the admin.
+ *
+ * The stored password never comes back out: the client is told whether one is
+ * set, and sends a new one only when it is being changed. Anything else would
+ * put an SMTP password in a browser's memory, in a network log, and in
+ * whatever the browser cached, for no benefit — nobody needs to read it back.
+ */
+app.get('/api/admin/settings/email', requireAuth, async (_req: Request, res: Response) => {
+  res.json(redact(await getEmailSettings()));
+});
+
+app.put('/api/admin/settings/email', requireAuth, async (req: Request, res: Response) => {
+  const b = req.body ?? {};
+  const str = (v: unknown, fallback = '') => (typeof v === 'string' ? v.trim() : fallback);
+  const patch: Partial<EmailSettings> = {};
+
+  if (b.enabled !== undefined) patch.enabled = !!b.enabled;
+  if (b.host !== undefined) patch.host = str(b.host);
+  if (b.port !== undefined) patch.port = Number(b.port) || 587;
+  if (b.secure !== undefined) patch.secure = !!b.secure;
+  if (b.user !== undefined) patch.user = str(b.user);
+  if (b.fromName !== undefined) patch.fromName = str(b.fromName);
+  if (b.fromEmail !== undefined) patch.fromEmail = str(b.fromEmail);
+  if (b.replyTo !== undefined) patch.replyTo = str(b.replyTo);
+  if (b.bcc !== undefined) patch.bcc = str(b.bcc);
+  if (b.sendOnConfirm !== undefined) patch.sendOnConfirm = !!b.sendOnConfirm;
+  if (b.sendOnPayment !== undefined) patch.sendOnPayment = !!b.sendOnPayment;
+  // An empty password means "leave the stored one alone", not "clear it":
+  // the form cannot show the saved one, so every save would otherwise wipe a
+  // working password. Removing one is therefore explicit — send null.
+  if (typeof b.pass === 'string' && b.pass !== '') patch.pass = b.pass;
+  if (b.pass === null) patch.pass = '';
+
+  if (patch.fromEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(patch.fromEmail)) {
+    return res.status(400).json({ error: 'That does not look like an email address.' });
+  }
+
+  res.json(redact(await saveEmailSettings(patch)));
+});
+
+/** Opens a connection and authenticates, without emailing anyone. */
+app.post('/api/admin/settings/email/verify', requireAuth, async (_req: Request, res: Response) => {
+  res.json(await verifyEmail());
+});
+
+/** Sends a real message, so the shop can see what lands in an inbox. */
+app.post('/api/admin/settings/email/test', requireAuth, async (req: Request, res: Response) => {
+  const to = typeof req.body?.to === 'string' ? req.body.to.trim() : '';
+  if (!to) return res.status(400).json({ error: 'Give an address to send the test to.' });
+  res.json(await sendTestEmail(to));
 });
 
 /* ---- Bikes / fleet (full CRUD) ---- */

@@ -288,3 +288,60 @@ export const updateOwner = (id: string, patch: Partial<OwnerInput>) =>
 
 export const deleteOwner = (id: string) =>
   fetch(`/api/admin/owners/${id}`, { method: 'DELETE', headers: authHeaders() }).then(r => handle<void>(r));
+
+/* ================================================================== */
+/*  Email settings                                                     */
+/* ================================================================== */
+
+/**
+ * The shop's mail configuration, as the admin sees it.
+ *
+ * No password: the server never sends one back. `hasPassword` says whether one
+ * is stored, which is all a form needs in order to show "saved" and leave the
+ * field blank unless someone is changing it.
+ */
+export interface EmailSettings {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  fromName: string;
+  fromEmail: string;
+  replyTo: string;
+  bcc: string;
+  sendOnConfirm: boolean;
+  sendOnPayment: boolean;
+  hasPassword: boolean;
+}
+
+/** What a verify or test send came back with. */
+export interface MailResult {
+  sent: boolean;
+  error?: string;
+  skipped?: 'disabled' | 'no-address';
+}
+
+export const fetchEmailSettings = () =>
+  fetch('/api/admin/settings/email', { headers: authHeaders() }).then(r => handle<EmailSettings>(r));
+
+/** `pass` is sent only when it is being changed; omitted, the stored one stays. */
+export const saveEmailSettings = (patch: Partial<EmailSettings> & { pass?: string }) =>
+  fetch('/api/admin/settings/email', {
+    method: 'PUT',
+    headers: authHeaders(true),
+    body: JSON.stringify(patch),
+  }).then(r => handle<EmailSettings>(r));
+
+/** Connects and authenticates without emailing anyone. */
+export const verifyEmailSettings = () =>
+  fetch('/api/admin/settings/email/verify', { method: 'POST', headers: authHeaders(true) }).then(r =>
+    handle<MailResult>(r),
+  );
+
+export const sendTestEmail = (to: string) =>
+  fetch('/api/admin/settings/email/test', {
+    method: 'POST',
+    headers: authHeaders(true),
+    body: JSON.stringify({ to }),
+  }).then(r => handle<MailResult>(r));

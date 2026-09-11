@@ -40,6 +40,8 @@ export interface Collections {
   units: Collection<Doc<Unit>>;
   owners: Collection<Doc<Owner>>;
   transactions: Collection<Doc<Transaction>>;
+  /** Shop-editable configuration, one document per section. */
+  settings: Collection<{ _id: string } & Record<string, unknown>>;
 }
 
 let cols: Collections | null = null;
@@ -78,6 +80,7 @@ export async function connect(uri = MONGODB_URI, name = MONGODB_DB): Promise<Db>
     units: database.collection('units'),
     owners: database.collection('owners'),
     transactions: database.collection('transactions'),
+    settings: database.collection('settings'),
   };
 
   await Promise.all([

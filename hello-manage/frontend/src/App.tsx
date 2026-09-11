@@ -11,6 +11,7 @@ import Fleet from './pages/Fleet';
 import Owners from './pages/Owners';
 import Payouts from './pages/Payouts';
 import Extras from './pages/Extras';
+import Settings from './pages/Settings';
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken());
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/finance" element={<Payouts onLogout={logout} />} />
           <Route path="/payouts" element={<Navigate to="/finance" replace />} />
           <Route path="/extras" element={<Extras onLogout={logout} />} />
+          <Route path="/settings" element={<Settings onLogout={logout} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

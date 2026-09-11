@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { CalendarCheck, CalendarDays, Tag, Bike, Users, LogOut, Store, Wallet, LayoutDashboard } from 'lucide-react';
+import { CalendarCheck, CalendarDays, Tag, Bike, Users, LogOut, Store, Wallet, LayoutDashboard, Settings as SettingsIcon } from 'lucide-react';
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -11,6 +11,7 @@ const nav = [
   { to: '/owners', label: 'Owners', icon: Users },
   { to: '/finance', label: 'Finance', icon: Wallet },
   { to: '/extras', label: 'Extras', icon: Tag },
+  { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ];
 
 export default function Layout({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
