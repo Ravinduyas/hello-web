@@ -94,6 +94,9 @@ const SORTS: { key: Sort; label: string }[] = [
   { key: 'name', label: 'Customer A–Z' },
 ];
 
+/** How many rows to put on screen before asking whether more are wanted. */
+const PAGE = 20;
+
 const pad = (n: number) => String(n).padStart(2, '0');
 const isoLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
@@ -269,6 +272,21 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     return TIMING_FILTERS.some(o => o.key === t) ? (t as Timing) : 'all';
   });
   const [showFilters, setShowFilters] = useState(false);
+  /*
+   * Rows are shut by default and opened one at a time. Eleven full cards is
+   * already more scrolling than reading; the line that identifies a booking is
+   * what people scan for, and the rest is what they open when they have found
+   * the one they want.
+   */
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const [shown, setShown] = useState(PAGE);
+
+  const toggleRow = (id: string) =>
+    setOpenIds(prev => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   const [sort, setSort] = useState<Sort>('newest');
   const [payId, setPayId] = useState<string | null>(null);
 
@@ -288,6 +306,12 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
       if (!silent) setLoading(false);
     }
   }, [onLogout]);
+
+  // A narrowed list starts from the top again — holding a deep page position
+  // across a filter change shows a stranger's bookings.
+  useEffect(() => {
+    setShown(PAGE);
+  }, [search, filter, range, customFrom, customTo, pay, timing, sort, dateField]);
 
   useEffect(() => {
     load();
@@ -540,14 +564,20 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
       ) : visible.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No bookings here yet.</div>
       ) : (
-        <div className="space-y-4">
-          {visible.map(b => (
-            <div key={b.id} className="bg-white rounded-2xl p-5 md:p-6">
-              {/* The customer's name leads, because that is who is standing at
-                  the counter or on the phone. The machine, the plate and the
-                  reference follow on one quiet line beneath it — they used to
-                  compete with the name at the same size. */}
-              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="space-y-3">
+          {visible.slice(0, shown).map(b => (
+            <div key={b.id} className="bg-white rounded-2xl">
+              {/* The line that identifies a booking, and nothing else until it
+                  is asked for. The customer's name leads, because that is who
+                  is standing at the counter or on the phone; the machine, the
+                  plate and the reference follow on one quiet line beneath. */}
+              <button
+                type="button"
+                onClick={() => toggleRow(b.id)}
+                aria-expanded={openIds.has(b.id)}
+                aria-controls={`booking-${b.id}`}
+                className="w-full text-left p-5 md:p-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 rounded-2xl hover:bg-dark/[0.02] transition-colors"
+              >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-bold text-lg leading-tight">
@@ -577,15 +607,24 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                     <span className="font-display font-bold tracking-wide text-dark/70">{b.reference}</span>
                   </p>
                 </div>
-                <p className="text-[10px] text-dark/35 uppercase tracking-wide shrink-0">
-                  Booked {new Date(b.createdAt).toLocaleDateString()}
-                </p>
-              </div>
+                <span className="flex items-center gap-3 shrink-0">
+                  <span className="text-[10px] text-dark/35 uppercase tracking-wide">
+                    Booked {new Date(b.createdAt).toLocaleDateString()}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-brand whitespace-nowrap">
+                    {openIds.has(b.id) ? 'Less' : 'More'}
+                    <ChevronDown className={`w-4 h-4 transition-transform ${openIds.has(b.id) ? 'rotate-180' : ''}`} />
+                  </span>
+                </span>
+              </button>
+
+              {openIds.has(b.id) && (
+              <div id={`booking-${b.id}`} className="px-5 md:px-6 pb-5 md:pb-6">
 
               {/* When it goes out and when it is due back is what this page is
                   asked most, so it is one readable line rather than two
                   timestamps and a "(7d)". */}
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 pt-4 border-t border-dark/10 text-sm">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-4 border-t border-dark/10 text-sm">
                 <span className="inline-flex items-center gap-2 font-medium">
                   <Calendar className="w-4 h-4 text-brand shrink-0" />
                   {dayLabel(b.pickupDate)} → {dayLabel(b.dropoffDate)}
@@ -651,8 +690,22 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                   </RowMenu>
                 </div>
               </div>
+              </div>
+              )}
             </div>
           ))}
+
+          {/* A shop with a season behind it should not have to scroll through
+              all of it to reach the bottom of a filter. */}
+          {visible.length > shown && (
+            <button
+              onClick={() => setShown(n => n + PAGE)}
+              className="w-full bg-white rounded-2xl py-4 text-sm font-bold text-brand hover:bg-brand/5 transition"
+            >
+              Show {Math.min(PAGE, visible.length - shown)} more
+              <span className="text-dark/40 font-medium"> · {visible.length - shown} left</span>
+            </button>
+          )}
         </div>
       )}
 
