@@ -9,42 +9,42 @@ const posts = [
     date: '02 May 2026',
     category: 'Riding Guides',
     excerpt: 'From the misty roads of Ella to the golden coast of Mirissa — discover the most breathtaking roads Sri Lanka has to offer on two wheels.',
-    image: 'https://images.unsplash.com/photo-1775479788897-c5ec08cb7fb0?auto=format&fit=crop&q=80&w=800',
+    image: '/blog/hero-card.webp',
   },
   {
     title: 'What to Know Before Renting a Scooter in Sri Lanka',
     date: '18 Apr 2026',
     category: 'Tips & Advice',
     excerpt: 'License requirements, local traffic rules, and safety gear — everything first-time riders need to know before hitting the Sri Lankan roads.',
-    image: 'https://images.unsplash.com/photo-1573828263190-2cbdc3dc7d11?auto=format&fit=crop&q=80&w=800',
+    image: '/blog/permit.webp',
   },
   {
     title: 'Scooter vs Motorbike: Which Should You Rent?',
     date: '10 Apr 2026',
     category: 'Guides',
     excerpt: 'Automatic scooter or manual motorbike? We break down the pros and cons to help you choose the right ride for your Sri Lanka trip.',
-    image: 'https://images.unsplash.com/photo-1550039082-d8572c2ba1a4?auto=format&fit=crop&q=80&w=800',
+    image: '/blog/coast-road.webp',
   },
   {
     title: 'Hidden Temples You Can Only Reach by Bike',
     date: '28 Mar 2026',
     category: 'Riding Guides',
     excerpt: 'Skip the tourist buses and discover Sri Lanka\'s most sacred and secluded temples using nothing but a scooter and a sense of adventure.',
-    image: 'https://images.unsplash.com/photo-1612862862126-865765df2ded?auto=format&fit=crop&q=80&w=800',
+    image: '/blog/monsoon.webp',
   },
   {
     title: 'The Coastal Ride: Colombo to Galle',
     date: '15 Mar 2026',
     category: 'Riding Guides',
     excerpt: 'One of Sri Lanka\'s most iconic coastal routes. Every stop, viewpoint, and local café worth visiting along the Southern Expressway coastal road.',
-    image: 'https://images.unsplash.com/photo-1654561773591-57b9413c45c0?auto=format&fit=crop&q=80&w=800',
+    image: '/blog/tea-country.webp',
   },
   {
     title: 'Riding Through the Hill Country: Kandy to Ella',
     date: '02 Mar 2026',
     category: 'Riding Guides',
     excerpt: 'Tea estates, waterfalls, and winding mountain roads — the Kandy to Ella route is every rider\'s dream on two wheels.',
-    image: 'https://images.unsplash.com/photo-1706766958001-176b3d7800ff?auto=format&fit=crop&q=80&w=800',
+    image: '/blog/packing.webp',
   },
 ];
 
@@ -54,9 +54,13 @@ export default function BlogPage() {
 
       <div className="relative h-[58vh] min-h-[420px] max-h-[620px] w-full overflow-hidden bg-dark">
         <div className="absolute inset-0 bg-dark/60 z-10" />
+        {/* The largest thing on the page and the first thing seen, so it is
+            fetched at high priority rather than in document order. */}
         <img
-          src="https://images.unsplash.com/photo-1775479788897-c5ec08cb7fb0?auto=format&fit=crop&q=80&w=2600"
+          src="/blog/hero.webp"
           alt="Nine Arch Bridge, Ella, Sri Lanka"
+          fetchPriority="high"
+          decoding="async"
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />
         <div className="relative z-20 h-full max-w-7xl mx-auto px-6 flex flex-col justify-end pb-16 pt-28">

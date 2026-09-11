@@ -9,9 +9,11 @@ frontend:
         # Amplify serves the site at the domain root, not under /hello-web/
         # (the GitHub Pages default in vite.config.ts), so override the base.
         # SITE_URL is the address sitemap.xml and robots.txt hand to crawlers.
-        # Set it in the Amplify console the moment the shop has its own domain;
-        # until then this is the branch's default amplifyapp.com address.
-        - BASE_PATH=/ SITE_URL="${SITE_URL:-https://$AWS_BRANCH.$AWS_APP_ID.amplifyapp.com}" npm run build
+        # It defaults to the live domain rather than the branch URL: an unset
+        # variable used to put every sitemap entry on amplifyapp.com, which is
+        # not the address anyone should be indexing. Setting SITE_URL in the
+        # console still wins, which is what preview branches want.
+        - BASE_PATH=/ SITE_URL="${SITE_URL:-https://hellorentsrilanka.com}" npm run build
   artifacts:
     baseDirectory: dist
     files:
