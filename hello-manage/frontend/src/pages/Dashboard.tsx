@@ -94,7 +94,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <span className="eyebrow">[ Today ]</span>
+          <span className="eyebrow">[ Dashboard ]</span>
           <h1 className="font-display text-2xl font-black mt-1">{fullDate(today)}</h1>
         </div>
         <button onClick={() => load()} className="btn-outline" disabled={loading} aria-label="Refresh">

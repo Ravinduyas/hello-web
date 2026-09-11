@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { CalendarCheck, CalendarDays, Tag, Bike, Users, LogOut, Store, Wallet, LayoutDashboard } from 'lucide-react';
 
 const nav = [
-  { to: '/', label: 'Today', icon: LayoutDashboard },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/walk-in', label: 'Walk-in', icon: Store },
   { to: '/bookings', label: 'Bookings', icon: CalendarCheck },
   { to: '/calendar', label: 'Calendar', icon: CalendarDays },
