@@ -23,13 +23,16 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
         <div className="p-6 flex items-center font-display font-bold text-xl tracking-tight uppercase">
           Hello Manage<span className="text-brand">.</span>
         </div>
-        <nav className="flex md:flex-col gap-1 px-3 md:px-4 flex-1">
+        {/* Seven links do not fit across a phone. On desktop this is the
+            usual column; on mobile it scrolls sideways as a strip, so the far
+            end of it is reachable instead of being cut off the screen. */}
+        <nav className="flex md:flex-col gap-1 px-3 md:px-4 flex-1 overflow-x-auto md:overflow-x-visible">
           {nav.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${
+                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors shrink-0 ${
                   isActive ? 'bg-brand text-white' : 'text-beige/70 hover:bg-white/5 hover:text-beige'
                 }`
               }

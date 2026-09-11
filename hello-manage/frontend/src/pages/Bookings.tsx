@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus, Search, ArrowUpDown, Clock, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus, Search, ArrowUpDown, AlertTriangle, SlidersHorizontal, MoreHorizontal } from 'lucide-react';
 import Drawer from '../components/Drawer';
 import {
   fetchBookings,
@@ -134,6 +134,10 @@ const daysBetween = (from: string, to: string) =>
  * A pickup date that has passed only matters while a booking is still
  * pending — once confirmed, the bike is out and the return is what counts.
  */
+/** "Thu 17 Sep" — a date someone can picture, rather than 2026-09-17. */
+const dayLabel = (iso: string) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+
 function timingOf(b: Booking, today: string): Timing | null {
   if (b.status === 'cancelled') return null;
   if (b.status === 'pending' && b.pickupDate < today) return 'latePickup';
@@ -247,6 +251,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   const [search, setSearch] = useState('');
   const [pay, setPay] = useState<PayState | 'all'>('all');
   const [timing, setTiming] = useState<Timing | 'all'>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [sort, setSort] = useState<Sort>('newest');
   const [payId, setPayId] = useState<string | null>(null);
 
@@ -332,6 +337,9 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     cancelled: narrowed.filter(b => b.status === 'cancelled').length,
   };
   const filtering = !!query || range !== 'all' || pay !== 'all' || timing !== 'all' || filter !== 'all';
+  // Only the ones folded away behind the button — the badge counts what is on
+  // but out of sight, which is exactly what someone needs warning about.
+  const extraFilters = [range !== 'all', pay !== 'all', timing !== 'all'].filter(Boolean).length;
   // Counted before any filter, so the warning is the same number whatever the
   // list is currently showing — and does not vanish because of a filter.
   const overdue = bookings.filter(b => timingOf(b, today) === 'lateReturn').length;
@@ -360,17 +368,19 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
         </button>
       </div>
 
-      {/* Search, filters and order. One reference, name, phone or plate is what
-          the counter actually has to hand when someone walks in. */}
+      {/* One line of controls, not six.
+          Searching and picking a status is nearly all anyone does here, so
+          those stay out in the open; the rest fold away behind one button
+          that says how many of them are switched on. */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <div className="relative flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-[220px]">
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-dark/35" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search reference, name, phone, plate…"
+            placeholder="Search a name, phone, reference or plate…"
             aria-label="Search bookings"
-            className="w-full bg-white border border-dark/15 rounded-full pl-11 pr-10 py-2 text-sm hover:border-dark/30 focus:outline-none focus:border-brand"
+            className="w-full bg-white border border-dark/15 rounded-full pl-11 pr-10 py-2.5 text-sm hover:border-dark/30 focus:outline-none focus:border-brand"
           />
           {search && (
             <button
@@ -383,30 +393,85 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
           )}
         </div>
 
-        <PillSelect value={dateField} onChange={setDateField} label="Which date to filter on" options={DATE_FIELDS} icon={Calendar} />
-        <PillSelect value={range} onChange={setRange} label="Date range" options={RANGES} />
-        <PillSelect
-          value={filter}
-          onChange={setFilter}
-          label="Status"
-          options={[
-            { key: 'all' as const, label: `All (${counts.all})` },
-            { key: 'pending' as const, label: `Pending (${counts.pending})` },
-            { key: 'confirmed' as const, label: `Confirmed (${counts.confirmed})` },
-            { key: 'cancelled' as const, label: `Cancelled (${counts.cancelled})` },
-          ]}
-        />
-        <PillSelect value={pay} onChange={setPay} label="Payment" options={PAY_FILTERS} icon={Wallet} />
-        <PillSelect value={timing} onChange={setTiming} label="Timing" options={TIMING_FILTERS} icon={Clock} />
+        <button
+          onClick={() => setShowFilters(v => !v)}
+          aria-expanded={showFilters}
+          className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-bold transition ${
+            showFilters || extraFilters > 0
+              ? 'bg-dark text-white border-dark'
+              : 'bg-white text-dark border-dark/15 hover:border-dark/30'
+          }`}
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          Filters
+          {extraFilters > 0 && (
+            <span className="bg-white/25 rounded-full px-1.5 text-[11px] leading-5">{extraFilters}</span>
+          )}
+        </button>
+
         <PillSelect value={sort} onChange={setSort} label="Sort by" options={SORTS} icon={ArrowUpDown} />
       </div>
 
-      {/* Custom date range inputs */}
-      {range === 'custom' && (
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input max-w-[170px]" aria-label="From date" />
-          <span className="text-dark/40">→</span>
-          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input max-w-[170px]" aria-label="To date" />
+      {/* Status is the one filter worth seeing all of at once: four numbers
+          that add up to the whole list, each a click away. */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {([
+          { key: 'all' as const, label: 'All', n: counts.all },
+          { key: 'pending' as const, label: 'Pending', n: counts.pending },
+          { key: 'confirmed' as const, label: 'Confirmed', n: counts.confirmed },
+          { key: 'cancelled' as const, label: 'Cancelled', n: counts.cancelled },
+        ]).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setFilter(t.key)}
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition ${
+              filter === t.key
+                ? 'bg-brand text-white'
+                : 'bg-white text-dark/70 border border-dark/10 hover:border-dark/30'
+            }`}
+          >
+            {t.label}
+            <span className={`text-xs tabular-nums ${filter === t.key ? 'text-white/70' : 'text-dark/40'}`}>{t.n}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Every control here says what it is. Unlabelled pills reading "By
+          pickup" and "Any timing" meant opening each one to find out. */}
+      {showFilters && (
+        <div className="bg-white rounded-2xl p-5 mb-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="block">
+            <span className="label">Dates to filter on</span>
+            <select value={dateField} onChange={e => setDateField(e.target.value as DateField)} className="input mt-1">
+              {DATE_FIELDS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="label">Date range</span>
+            <select value={range} onChange={e => setRange(e.target.value as DateRange)} className="input mt-1">
+              {RANGES.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="label">Payment</span>
+            <select value={pay} onChange={e => setPay(e.target.value as PayState | 'all')} className="input mt-1">
+              {PAY_FILTERS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="label">Where it stands today</span>
+            <select value={timing} onChange={e => setTiming(e.target.value as Timing | 'all')} className="input mt-1">
+              {TIMING_FILTERS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+
+          {range === 'custom' && (
+            <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center gap-2">
+              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input max-w-[170px]" aria-label="From date" />
+              <span className="text-dark/40">→</span>
+              <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input max-w-[170px]" aria-label="To date" />
+            </div>
+          )}
         </div>
       )}
 
@@ -424,14 +489,29 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
         </button>
       )}
 
-      {/* What the filters left, and the way out of them. */}
-      <div className="flex items-center gap-3 mb-6 text-xs text-dark/45">
-        <span>
-          {visible.length} of {bookings.length} booking{bookings.length === 1 ? '' : 's'}
+      {/* What is narrowing the list, said in words, each one removable on its
+          own. A count alone left people guessing which control was doing it. */}
+      <div className="flex flex-wrap items-center gap-2 mb-6 text-xs">
+        <span className="text-dark/45">
+          Showing {visible.length} of {bookings.length} booking{bookings.length === 1 ? '' : 's'}
         </span>
+        {query && <Chip label={'“' + search.trim() + '”'} onClear={() => setSearch('')} />}
+        {filter !== 'all' && <Chip label={filter} onClear={() => setFilter('all')} />}
+        {range !== 'all' && (
+          <Chip
+            label={
+              (RANGES.find(r => r.key === range)?.label ?? '') +
+              ' ' +
+              (DATE_FIELDS.find(d => d.key === dateField)?.label ?? '').toLowerCase()
+            }
+            onClear={() => setRange('all')}
+          />
+        )}
+        {pay !== 'all' && <Chip label={PAY_FILTERS.find(p => p.key === pay)!.label} onClear={() => setPay('all')} />}
+        {timing !== 'all' && <Chip label={TIMING_FILTERS.find(t => t.key === timing)!.label} onClear={() => setTiming('all')} />}
         {filtering && (
           <button onClick={clearFilters} className="font-bold text-brand hover:underline">
-            Clear filters
+            Clear all
           </button>
         )}
       </div>
@@ -446,16 +526,19 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
         <div className="space-y-4">
           {visible.map(b => (
             <div key={b.id} className="bg-white rounded-2xl p-5 md:p-6">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
+              {/* The customer's name leads, because that is who is standing at
+                  the counter or on the phone. The machine, the plate and the
+                  reference follow on one quiet line beneath it — they used to
+                  compete with the name at the same size. */}
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-bold text-lg leading-tight">
+                      {b.renter.firstName} {b.renter.lastName}
+                    </h3>
                     <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${statusStyles[b.status]}`}>
                       {b.status}
                     </span>
-                    {/* The reference the customer quotes on the phone. The
-                        search matches it, and it was nowhere on the row to
-                        read back to them. */}
-                    <span className="font-display text-xs font-bold tracking-wide text-dark/70">{b.reference}</span>
                     {(() => {
                       const t = timingOf(b, today);
                       return t && timingStyles[t] ? (
@@ -464,43 +547,51 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                         </span>
                       ) : null;
                     })()}
-                    {b.plate && (
-                      <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-dark/5 text-dark/70">
-                        Plate {b.plate}
-                      </span>
-                    )}
                   </div>
-                  <p className="font-bold">{b.bikeTitle}</p>
-                  <p className="text-sm text-dark/50">
-                    {b.renter.firstName} {b.renter.lastName}
+                  <p className="text-sm text-dark/55 mt-1">
+                    {b.bikeTitle}
+                    {b.plate && (
+                      <>
+                        {' · Plate '}
+                        <b className="text-dark/75">{b.plate}</b>
+                      </>
+                    )}
+                    {' · '}
+                    <span className="font-display font-bold tracking-wide text-dark/70">{b.reference}</span>
                   </p>
                 </div>
-                <div className="text-right">
-                  {/* Named, because a lone figure beside a row of other figures
-                      is just another number. */}
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-dark/40">Total</p>
-                  <p className="font-display text-2xl font-black text-brand tabular-nums">{money(b.total)}</p>
-                  <p className="text-[10px] text-dark/40 uppercase tracking-wide mt-0.5">
-                    Booked {new Date(b.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
+                <p className="text-[10px] text-dark/35 uppercase tracking-wide shrink-0">
+                  Booked {new Date(b.createdAt).toLocaleDateString()}
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mt-4 pt-4 border-t border-dark/10 text-sm text-dark/60">
-                <Detail icon={Calendar} text={`${b.pickupDate} → ${b.dropoffDate} (${b.days}d)`} />
+              {/* When it goes out and when it is due back is what this page is
+                  asked most, so it is one readable line rather than two
+                  timestamps and a "(7d)". */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 pt-4 border-t border-dark/10 text-sm">
+                <span className="inline-flex items-center gap-2 font-medium">
+                  <Calendar className="w-4 h-4 text-brand shrink-0" />
+                  {dayLabel(b.pickupDate)} → {dayLabel(b.dropoffDate)}
+                  <span className="text-dark/45 font-normal">
+                    · {b.days} day{b.days === 1 ? '' : 's'}
+                  </span>
+                </span>
                 <Detail icon={MapPin} text={b.pickupLocation} />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2 text-sm text-dark/60">
                 <Detail icon={Mail} text={b.renter.email} />
                 <Detail icon={Phone} text={b.renter.phone} />
               </div>
 
               {b.extras.length > 0 && (
-                <p className="text-xs text-dark/40 mt-3">Extras: {b.extras.map(e => e.label).join(', ')}</p>
+                <p className="text-xs text-dark/40 mt-2">Extras: {b.extras.map(e => e.label).join(', ')}</p>
               )}
 
-              {/* Billing, as states rather than three numbers in a row. A
-                  booking that owes nothing and holds nothing should look
-                  settled at a glance, without anyone reading the figures. */}
-              <div className="flex flex-wrap items-center gap-2 mt-4">
+              {/* The money and what to do about it on one line: the figures read
+                  left to right, the actions sit at the end of them. */}
+              <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-dark/10">
+                <Money label="Total" value={money(b.total)} tone="total" />
                 <Money label="Paid" value={money(paidOf(b))} tone={paidOf(b) > 0 ? 'good' : 'muted'} />
                 <Money
                   label={dueOf(b) > 0 ? 'Due' : 'Settled'}
@@ -514,34 +605,34 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
                     tone={b.depositReturned ? 'muted' : 'held'}
                   />
                 )}
-              </div>
 
-              <div className="flex flex-wrap items-center gap-2 mt-5">
-                {b.status !== 'confirmed' && (
-                  <ConfirmControl
-                    onConfirm={() => changeStatus(b.id, 'confirmed')}
-                  />
-                )}
-                <button
-                  onClick={() => setPayId(b.id)}
-                  className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand/10 text-brand hover:bg-brand/20 transition"
-                >
-                  <Wallet className="w-4 h-4" /> Payments
-                </button>
-                {b.status !== 'cancelled' && (
+                <div className="flex items-center gap-2 ml-auto">
+                  {b.status !== 'confirmed' && <ConfirmControl onConfirm={() => changeStatus(b.id, 'confirmed')} />}
                   <button
-                    onClick={() => changeStatus(b.id, 'cancelled')}
-                    className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
+                    onClick={() => setPayId(b.id)}
+                    className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand/10 text-brand hover:bg-brand/20 transition"
                   >
-                    <X className="w-4 h-4" /> Cancel
+                    <Wallet className="w-4 h-4" /> Payments
                   </button>
-                )}
-                <button
-                  onClick={() => remove(b.id)}
-                  className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-red-600 hover:bg-red-50 transition ml-auto"
-                >
-                  <Trash2 className="w-4 h-4" /> Delete
-                </button>
+                  {/* Cancelling and deleting are rarer, and one of them cannot
+                      be undone, so neither sits under a thumb by default. */}
+                  <RowMenu>
+                    {b.status !== 'cancelled' && (
+                      <button
+                        onClick={() => changeStatus(b.id, 'cancelled')}
+                        className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-dark/5 flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4 text-dark/50" /> Cancel booking
+                      </button>
+                    )}
+                    <button
+                      onClick={() => remove(b.id)}
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete permanently
+                    </button>
+                  </RowMenu>
+                </div>
               </div>
             </div>
           ))}
@@ -774,9 +865,10 @@ function Money({
 }: {
   label: string;
   value: string;
-  tone: 'good' | 'owed' | 'held' | 'muted';
+  tone: 'good' | 'owed' | 'held' | 'muted' | 'total';
 }) {
   const tones = {
+    total: 'bg-brand/10 text-brand border-brand/20',
     good: 'bg-emerald-50 text-emerald-800 border-emerald-200',
     owed: 'bg-red-50 text-red-700 border-red-200',
     held: 'bg-amber-50 text-amber-800 border-amber-200',
@@ -787,6 +879,62 @@ function Money({
       <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">{label}</span>
       <b className="font-display text-sm tabular-nums">{value}</b>
     </span>
+  );
+}
+
+/**
+ * One active filter, and the way to switch just that one off.
+ *
+ * The list used to say only how many rows survived, which told you that
+ * something was hiding them but never what.
+ */
+function Chip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 bg-dark/5 text-dark/70 rounded-full pl-3 pr-1.5 py-1 capitalize">
+      {label}
+      <button
+        onClick={onClear}
+        aria-label={`Remove filter ${label}`}
+        className="rounded-full p-0.5 hover:bg-dark/10 text-dark/50 hover:text-dark"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </span>
+  );
+}
+
+/**
+ * The actions that are not the everyday ones.
+ *
+ * Deleting a booking cannot be undone, and it used to sit in the open next to
+ * the button people press all day. The backdrop closes the menu on any click
+ * elsewhere, which is cheaper than listening on the document and unmounts with
+ * the row.
+ */
+function RowMenu({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        aria-label="More actions"
+        aria-expanded={open}
+        className="text-dark/50 hover:text-dark hover:bg-dark/5 rounded-full p-2 transition"
+      >
+        <MoreHorizontal className="w-5 h-5" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div
+            className="absolute right-0 top-full mt-1 z-20 w-52 bg-white rounded-xl shadow-lg border border-dark/10 overflow-hidden py-1"
+            onClick={() => setOpen(false)}
+          >
+            {children}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
