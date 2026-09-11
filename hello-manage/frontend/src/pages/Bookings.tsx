@@ -262,7 +262,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   const [dateField, setDateField] = useState<DateField>('pickup');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => params.get('q') ?? '');
   const [pay, setPay] = useState<PayState | 'all'>(() => {
     const p = params.get('pay');
     return PAY_FILTERS.some(o => o.key === p) ? (p as PayState) : 'all';

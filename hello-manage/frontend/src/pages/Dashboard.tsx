@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   RefreshCw, AlertTriangle, ArrowRight, Bike as BikeIcon, CalendarCheck,
-  Clock, LogIn, LogOut as LogOutIcon, Wallet, Wrench,
+  Clock, LogIn, LogOut as LogOutIcon, Phone, Wallet, Wrench,
 } from 'lucide-react';
 import {
   fetchBookings, fetchUnits, dueOf,
@@ -167,6 +167,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
             empty="No collections booked for today."
             rows={pickupsToday}
             today={today}
+            kind="out"
           />
           <div className="h-5" />
           <Movements
@@ -175,6 +176,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
             empty="Nothing due back today."
             rows={returnsToday}
             today={today}
+            kind="in"
           />
 
           {overdue.length > 0 && (
@@ -186,7 +188,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                 empty=""
                 rows={overdue}
                 today={today}
-                alarming
+                kind="late"
               />
             </>
           )}
@@ -267,24 +269,33 @@ function Tile({
   );
 }
 
-/** The people and machines involved in one part of the day. */
+/**
+ * The people and machines involved in one part of the day.
+ *
+ * Laid out as columns rather than a wrapping line: who, how it stands, what is
+ * owed and the number to ring, each always in the same place down the list.
+ * Wrapped, the money and the phone number ended up adrift on a second line,
+ * right-aligned under whichever row happened to be long.
+ */
 function Movements({
-  title, icon: Icon, rows, empty, today, alarming,
+  title, icon: Icon, rows, empty, today, kind,
 }: {
   title: string;
   icon: typeof BikeIcon;
   rows: Booking[];
   empty: string;
   today: string;
-  alarming?: boolean;
+  kind: 'out' | 'in' | 'late';
 }) {
+  const late = kind === 'late';
   return (
     <div>
-      <h3 className={`flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest mb-2 ${alarming ? 'text-red-700' : 'text-dark/40'}`}>
-        <Icon className="w-3.5 h-3.5" /> {title} {rows.length > 0 && <span className="tabular-nums">· {rows.length}</span>}
+      <h3 className={`flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest mb-1 ${late ? 'text-red-700' : 'text-dark/40'}`}>
+        <Icon className="w-3.5 h-3.5" /> {title}
+        {rows.length > 0 && <span className="tabular-nums">· {rows.length}</span>}
       </h3>
       {rows.length === 0 ? (
-        <p className="text-sm text-dark/35">{empty}</p>
+        <p className="text-sm text-dark/35 py-1">{empty}</p>
       ) : (
         <ul className="divide-y divide-dark/5">
           {rows.map(b => {
@@ -293,35 +304,64 @@ function Movements({
               (new Date(today).getTime() - new Date(b.dropoffDate).getTime()) / 86400000,
             );
             return (
-              <li key={b.id} className="py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="font-bold">{nameOf(b)}</span>
-                <span className="text-sm text-dark/50">
-                  {b.bikeTitle}
-                  {b.plate && ` · ${b.plate}`}
-                </span>
-                {alarming && (
-                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                    {daysLate} day{daysLate === 1 ? '' : 's'} late · due {shortDate(b.dropoffDate)}
-                  </span>
-                )}
-                {b.status === 'pending' && (
-                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                    not confirmed
-                  </span>
-                )}
-                <span className="ml-auto flex items-center gap-3 text-sm">
-                  {owed > 0 ? (
-                    <span className="font-bold text-red-700 tabular-nums">{money(owed)} due</span>
+              <li
+                key={b.id}
+                /* Fixed widths, not auto: each row is its own grid, so auto
+                   columns size to that row's own content and the list ends up
+                   a few pixels ragged down the page. */
+                className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_140px_150px] items-center gap-x-5 gap-y-1 py-3"
+              >
+                {/* who, and what they took */}
+                <div className="min-w-0">
+                  <Link
+                    to={`/bookings?q=${encodeURIComponent(b.reference)}`}
+                    className="font-bold hover:text-brand transition-colors"
+                  >
+                    {nameOf(b)}
+                  </Link>
+                  <p className="text-xs text-dark/45 truncate">
+                    {b.bikeTitle}
+                    {b.plate && ` · ${b.plate}`}
+                  </p>
+                </div>
+
+                {/* where it stands */}
+                <div className="text-xs sm:text-right">
+                  {late ? (
+                    <>
+                      <span className="inline-block font-bold uppercase tracking-widest text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                        {daysLate} day{daysLate === 1 ? '' : 's'} late
+                      </span>
+                      <p className="text-dark/40 mt-0.5">was due {shortDate(b.dropoffDate)}</p>
+                    </>
                   ) : (
-                    <span className="text-dark/35">settled</span>
+                    <>
+                      {b.status === 'pending' && (
+                        <span className="inline-block font-bold uppercase tracking-widest text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                          not confirmed
+                        </span>
+                      )}
+                      <p className="text-dark/40 mt-0.5">
+                        {kind === 'out' ? `back ${shortDate(b.dropoffDate)}` : `out since ${shortDate(b.pickupDate)}`}
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                {/* what is owed, and the way to ask for it */}
+                <div className="sm:text-right whitespace-nowrap">
+                  {owed > 0 ? (
+                    <p className="font-bold text-red-700 tabular-nums">{money(owed)} due</p>
+                  ) : (
+                    <p className="text-dark/35 text-sm">settled</p>
                   )}
                   <a
                     href={`tel:${b.renter.phone}`}
-                    className="text-xs font-bold text-brand hover:underline whitespace-nowrap"
+                    className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline mt-0.5"
                   >
-                    {b.renter.phone}
+                    <Phone className="w-3 h-3" /> {b.renter.phone}
                   </a>
-                </span>
+                </div>
               </li>
             );
           })}
