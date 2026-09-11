@@ -56,7 +56,7 @@ function HomePage() {
 const PAGES: Record<RoutePath, ReactElement> = {
   '/': <HomePage />,
   '/fleet': <FleetPage />,
-  '/book': <BookingPage />,
+  '/book-now': <BookingPage />,
   '/tours': <TourPlansPage />,
   '/driving-permit': <DrivingPermitPage />,
   '/about': <AboutPage />,
@@ -71,9 +71,21 @@ const PAGES: Record<RoutePath, ReactElement> = {
  * is a way out of a half-finished form rather than a service to them. The page
  * carries its own way back to the site.
  */
+/**
+ * A redirect that does not throw away what the old URL was carrying.
+ *
+ * `<Navigate to="/book-now">` would drop `?category=Scooter` and land the
+ * visitor on a booking page with nothing chosen, which is worse than the link
+ * they clicked.
+ */
+function KeepQuery({ to }: { to: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={`${to}${search}${hash}`} replace />;
+}
+
 function Shell() {
   const { pathname } = useLocation();
-  const bare = pathname === '/book';
+  const bare = pathname === '/book-now';
 
   return (
     <div className="min-h-screen">
@@ -87,6 +99,11 @@ function Shell() {
               working for anyone arriving from a bookmark or search result.
               A redirect is not a page, so it stays out of the sitemap. */}
           <Route path="/locations" element={<Navigate to="/contact#store" replace />} />
+          {/* /book was the booking page's URL until it became /book-now. It has
+              been shared over WhatsApp and indexed, and the fleet used to link
+              to it with a category attached, so the query has to survive the
+              move or the arrival lands on an empty picker. */}
+          <Route path="/book" element={<KeepQuery to="/book-now" />} />
         </Routes>
       </div>
       {!bare && (

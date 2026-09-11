@@ -71,7 +71,7 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <Link to="/book" target="_blank" rel="noopener" className="btn-primary text-xs px-5 py-2.5 md:text-sm">
+            <Link to="/book-now" target="_blank" rel="noopener" className="btn-primary text-xs px-5 py-2.5 md:text-sm">
               BOOK NOW
             </Link>
             <button
@@ -122,7 +122,7 @@ export default function Navbar() {
               ))}
             </nav>
             <Link
-              to="/book"
+              to="/book-now"
               target="_blank"
               rel="noopener"
               onClick={() => setOpen(false)}

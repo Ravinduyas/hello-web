@@ -55,7 +55,7 @@ function Face({ summary, cta }: { summary: CategorySummary; cta: string }) {
 export function ClassCardLink({ summary }: { summary: CategorySummary }) {
   return (
     <Link
-      to={`/book?category=${encodeURIComponent(summary.category)}`}
+      to={`/book-now?category=${encodeURIComponent(summary.category)}`}
       target="_blank"
       rel="noopener"
       aria-label={`Rent ${summary.meta.label} — opens in a new tab`}

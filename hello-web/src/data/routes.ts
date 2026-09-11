@@ -6,9 +6,10 @@
  * told about. Adding a path here is a type error until App.tsx gives it an
  * element, and removing one is an error until that element goes too.
  *
- * Not listed here: /locations, which only redirects to /contact#store. A
- * redirect is not a page, and a sitemap that advertises one asks a crawler to
- * fetch a URL that immediately sends it somewhere else.
+ * Not listed here: /locations, which redirects to /contact#store, and /book,
+ * which redirects to /book-now after the page was renamed. A redirect is not a
+ * page, and a sitemap that advertises one asks a crawler to fetch a URL that
+ * immediately sends it somewhere else.
  *
  * The order is the order the pages are meant to be found in — the sitemap
  * keeps it, though no crawler reads anything into it.
@@ -16,7 +17,7 @@
 export const ROUTE_PATHS = [
   '/',
   '/fleet',
-  '/book',
+  '/book-now',
   '/tours',
   '/driving-permit',
   '/about',

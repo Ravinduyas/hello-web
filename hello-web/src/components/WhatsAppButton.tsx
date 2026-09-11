@@ -16,7 +16,7 @@ import { whatsappLink } from '../data/contact';
  */
 export default function WhatsAppButton() {
   const { pathname } = useLocation();
-  const aboveBookingBar = pathname === '/book';
+  const aboveBookingBar = pathname === '/book-now';
 
   return (
     <a
