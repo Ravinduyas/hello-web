@@ -37,6 +37,8 @@ export interface OwnerSection {
 }
 
 export interface MonthlyReport {
+  /** The owner this copy is for, or null when it covers the whole shop. */
+  scopedTo: Owner | null;
   month: string;
   from: string;
   to: string;
@@ -68,12 +70,22 @@ export function monthLabel(month: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 }
 
+/**
+ * A month's trading, optionally narrowed to a single owner.
+ *
+ * An owner's copy must contain their machines and nothing else: the whole-shop
+ * version carries every other owner's revenue and payout, which is not theirs
+ * to read. Narrowing also moves the totals — a statement whose summary counts
+ * the shop's takings above one owner's rentals invites exactly the wrong
+ * conversation.
+ */
 export function buildMonthlyReport(
   month: string,
   owners: Owner[],
   units: Unit[],
   bikes: Bike[],
   bookings: Booking[],
+  ownerId: string = 'all',
 ): MonthlyReport {
   const [from, to] = monthBounds(month);
   const inMonth = bookings.filter(b => b.pickupDate >= from && b.pickupDate <= to);
@@ -119,28 +131,47 @@ export function buildMonthlyReport(
     };
   };
 
-  const sections = owners
+  const whole = ownerId === 'all';
+  const scopedTo = whole ? null : (owners.find(o => o.id === ownerId) ?? null);
+
+  const sections = (whole ? owners : owners.filter(o => o.id === ownerId))
     .map(o => sectionFor(o, units.filter(u => u.ownerId === o.id)))
     .sort((a, b) => b.revenue - a.revenue);
 
-  const orphanUnits = units.filter(u => !u.ownerId);
+  // Machines nobody owns, and rentals that never got a plate, belong to the
+  // shop's own copy. On an owner's they would be somebody else's business.
+  const orphanUnits = whole ? units.filter(u => !u.ownerId) : [];
   if (orphanUnits.length) sections.push(sectionFor(null, orphanUnits));
+  const unplated = whole ? counted.filter(b => !b.unitId) : [];
+
+  // Totals are taken from what the statement actually shows, so the summary at
+  // the top always describes the pages under it.
+  const shown = [...sections.flatMap(s => s.plates.flatMap(p => p.bookings)), ...unplated];
+
+  // A booking the month excluded only counts here if it was on this scope's
+  // machines — otherwise an owner is told about eleven cancellations, ten of
+  // which were never theirs.
+  const scopeUnitIds = new Set(
+    (whole ? units : units.filter(u => u.ownerId === ownerId)).map(u => u.id),
+  );
+  const inScope = (b: Booking) => whole || (b.unitId ? scopeUnitIds.has(b.unitId) : false);
 
   return {
+    scopedTo,
     month,
     from,
     to,
     sections,
-    unplated: counted.filter(b => !b.unitId),
-    rentals: counted.length,
-    revenue: round2(counted.reduce((s, b) => s + b.total, 0)),
-    paid: round2(counted.reduce((s, b) => s + paidOf(b), 0)),
-    due: round2(counted.reduce((s, b) => s + dueOf(b), 0)),
+    unplated,
+    rentals: shown.length,
+    revenue: round2(shown.reduce((s, b) => s + b.total, 0)),
+    paid: round2(shown.reduce((s, b) => s + paidOf(b), 0)),
+    due: round2(shown.reduce((s, b) => s + dueOf(b), 0)),
     commission: round2(sections.reduce((s, x) => s + (x.commission?.commission ?? 0), 0)),
     payout: round2(sections.reduce((s, x) => s + (x.commission?.payout ?? 0), 0)),
     excluded: {
-      pending: inMonth.filter(b => b.status === 'pending').length,
-      cancelled: inMonth.filter(b => b.status === 'cancelled').length,
+      pending: inMonth.filter(b => b.status === 'pending' && inScope(b)).length,
+      cancelled: inMonth.filter(b => b.status === 'cancelled' && inScope(b)).length,
     },
   };
 }

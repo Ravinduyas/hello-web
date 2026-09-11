@@ -76,6 +76,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
   const [editing, setEditing] = useState<Owner | null>(null);
   const [reportBy, setReportBy] = useState<'plate' | 'customer'>('plate');
   const [month, setMonth] = useState(lastMonth());
+  const [stmtOwner, setStmtOwner] = useState('all');
 
   // Add-transaction form
   const [txnKind, setTxnKind] = useState<'in' | 'out'>('out');
@@ -469,29 +470,55 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
         <>
           {/* The statement is a document, so its controls sit outside it and
               leave the page when it is printed. */}
-          <div className="no-print flex flex-wrap items-end justify-between gap-3 mb-5 bg-white rounded-2xl px-5 py-4">
-            <div>
-              <label htmlFor="stmt-month" className="label">
-                Statement month
+          <div className="no-print flex flex-wrap items-end justify-between gap-4 mb-5 bg-white rounded-2xl px-5 py-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="block">
+                <span className="label">Statement month</span>
+                <input
+                  id="stmt-month"
+                  type="month"
+                  value={month}
+                  onChange={e => setMonth(e.target.value)}
+                  className="input max-w-[190px] mt-1"
+                />
               </label>
-              <input
-                id="stmt-month"
-                type="month"
-                value={month}
-                onChange={e => setMonth(e.target.value)}
-                className="input max-w-[200px] mt-1"
-              />
-              <p className="text-[11px] text-dark/40 mt-2 max-w-md">
-                Every confirmed rental that started in {monthLabel(month)}, under the owner of the machine it
-                went out on, and under its plate. Print to paper, or choose “Save as PDF” in the print dialog.
-              </p>
+              {/* One owner's copy is the one that gets handed over. The
+                  whole-shop version carries everybody's figures, which is the
+                  shop's own record and nobody else's reading. */}
+              <label className="block">
+                <span className="label">Statement for</span>
+                <select
+                  id="stmt-owner"
+                  value={stmtOwner}
+                  onChange={e => setStmtOwner(e.target.value)}
+                  className="input max-w-[230px] mt-1"
+                >
+                  <option value="all">All owners (shop copy)</option>
+                  {owners.map(o => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <button onClick={() => window.print()} className="btn-primary">
               <Printer className="w-4 h-4" /> Print / Save as PDF
             </button>
           </div>
 
-          <MonthlyReportDoc report={buildMonthlyReport(month, owners, units, bikes, bookings)} shop="Hello Rent · Weligama" />
+          <p className="no-print text-[11px] text-dark/40 mb-4 max-w-2xl">
+            Every confirmed rental that started in {monthLabel(month)}
+            {stmtOwner === 'all'
+              ? ', under the owner of the machine it went out on, and under its plate.'
+              : ` on ${owners.find(o => o.id === stmtOwner)?.name ?? 'this owner'}'s machines, and nothing else — theirs is the copy to hand over.`}{' '}
+            Print to paper, or choose “Save as PDF” in the print dialog.
+          </p>
+
+          <MonthlyReportDoc
+            report={buildMonthlyReport(month, owners, units, bikes, bookings, stmtOwner)}
+            shop="Hello Rent · Weligama"
+          />
         </>
       ) : (
         <>

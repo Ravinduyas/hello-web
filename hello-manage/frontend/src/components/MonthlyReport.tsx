@@ -15,7 +15,9 @@ export default function MonthlyReportDoc({ report, shop }: { report: MonthlyRepo
     <div className="print-report bg-white text-dark rounded-2xl p-8 md:p-10">
       <header className="flex items-start justify-between gap-6 border-b-2 border-dark pb-4 mb-6">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand">Monthly statement</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand">
+            {report.scopedTo ? `Statement for ${report.scopedTo.name}` : 'Monthly statement · all owners'}
+          </p>
           <h2 className="font-display text-3xl font-black mt-1">{monthLabel(report.month)}</h2>
           <p className="text-xs text-dark/50 mt-1">
             {report.from} to {report.to} · by pickup date · confirmed rentals only
@@ -33,7 +35,11 @@ export default function MonthlyReportDoc({ report, shop }: { report: MonthlyRepo
         <Figure label="Revenue" value={money(report.revenue)} />
         <Figure label="Collected" value={money(report.paid)} />
         <Figure label="Outstanding" value={money(report.due)} tone={report.due > 0 ? 'owed' : undefined} />
-        <Figure label="Owner payouts" value={money(report.payout)} tone="accent" />
+        <Figure
+          label={report.scopedTo ? 'Your payout' : 'Owner payouts'}
+          value={money(report.payout)}
+          tone="accent"
+        />
       </div>
 
       {report.sections.map(section => (
@@ -57,6 +63,9 @@ export default function MonthlyReportDoc({ report, shop }: { report: MonthlyRepo
           Revenue is the agreed rental total. Collected is what has actually been received; outstanding is the
           remainder. Commission is the shop's share, payout the owner's.
         </p>
+        {report.sections.length === 0 && (
+          <p>No machines are on record for this owner, so there is nothing to report.</p>
+        )}
         {(report.excluded.pending > 0 || report.excluded.cancelled > 0) && (
           <p>
             Not counted this month: {report.excluded.pending} booking(s) still pending and{' '}
