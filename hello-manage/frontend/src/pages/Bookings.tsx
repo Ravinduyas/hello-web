@@ -94,6 +94,20 @@ const SORTS: { key: Sort; label: string }[] = [
   { key: 'name', label: 'Customer A–Z' },
 ];
 
+/**
+ * Whether a booking has a machine set aside for it yet.
+ *
+ * Confirming promises a model and some dates; the plate is chosen later. Until
+ * it is, the booking cannot be paid for — the server refuses — so finding the
+ * ones still waiting is a job of its own, not a shade of status.
+ */
+type PlateState = 'all' | 'assigned' | 'none';
+const PLATE_FILTERS: { key: PlateState; label: string }[] = [
+  { key: 'all', label: 'Any plate' },
+  { key: 'assigned', label: 'Plate assigned' },
+  { key: 'none', label: 'No plate yet' },
+];
+
 /** How many rows to put on screen before asking whether more are wanted. */
 const PAGE = 20;
 
@@ -271,6 +285,10 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     const t = params.get('timing');
     return TIMING_FILTERS.some(o => o.key === t) ? (t as Timing) : 'all';
   });
+  const [plate, setPlate] = useState<PlateState>(() => {
+    const p = params.get('plate');
+    return PLATE_FILTERS.some(o => o.key === p) ? (p as PlateState) : 'all';
+  });
   const [showFilters, setShowFilters] = useState(false);
   /*
    * Rows are shut by default and opened one at a time. Eleven full cards is
@@ -311,7 +329,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   // across a filter change shows a stranger's bookings.
   useEffect(() => {
     setShown(PAGE);
-  }, [search, filter, range, customFrom, customTo, pay, timing, sort, dateField]);
+  }, [search, filter, range, customFrom, customTo, pay, timing, plate, sort, dateField]);
 
   useEffect(() => {
     load();
@@ -367,7 +385,8 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
   });
   const searched = query ? dateFiltered.filter(b => haystack(b).includes(query)) : dateFiltered;
   const paid_ = pay === 'all' ? searched : searched.filter(b => payStateOf(b) === pay);
-  const narrowed = timing === 'all' ? paid_ : paid_.filter(b => timingOf(b, today) === timing);
+  const timed = timing === 'all' ? paid_ : paid_.filter(b => timingOf(b, today) === timing);
+  const narrowed = plate === 'all' ? timed : timed.filter(b => (plate === 'assigned' ? !!b.unitId : !b.unitId));
   const visible = (filter === 'all' ? narrowed : narrowed.filter(b => b.status === filter))
     .slice()
     .sort((a, b) => compare(a, b, sort));
@@ -377,10 +396,11 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     confirmed: narrowed.filter(b => b.status === 'confirmed').length,
     cancelled: narrowed.filter(b => b.status === 'cancelled').length,
   };
-  const filtering = !!query || range !== 'all' || pay !== 'all' || timing !== 'all' || filter !== 'all';
+  const filtering =
+    !!query || range !== 'all' || pay !== 'all' || timing !== 'all' || plate !== 'all' || filter !== 'all';
   // Only the ones folded away behind the button — the badge counts what is on
   // but out of sight, which is exactly what someone needs warning about.
-  const extraFilters = [range !== 'all', pay !== 'all', timing !== 'all'].filter(Boolean).length;
+  const extraFilters = [range !== 'all', pay !== 'all', timing !== 'all', plate !== 'all'].filter(Boolean).length;
   // Counted before any filter, so the warning is the same number whatever the
   // list is currently showing — and does not vanish because of a filter.
   const overdue = bookings.filter(b => timingOf(b, today) === 'lateReturn').length;
@@ -391,6 +411,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     setCustomTo('');
     setPay('all');
     setTiming('all');
+    setPlate('all');
     setFilter('all');
   }
   const payBooking = payId ? bookings.find(b => b.id === payId) ?? null : null;
@@ -500,6 +521,12 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
             </select>
           </label>
           <label className="block">
+            <span className="label">Plate</span>
+            <select value={plate} onChange={e => setPlate(e.target.value as PlateState)} className="input mt-1">
+              {PLATE_FILTERS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
             <span className="label">Where it stands today</span>
             <select value={timing} onChange={e => setTiming(e.target.value as Timing | 'all')} className="input mt-1">
               {TIMING_FILTERS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
@@ -550,6 +577,7 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
         )}
         {pay !== 'all' && <Chip label={PAY_FILTERS.find(p => p.key === pay)!.label} onClear={() => setPay('all')} />}
         {timing !== 'all' && <Chip label={TIMING_FILTERS.find(t => t.key === timing)!.label} onClear={() => setTiming('all')} />}
+        {plate !== 'all' && <Chip label={PLATE_FILTERS.find(p => p.key === plate)!.label} onClear={() => setPlate('all')} />}
         {filtering && (
           <button onClick={clearFilters} className="font-bold text-brand hover:underline">
             Clear all

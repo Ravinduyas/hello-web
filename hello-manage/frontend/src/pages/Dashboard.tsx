@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   RefreshCw, AlertTriangle, ArrowRight, Bike as BikeIcon, CalendarCheck,
-  Clock, LogIn, LogOut as LogOutIcon, Phone, Wallet, Wrench,
+  Clock, LogIn, LogOut as LogOutIcon, Phone, Plus, TrendingUp, Wallet, Wrench,
 } from 'lucide-react';
 import {
   fetchBookings, fetchUnits, dueOf,
@@ -82,6 +82,63 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
     .filter(b => b.status === 'confirmed' && !b.depositReturned)
     .reduce((s, b) => s + b.deposit, 0);
 
+  /* ---- what is stuck ---- */
+  // A confirmed booking with no plate cannot be paid for — the server refuses
+  // the payment — so it sits there looking finished and is not.
+  const needsPlate = live.filter(b => b.status === 'confirmed' && !b.unitId);
+
+  /* ---- the week ahead ---- */
+  // Seven days from today, so the morning question "what does the week look
+  // like" has an answer that is not the calendar page.
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const iso = isoLocal(d);
+    return {
+      iso,
+      out: live.filter(b => b.pickupDate === iso).length,
+      back: live.filter(b => b.status === 'confirmed' && b.dropoffDate === iso).length,
+    };
+  });
+  const weekPeak = Math.max(1, ...week.map(d => Math.max(d.out, d.back)));
+
+  /* ---- takings, month by month ---- */
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - (5 - i));
+    const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+    return {
+      key,
+      label: d.toLocaleDateString(undefined, { month: 'short' }),
+      total: live
+        .flatMap(b => b.payments)
+        .filter(p => p.at.slice(0, 7) === key)
+        .reduce((sum, p) => sum + p.amount, 0),
+    };
+  });
+  const monthPeak = Math.max(1, ...months.map(m => m.total));
+
+  /* ---- which machines earn ---- */
+  const earners = Object.values(
+    live
+      .filter(b => b.status === 'confirmed' && b.plate)
+      .reduce<Record<string, { plate: string; model: string; rentals: number; revenue: number; days: number }>>(
+        (acc, b) => {
+          const row = acc[b.plate] ?? { plate: b.plate, model: b.bikeTitle, rentals: 0, revenue: 0, days: 0 };
+          row.rentals += 1;
+          row.revenue += b.total;
+          row.days += b.days;
+          acc[b.plate] = row;
+          return acc;
+        },
+        {},
+      ),
+  )
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+  const earnerPeak = Math.max(1, ...earners.map(e => e.revenue));
+
   /* ---- the fleet ---- */
   const fleet = {
     available: units.filter(u => u.status === 'available').length,
@@ -97,9 +154,15 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
           <span className="eyebrow">[ Dashboard ]</span>
           <h1 className="font-display text-2xl font-black mt-1">{fullDate(today)}</h1>
         </div>
-        <button onClick={() => load()} className="btn-outline" disabled={loading} aria-label="Refresh">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* The commonest thing anyone does after reading this page. */}
+          <Link to="/walk-in" className="btn-primary">
+            <Plus className="w-4 h-4" /> Walk-in rental
+          </Link>
+          <button onClick={() => load()} className="btn-outline" disabled={loading} aria-label="Refresh">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
@@ -113,6 +176,21 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
           <AlertTriangle className="w-5 h-5 shrink-0" />
           <span>
             {overdue.length} bike{overdue.length === 1 ? '' : 's'} still out past the return date
+          </span>
+          <ArrowRight className="w-4 h-4 ml-auto shrink-0" />
+        </Link>
+      )}
+
+      {/* Quieter than an overdue bike, but it stops money being taken. */}
+      {needsPlate.length > 0 && (
+        <Link
+          to="/bookings?status=confirmed&plate=none"
+          className="flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl px-5 py-4 mb-4 font-bold hover:bg-amber-100 transition"
+        >
+          <Wrench className="w-5 h-5 shrink-0" />
+          <span>
+            {needsPlate.length} confirmed booking{needsPlate.length === 1 ? '' : 's'} without a plate — payment cannot
+            be taken until one is assigned
           </span>
           <ArrowRight className="w-4 h-4 ml-auto shrink-0" />
         </Link>
@@ -155,6 +233,52 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
           tone={outstanding > 0 ? 'red' : undefined}
         />
       </div>
+
+      {/* The week, so the morning question is answered without opening the
+          calendar: the bars are collections against returns, day by day. */}
+      <section className="bg-white rounded-2xl p-5 md:p-6 mb-4">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="font-display text-lg font-bold">The week ahead</h2>
+          <Link to="/calendar" className="text-xs font-bold text-brand hover:underline">
+            Open the calendar
+          </Link>
+        </div>
+        <div className="grid grid-cols-7 gap-2">
+          {week.map((d, i) => (
+            <div key={d.iso} className={`rounded-xl p-2 text-center ${i === 0 ? 'bg-brand/5' : ''}`}>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-dark/40">
+                {i === 0 ? 'Today' : new Date(d.iso + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' })}
+              </p>
+              <p className="text-xs text-dark/35 mb-2">{new Date(d.iso + 'T00:00:00').getDate()}</p>
+              <div className="flex items-end justify-center gap-1 h-14">
+                <span
+                  title={`${d.out} going out`}
+                  className="w-3 rounded-t bg-brand/70 min-h-[3px]"
+                  style={{ height: `${(d.out / weekPeak) * 100}%` }}
+                />
+                <span
+                  title={`${d.back} coming back`}
+                  className="w-3 rounded-t bg-emerald-500/70 min-h-[3px]"
+                  style={{ height: `${(d.back / weekPeak) * 100}%` }}
+                />
+              </div>
+              <p className="text-xs font-bold tabular-nums mt-1">
+                <span className="text-brand">{d.out}</span>
+                <span className="text-dark/25"> / </span>
+                <span className="text-emerald-600">{d.back}</span>
+              </p>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-dark/40 mt-3 flex items-center gap-4">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-brand/70" /> going out
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/70" /> coming back
+          </span>
+        </p>
+      </section>
 
       <div className="grid lg:grid-cols-3 gap-4">
         {/* ---- the day's movements ---- */}
@@ -234,6 +358,64 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
             </Link>
           </section>
         </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-4 mt-4">
+        {/* ---- what came in, month by month ---- */}
+        <section className="bg-white rounded-2xl p-5 md:p-6 flex flex-col">
+          <h2 className="font-display text-lg font-bold mb-1">Taken, last six months</h2>
+          <p className="text-xs text-dark/40 mb-5">Payments on the day they were recorded.</p>
+          {/* Grows into whatever height the panel beside it sets, rather
+             than leaving a pool of white under a short chart. */}
+          <div className="flex items-end gap-3 flex-1 min-h-[9rem]">
+            {months.map(m => (
+              <div key={m.key} className="flex-1 flex flex-col items-center justify-end h-full">
+                <span className="text-xs font-bold tabular-nums mb-1 text-dark/60">
+                  {m.total > 0 ? money(m.total) : ''}
+                </span>
+                <span
+                  className={`w-full rounded-t ${m.total > 0 ? 'bg-brand' : 'bg-dark/5'}`}
+                  style={{ height: `${Math.max((m.total / monthPeak) * 100, m.total > 0 ? 6 : 2)}%` }}
+                />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-dark/40 mt-2">{m.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ---- which machines pay for themselves ---- */}
+        <section className="bg-white rounded-2xl p-5 md:p-6">
+          <h2 className="font-display text-lg font-bold mb-1">Hardest working machines</h2>
+          <p className="text-xs text-dark/40 mb-5">By what they have earned on confirmed rentals.</p>
+          {earners.length === 0 ? (
+            <p className="text-sm text-dark/45">No rentals against a plate yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {earners.map(e => (
+                <li key={e.plate}>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="font-bold truncate">
+                      {e.plate} <span className="font-normal text-dark/45">· {e.model}</span>
+                    </span>
+                    <span className="font-display font-black tabular-nums shrink-0">{money(e.revenue)}</span>
+                  </div>
+                  <div className="h-1.5 bg-dark/5 rounded-full mt-1.5 overflow-hidden">
+                    <span
+                      className="block h-full bg-brand rounded-full"
+                      style={{ width: `${(e.revenue / earnerPeak) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-dark/40 mt-1">
+                    {e.rentals} rental{e.rentals === 1 ? '' : 's'} · {e.days} day{e.days === 1 ? '' : 's'} out
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link to="/finance" className="inline-flex items-center gap-1.5 text-xs font-bold text-brand hover:underline mt-4">
+            <TrendingUp className="w-3.5 h-3.5" /> Earnings by owner and plate
+          </Link>
+        </section>
       </div>
 
       {loading && bookings.length === 0 && <p className="text-dark/50 mt-6">Loading…</p>}
