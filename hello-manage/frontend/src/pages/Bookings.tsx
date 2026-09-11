@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus, Search, ArrowUpDown, AlertTriangle, SlidersHorizontal, MoreHorizontal } from 'lucide-react';
 import Drawer from '../components/Drawer';
 import {
@@ -239,18 +240,34 @@ function PillSelect<T extends string>({
 }
 
 export default function Bookings({ onLogout }: { onLogout: () => void }) {
+  /*
+   * The dashboard sends people here already asking a question — "the six that
+   * are late", "the one waiting to be confirmed" — so the filters can be set
+   * from the link. Read once, as the initial state: after that the controls on
+   * this page own them, and changing one must not fight with the URL.
+   */
+  const [params] = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<'all' | BookingStatus>('all');
+  const [filter, setFilter] = useState<'all' | BookingStatus>(() => {
+    const s = params.get('status');
+    return s === 'pending' || s === 'confirmed' || s === 'cancelled' ? s : 'all';
+  });
   const [range, setRange] = useState<DateRange>('all');
   const [dateField, setDateField] = useState<DateField>('pickup');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [search, setSearch] = useState('');
-  const [pay, setPay] = useState<PayState | 'all'>('all');
-  const [timing, setTiming] = useState<Timing | 'all'>('all');
+  const [pay, setPay] = useState<PayState | 'all'>(() => {
+    const p = params.get('pay');
+    return PAY_FILTERS.some(o => o.key === p) ? (p as PayState) : 'all';
+  });
+  const [timing, setTiming] = useState<Timing | 'all'>(() => {
+    const t = params.get('timing');
+    return TIMING_FILTERS.some(o => o.key === t) ? (t as Timing) : 'all';
+  });
   const [showFilters, setShowFilters] = useState(false);
   const [sort, setSort] = useState<Sort>('newest');
   const [payId, setPayId] = useState<string | null>(null);
