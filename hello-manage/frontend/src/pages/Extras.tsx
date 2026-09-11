@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Save, RefreshCw, GripVertical } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { Loading, SkeletonCards } from '../components/Skeleton';
 import {
   fetchExtras,
   createExtra,
@@ -94,7 +95,9 @@ export default function Extras({ onLogout }: { onLogout: () => void }) {
       </Drawer>
 
       {loading ? (
-        <p className="text-dark/50 mt-6">Loading extras…</p>
+        <Loading label="Loading extras">
+          <SkeletonCards count={4} lines={1} />
+        </Loading>
       ) : extras.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No extras yet. Add one above.</div>
       ) : (

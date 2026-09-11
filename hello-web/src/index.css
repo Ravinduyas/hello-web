@@ -192,3 +192,30 @@
     @apply not-sr-only fixed top-4 left-4 z-[200] bg-dark text-white px-5 py-3 rounded-full text-sm font-medium;
   }
 }
+
+/*
+ * Arriving.
+ *
+ * A page swapping in with no movement at all reads as a jump cut; a short
+ * rise settles it. Switched off for anyone whose system asks for less motion.
+ */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+}

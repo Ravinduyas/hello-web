@@ -2,6 +2,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus, Search, ArrowUpDown, AlertTriangle, SlidersHorizontal, MoreHorizontal } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { Loading, SkeletonCards } from '../components/Skeleton';
 import {
   fetchBookings,
   setBookingStatus,
@@ -560,9 +561,13 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
       {/* What is narrowing the list, said in words, each one removable on its
           own. A count alone left people guessing which control was doing it. */}
       <div className="flex flex-wrap items-center gap-2 mb-6 text-xs">
-        <span className="text-dark/45">
-          Showing {visible.length} of {bookings.length} booking{bookings.length === 1 ? '' : 's'}
-        </span>
+        {/* While the first load is still running this would read "0 of 0",
+            which is a claim rather than a wait. */}
+        {!(loading && bookings.length === 0) && (
+          <span className="text-dark/45">
+            Showing {visible.length} of {bookings.length} booking{bookings.length === 1 ? '' : 's'}
+          </span>
+        )}
         {query && <Chip label={'“' + search.trim() + '”'} onClear={() => setSearch('')} />}
         {filter !== 'all' && <Chip label={filter} onClear={() => setFilter('all')} />}
         {range !== 'all' && (
@@ -588,13 +593,17 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
       {loading ? (
-        <p className="text-dark/50">Loading bookings…</p>
+        <Loading label="Loading bookings">
+          <SkeletonCards count={5} lines={1} />
+        </Loading>
       ) : visible.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No bookings here yet.</div>
       ) : (
         <div className="space-y-3">
-          {visible.slice(0, shown).map(b => (
-            <div key={b.id} className="bg-white rounded-2xl">
+          {visible.slice(0, shown).map((b, i) => (
+            // Rows land in sequence rather than all at once; past the first
+            // screenful the stagger would only be a delay nobody sees.
+            <div key={b.id} className="bg-white rounded-2xl rise" style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
               {/* The line that identifies a booking, and nothing else until it
                   is asked for. The customer's name leads, because that is who
                   is standing at the counter or on the phone; the machine, the

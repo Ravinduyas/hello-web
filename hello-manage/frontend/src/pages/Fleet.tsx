@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Save, RefreshCw, X, Check, ChevronDown, ChevronRight, Tag, LayoutGrid, List, Pencil } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { Loading, SkeletonCards } from '../components/Skeleton';
 import { money } from '../lib/money';
 import {
   fetchBikes,
@@ -208,7 +209,9 @@ export default function Fleet({ onLogout }: { onLogout: () => void }) {
       </Drawer>
 
       {loading ? (
-        <p className="text-dark/50 mt-6">Loading fleet…</p>
+        <Loading label="Loading the fleet">
+          <SkeletonCards count={5} lines={2} />
+        </Loading>
       ) : view === 'plates' ? (
         <PlatesList
           units={units}

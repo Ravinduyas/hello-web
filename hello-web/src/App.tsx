@@ -90,7 +90,9 @@ function Shell() {
   return (
     <div className="min-h-screen">
       {!bare && <Navbar />}
-      <div id="main-content">
+      {/* Keyed on the path so each page plays the entrance once when it
+          arrives, rather than the container animating a single time on load. */}
+      <div id="main-content" key={pathname} className="rise">
         <Routes>
           {ROUTE_PATHS.map(path => (
             <Route key={path} path={path} element={PAGES[path]} />

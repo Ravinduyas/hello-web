@@ -9,6 +9,7 @@ import {
   UnauthorizedError, type Booking, type Unit,
 } from '../lib/api';
 import { money } from '../lib/money';
+import { Loading, SkeletonStats, SkeletonPanel } from '../components/Skeleton';
 
 /**
  * What the shop needs to know before it does anything else.
@@ -166,6 +167,19 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
       </div>
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
+
+      {/* The shape of the page arrives before its numbers do, so nothing
+          shifts underneath a pointer when they land. */}
+      {loading && bookings.length === 0 && (
+        <Loading label="Loading today's figures">
+          <SkeletonStats count={4} />
+          <SkeletonPanel className="mt-4" lines={3} />
+          <div className="grid lg:grid-cols-3 gap-4 mt-4">
+            <SkeletonPanel className="lg:col-span-2" lines={6} />
+            <SkeletonPanel lines={4} />
+          </div>
+        </Loading>
+      )}
 
       {/* A bike that has not come back outranks everything else on this page. */}
       {overdue.length > 0 && (
@@ -418,7 +432,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
         </section>
       </div>
 
-      {loading && bookings.length === 0 && <p className="text-dark/50 mt-6">Loading…</p>}
+
     </div>
   );
 }

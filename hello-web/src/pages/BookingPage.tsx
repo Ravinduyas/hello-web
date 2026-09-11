@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowRight,
+  ArrowRight, Loader2,
   ArrowLeft,
   Check,
   Calendar,
@@ -1430,7 +1430,14 @@ function BookingBar({
             className="btn-primary whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none"
           >
             {submitting ? 'Booking…' : isLastStep ? 'Confirm booking' : 'Continue'}
-            <ArrowRight className="w-4 h-4 shrink-0" />
+            {/* The one moment on this site with a real wait behind it: the
+                booking is on its way to the server and the button should not
+                look like it is still waiting to be pressed. */}
+            {submitting ? (
+              <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+            ) : (
+              <ArrowRight className="w-4 h-4 shrink-0" />
+            )}
           </button>
         </div>
       </div>

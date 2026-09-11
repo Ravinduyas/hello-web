@@ -96,3 +96,63 @@
     margin: 14mm;
   }
 }
+
+/*
+ * Waiting, and arriving.
+ *
+ * A page that says "Loading…" tells someone their click worked and nothing
+ * else. A shape where the content will be tells them what is coming and how
+ * much, and the page does not jump when it lands because the space was already
+ * taken. The shimmer is what separates a placeholder from a broken layout.
+ *
+ * Everything here is switched off for anyone who has asked their system for
+ * less motion — a sweeping gradient behind every row is exactly the kind of
+ * thing that setting exists for.
+ */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@layer components {
+  .skeleton {
+    @apply relative overflow-hidden bg-dark/[0.07] rounded-lg;
+  }
+
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Content arriving. The delay is set per item so a list lands in sequence
+     rather than all at once, which reads as one movement instead of a flash. */
+  .rise {
+    animation: rise 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+
+  .rise {
+    animation: none;
+  }
+}

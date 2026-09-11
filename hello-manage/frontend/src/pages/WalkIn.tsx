@@ -12,6 +12,7 @@ import {
   type Extra,
   type Booking,
 } from '../lib/api';
+import { Loading, SkeletonPanel } from '../components/Skeleton';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const todayISO = () => new Date().toISOString().split('T')[0];
@@ -178,7 +179,12 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
       {loading ? (
-        <p className="text-dark/50">Loading shop data…</p>
+        <Loading label="Loading the shop's bikes and extras">
+          <div className="grid lg:grid-cols-3 gap-4">
+            <SkeletonPanel className="lg:col-span-2" lines={7} />
+            <SkeletonPanel lines={5} />
+          </div>
+        </Loading>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
           <div className="space-y-6">

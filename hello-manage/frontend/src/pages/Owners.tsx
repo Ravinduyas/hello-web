@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Pencil, RefreshCw, Bike as BikeIcon, ChevronDown } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { Loading, SkeletonTable } from '../components/Skeleton';
 import {
   fetchOwners,
   createOwner,
@@ -132,7 +133,9 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
       </Drawer>
 
       {loading ? (
-        <p className="text-dark/50 mt-6">Loading owners…</p>
+        <Loading label="Loading owners">
+          <SkeletonTable rows={4} cols={4} />
+        </Loading>
       ) : owners.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center text-dark/50 mt-6">No owners yet. Add one above.</div>
       ) : (

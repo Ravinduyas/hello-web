@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, ChevronDown, Pencil, Percent, DollarSign, Plus, Trash2, Printer } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { Loading, SkeletonStats, SkeletonTable } from '../components/Skeleton';
 import {
   fetchOwners, fetchUnits, fetchBookings, fetchBikes, updateOwner, paidOf, dueOf,
   fetchTransactions, createTransaction, deleteTransaction,
@@ -285,7 +286,12 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
       </Drawer>
 
       {loading ? (
-        <p className="text-dark/50">Loading…</p>
+        <Loading label="Loading the finance figures">
+          <SkeletonStats count={4} />
+          <div className="mt-4">
+            <SkeletonTable rows={5} cols={5} />
+          </div>
+        </Loading>
       ) : tab === 'payouts' ? (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
