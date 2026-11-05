@@ -1,24 +1,28 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getBlogPostByPath } from '../data/blog';
 import { seoFor } from '../data/seo';
+import { schemasForPath } from '../data/schema';
+import { BASE_URL } from '../lib/asset';
 
 /**
- * Keeps the document's metadata and article JSON-LD in step with the route.
+ * Keeps the document's metadata and JSON-LD structured data in step with the route.
  *
- * The build writes each route's title, description, canonical and structured
- * data into its own HTML file, which is what crawlers and link previews read on
- * direct arrival. Moving between pages in the browser never fetches a new
- * document, so this component keeps `<head>` accurate across SPA navigation too.
+ * The build writes each route's title, description, canonical, OpenGraph tags,
+ * and Schema.org scripts into its own HTML file for crawlers and link previews.
+ * On client-side navigation no new document is fetched, so this component keeps
+ * the live `<head>` identical to what a fresh request would serve.
+ *
+ * Renders nothing. It only edits the head.
  */
 export default function PageSeo() {
   const { pathname } = useLocation();
 
   useEffect(() => {
     const seo = seoFor(pathname);
-    const origin = window.location.origin;
-    const url = origin + pathname;
-    const image = origin + (seo.image ?? '/photos/shop-front.jpg');
+    const siteRoot = window.location.origin + BASE_URL.replace(/\/+$/, '');
+    const url = siteRoot + (pathname === '/' ? '/' : pathname);
+    const image = siteRoot + '/' + (seo.image ?? '/photos/shop-front.jpg').replace(/^\/+/, '');
+    const ogType = seo.type ?? 'website';
 
     document.title = seo.title;
 
@@ -69,70 +73,48 @@ export default function PageSeo() {
       url,
     );
 
-    og('og:type', seo.ogType ?? 'website');
+    og('og:type', ogType);
     og('og:title', seo.title);
     og('og:description', seo.description);
     og('og:url', url);
     og('og:image', image);
+
+    if (ogType === 'article' && seo.publishedTime) {
+      og('article:published_time', seo.publishedTime);
+    } else {
+      remove('meta[property="article:published_time"]');
+    }
+
+    if (ogType === 'article' && seo.section) {
+      og('article:section', seo.section);
+    } else {
+      remove('meta[property="article:section"]');
+    }
+
+    remove('meta[property="article:tag"]');
+    if (ogType === 'article' && seo.keywords) {
+      for (const kw of seo.keywords) {
+        const el = document.createElement('meta');
+        el.setAttribute('property', 'article:tag');
+        el.setAttribute('content', kw);
+        document.head.appendChild(el);
+      }
+    }
+
+    meta('twitter:card', 'summary_large_image');
     meta('twitter:title', seo.title);
     meta('twitter:description', seo.description);
     meta('twitter:image', image);
 
-    // Keep dynamic BlogPosting + FAQPage JSON-LD synced on SPA navigation.
-    remove('script[data-dynamic-seo="true"]');
-    const post = getBlogPostByPath(pathname);
-    if (post) {
-      const schemas = [
-        {
-          '@context': 'https://schema.org',
-          '@type': 'BlogPosting',
-          headline: post.title,
-          description: post.metaDescription,
-          image: origin + post.heroImage,
-          datePublished: post.publishedAt,
-          dateModified: post.updatedAt,
-          keywords: post.keywords.join(', '),
-          author: {
-            '@type': 'Organization',
-            name: 'Hello Rent - Scooter & Tuktuk Rental',
-            url: origin + '/about',
-          },
-          publisher: {
-            '@type': 'AutoRental',
-            name: 'Hello Rent',
-            alternateName: 'Hello Rent - Scooter & Tuktuk Rental',
-            url: origin + '/',
-            logo: {
-              '@type': 'ImageObject',
-              url: origin + '/brand/logo.jpg',
-            },
-          },
-          mainEntityOfPage: {
-            '@type': 'WebPage',
-            '@id': url,
-          },
-        },
-        {
-          '@context': 'https://schema.org',
-          '@type': 'FAQPage',
-          mainEntity: post.faqs.map(faq => ({
-            '@type': 'Question',
-            name: faq.question,
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: faq.answer,
-            },
-          })),
-        },
-      ];
-
-      for (const schema of schemas) {
-        const script = document.createElement('script');
-        script.type = 'application/ld+json';
-        script.setAttribute('data-dynamic-seo', 'true');
-        script.textContent = JSON.stringify(schema);
-        document.head.appendChild(script);
-      }
+    // Replace route-managed JSON-LD blocks cleanly so SPA navigations carry
+    // accurate BlogPosting, FAQPage, BreadcrumbList, and AutoRental schemas.
+    remove('script[type="application/ld+json"][data-hello-seo="true"]');
+    for (const schema of schemasForPath(siteRoot, pathname)) {
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.setAttribute('data-hello-seo', 'true');
+      script.textContent = JSON.stringify(schema);
+      document.head.appendChild(script);
     }
   }, [pathname]);
 

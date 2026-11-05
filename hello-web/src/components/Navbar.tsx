@@ -48,7 +48,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-1 text-sm font-medium">
             {links.map(link => {
               const activeLink =
-                link.to === '/blog' ? pathname.startsWith('/blog') : pathname === link.to;
+                pathname === link.to || (link.to === '/blog' && pathname.startsWith('/blog/'));
               return (
                 <Link
                   key={link.to}
@@ -115,7 +115,7 @@ export default function Navbar() {
                   to={link.to}
                   onClick={() => setOpen(false)}
                   className={`font-display text-3xl font-bold transition-colors hover:text-brand ${
-                    (link.to === '/blog' ? pathname.startsWith('/blog') : pathname === link.to)
+                    pathname === link.to || (link.to === '/blog' && pathname.startsWith('/blog/'))
                       ? 'text-brand'
                       : 'text-dark'
                   }`}

@@ -4,16 +4,12 @@ import { Link } from 'react-router-dom';
 import { BLOG_POSTS } from '../data/blog';
 import { asset } from '../lib/asset';
 
-const FEATURED_HOME_SLUGS = [
-  'weligama-scooter-bike-rental-guide',
-  'rent-a-scooter-in-sri-lanka',
-  'tuktuk-rental-weligama-sri-lanka',
-];
-
 export function Blog() {
-  const posts = FEATURED_HOME_SLUGS.map(slug => BLOG_POSTS.find(p => p.slug === slug)).filter(
-    (p): p is NonNullable<typeof p> => Boolean(p),
-  );
+  const featuredPosts = [
+    BLOG_POSTS[0], // Scooter Rental in Weligama
+    BLOG_POSTS[3], // Tuk-Tuk Rental in Weligama & Sri Lanka
+    BLOG_POSTS[2], // How to Rent a Scooter in Sri Lanka
+  ].filter(Boolean);
 
   return (
     <section className="bg-beige py-16 md:py-24">
@@ -29,19 +25,19 @@ export function Blog() {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {posts.map((post, idx) => (
-            <motion.article
+          {featuredPosts.map((post, idx) => (
+            <motion.div
               key={post.slug}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1 }}
             >
-              <Link to={post.path} className="group block">
+              <Link to={`/blog/${post.slug}`} className="group block">
                 <div className="aspect-[4/3] rounded-3xl overflow-hidden mb-6">
                   <img
-                    src={asset(post.cardImage)}
-                    alt={post.heroAlt}
+                    src={asset(post.image)}
+                    alt={post.imageAlt}
                     loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
@@ -52,26 +48,21 @@ export function Blog() {
                 <h3 className="font-display text-xl font-bold mb-3 line-clamp-2 group-hover:text-brand transition-colors">
                   {post.title}
                 </h3>
-                <p className="text-sm text-dark/60 leading-relaxed line-clamp-2 mb-4">
+                <p className="text-sm text-dark/60 leading-relaxed line-clamp-2 mb-3">
                   {post.excerpt}
                 </p>
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-dark/55 group-hover:text-brand uppercase tracking-widest transition-colors">
-                  Read guide <ArrowRight className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-bold text-dark/40 uppercase tracking-widest">
+                  {post.displayDate}
                 </span>
               </Link>
-            </motion.article>
+            </motion.div>
           ))}
         </div>
 
-        <div className="mt-12 pt-8 border-t border-dark/10 flex flex-wrap items-center justify-between gap-4">
-          <p className="text-sm text-dark/55">
-            Written by Lucky &amp; Sandra at Hello Rent - Scooter &amp; Tuktuk Rental in Weligama.
-          </p>
-          <Link
-            to="/blog"
-            className="inline-flex items-center gap-2 text-sm font-bold text-brand hover:gap-3 transition-all"
-          >
-            Browse all riding &amp; rental guides <ArrowRight className="w-4 h-4" />
+        <div className="mt-12 flex justify-center md:justify-end">
+          <Link to="/blog" className="btn-outline group">
+            READ ALL RIDING GUIDES
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
       </div>

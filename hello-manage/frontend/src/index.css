@@ -6,7 +6,7 @@
 
 /*
  * Apple-style look: San Francisco where the OS has it (macOS / iOS), Inter
- * elsewhere; Apple's light-grey canvas, near-black ink and system blue accent.
+ * elsewhere; Apple's light-grey canvas, near-black ink and a warm caramel accent.
  * The token names (brand / beige / dark / card) are kept so every page picks
  * the palette up without changes — and flips with it in dark mode.
  *   beige = the canvas, dark = the ink, card = raised panels.
@@ -15,7 +15,7 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", system-ui, sans-serif;
 
-  --color-brand: #007AFF;
+  --color-brand: #C28257;
   --color-beige: #F5F5F7;
   --color-dark: #1D1D1F;
   --color-card: #FFFFFF;
@@ -28,7 +28,7 @@
  */
 .dark {
   color-scheme: dark;
-  --color-brand: #0A84FF;
+  --color-brand: #C28257;
   --color-beige: #000000;
   --color-dark: #F5F5F7;
   --color-card: #1C1C1E;
@@ -138,7 +138,7 @@
 @media print {
   html.dark {
     color-scheme: light;
-    --color-brand: #007AFF;
+    --color-brand: #C28257;
     --color-beige: #F5F5F7;
     --color-dark: #1D1D1F;
     --color-card: #FFFFFF;

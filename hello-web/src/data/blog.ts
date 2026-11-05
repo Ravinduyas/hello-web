@@ -1,176 +1,227 @@
 /**
- * Editorial riding & rental guides for Hello Rent - Scooter & Tuktuk Rental.
+ * SEO-optimised riding & rental guides written for Hello Rent in Weligama.
  *
- * Kept as pure data (no React imports) so both the browser bundle and the Vite
- * build-time SEO/sitemap plugins can walk the exact same list of articles,
- * slugs, metadata, FAQs, and internal links.
+ * Each article targets a distinct search intent so pages complement rather than
+ * cannibalise one another across Weligama local queries, Sri Lanka-wide rental
+ * queries, vehicle-comparison queries, tuk-tuk self-drive queries, and brand
+ * searches for "Hello Rent - Scooter & Tuktuk Rental".
+ *
+ * Read both at build time (by vite-plugin-sitemap and vite-plugin-seo-routes)
+ * and at runtime (by BlogPage, BlogPostPage, Blog teaser, and PageSeo).
+ * Keep free of browser-only globals so Node can import this module cleanly.
  */
 
-export type BlogCategory =
-  | 'Weligama Local'
-  | 'Sri Lanka Tips'
-  | 'Tuk-Tuk Guides'
-  | 'Routes & Trips';
+export interface BlogFaq {
+  question: string;
+  answer: string;
+}
 
-export interface BlogComparisonTable {
+export interface BlogBullet {
+  title: string;
+  detail: string;
+}
+
+export interface BlogTable {
   caption?: string;
   headers: string[];
   rows: string[][];
 }
 
 export interface BlogCallout {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   body: string;
-  ctaLabel?: string;
-  ctaTo?: string;
-  dark?: boolean;
+  ctaLabel: string;
+  ctaTo: string;
 }
 
 export interface BlogSection {
   id: string;
+  eyebrow?: string;
   heading: string;
-  /** Supports inline markdown-style links `[anchor text](/path)` rendered via React Router. */
   paragraphs: string[];
-  bullets?: { label: string; text: string }[];
-  table?: BlogComparisonTable;
+  bullets?: BlogBullet[];
+  table?: BlogTable;
   callout?: BlogCallout;
 }
 
-export interface BlogFaq {
-  question: string;
-  /** Plain text (also emitted verbatim into FAQPage JSON-LD). */
-  answer: string;
+export interface BlogQuickFact {
+  label: string;
+  value: string;
+}
+
+export interface BlogInternalLink {
+  label: string;
+  to: string;
+  description: string;
 }
 
 export interface BlogPost {
   slug: string;
-  path: `/blog/${string}`;
   title: string;
+  /** Concise title (<60 chars where possible) for SERP & social cards. */
   seoTitle: string;
-  metaDescription: string;
+  /** ~145–160 char meta description written for click-through & intent match. */
+  seoDescription: string;
+  /** Target & semantic keywords for structured data and topic filtering. */
   keywords: string[];
-  category: BlogCategory;
+  category: string;
+  /** ISO 8601 date string for BlogPosting schema. */
   publishedAt: string;
-  updatedAt: string;
+  /** Human-readable date matching house style. */
   displayDate: string;
   readingTime: string;
-  heroImage: string;
-  cardImage: string;
-  heroAlt: string;
+  author: {
+    name: string;
+    role: string;
+  };
+  /** Path relative to public/, e.g. '/photos/scooters-weligama-bay.jpg'. */
+  image: string;
+  imageAlt: string;
   excerpt: string;
-  keyTakeaways: string[];
+  featured?: boolean;
+  whatsappPrompt: string;
+  quickFacts: BlogQuickFact[];
   sections: BlogSection[];
   faqs: BlogFaq[];
   relatedSlugs: string[];
+  internalLinks: BlogInternalLink[];
 }
 
 export const BLOG_POSTS: BlogPost[] = [
-  /* ------------------------------------------------------------------ */
-  /*  1. Weligama Scooter & Bike Rental Cornerstone Guide                */
-  /* ------------------------------------------------------------------ */
+  /* ======================================================================== */
+  /* 1. Scooter Rental Weligama / Weligama Scooter Rental                     */
+  /* ======================================================================== */
   {
-    slug: 'weligama-scooter-bike-rental-guide',
-    path: '/blog/weligama-scooter-bike-rental-guide',
-    title: 'Weligama Scooter Rental & Bike Rent: 2026 Prices, Surf Racks & Local Tips',
-    seoTitle: 'Weligama Scooter Rental & Bike Rent Guide (2026) | Hello Rent',
-    metaDescription:
-      'Planning scooter rental in Weligama or bike rent in Weligama? Compare €5–€10/day rates, surf racks, permits and no-passport deposits at Hello Rent.',
+    slug: 'scooter-rental-weligama-guide',
+    title: 'Scooter Rental in Weligama: Local Prices, Permits & South Coast Tips (2026)',
+    seoTitle: 'Scooter Rental Weligama: 2026 Prices & Guide | Hello Rent',
+    seoDescription:
+      'Looking for scooter rental in Weligama? Compare €5–€6/day Honda Dio, Yamaha Ray ZR & TVS Ntorq rates, permit rules, surf parking, and hotel delivery with Hello Rent.',
     keywords: [
       'scooter rental weligama',
       'weligama scooter rental',
-      'bike rent weligama',
-      'weligama bike rental',
-      'hello rent - scooter & tuktuk rental',
       'hello rent',
+      'hello rent - scooter & tuktuk rental',
+      'rent scooter sri lanka',
+      'bike rent weligama',
     ],
-    category: 'Weligama Local',
-    publishedAt: '2026-10-28',
-    updatedAt: '2026-11-04',
-    displayDate: '28 Oct 2026',
+    category: 'Weligama Guides',
+    publishedAt: '2026-05-02',
+    displayDate: '02 May 2026',
     readingTime: '7 min read',
-    heroImage: '/photos/scooters-weligama-bay.jpg',
-    cardImage: '/photos/scooters-weligama-bay.jpg',
-    heroAlt: 'Two Hello Rent scooters parked overlooking Weligama Bay on Sri Lanka’s south coast',
+    author: {
+      name: 'Bhagya “Lucky” & Sandra',
+      role: 'Founders, Hello Rent Weligama',
+    },
+    image: '/photos/scooters-weligama-bay.jpg',
+    imageAlt: 'Automatic scooters parked by Weligama Bay on Sri Lanka’s south coast',
     excerpt:
-      'What scooter rental in Weligama really costs per day, how to choose between an automatic 110cc scooter and a geared motorbike, and the local rules worth knowing before you ride out onto Matara Road.',
-    keyTakeaways: [
-      'Automatic 110cc scooters (Honda Dio, Yamaha Ray ZR) start at €5/day; 125cc TVS Ntorq scooters are €6/day; manual 160cc–200cc motorbikes are €10/day.',
-      'Never leave your physical passport as a rental deposit — reputable Weligama shops use fair deposit alternatives.',
-      'To ride legally past south-coast police checks, you need Category A on your International Driving Permit plus a local Sri Lankan recognition permit.',
-      'Hello Rent - Scooter & Tuktuk Rental sits in central Weligama near the train station and beach, with hotel delivery across Mirissa, Midigama and Ahangama.',
+      'Everything you need to know before picking up a Weligama scooter rental — honest daily prices from €5, which automatic model suits your height and luggage, where to park near the surf breaks, and how to ride legally.',
+    featured: true,
+    whatsappPrompt:
+      "Hi Hello Rent! I read your Weligama scooter rental guide and I'd like to check availability.",
+    quickFacts: [
+      { label: '110cc Scooters', value: '€5 / day' },
+      { label: '125cc TVS Ntorq', value: '€6 / day' },
+      { label: 'Included Free', value: '1 Helmet & Briefing' },
+      { label: 'Store Hours', value: '07:00 – 21:00 Daily' },
     ],
     sections: [
       {
-        id: 'weligama-rental-prices',
-        heading: 'What Scooter Rental in Weligama Actually Costs in 2026',
+        id: 'why-scooter-weligama',
+        eyebrow: '[ Why Two Wheels Win ]',
+        heading: 'Why a Weligama scooter rental changes your whole south coast trip',
         paragraphs: [
-          'If you are staying anywhere along Weligama Bay, having your own two wheels turns twenty-minute tuk-tuk negotiations into effortless five-minute coastal hops. Morning surf at Weligama Beach, brunch in Ahangama, sunset at Coconut Tree Hill in Mirissa, and dinner in Midigama all sit within ten kilometres of each other along the A2 coast road.',
-          'At **Hello Rent - Scooter & Tuktuk Rental**, we keep pricing transparent and grouped by engine class rather than haggling at the kerb. Every [Weligama scooter rental and motorbike in our fleet](/fleet) includes a safety-inspected vehicle, a rider helmet, and 24/7 south-coast roadside support.',
+          'Stay in Weligama for more than one morning and you notice the rhythm of the coast right away. Dawn surf checks at Weligama Bay or Midigama, breakfast cafés tucked up quiet coconut lanes, midday swims at Jungle Beach or Secret Beach in Mirissa, and sunset viewpoints toward Ahangama — all of them sit five to twenty minutes apart along the A2 coastal road.',
+          'Relying on roadside three-wheeler taxis for four or five hops a day quickly costs more than having your own wheels, and you spend half your holiday negotiating fares in the heat. With a reliable scooter rental in Weligama, your day belongs to you: stop where the fruit stall looks good, detour inland past emerald paddy fields, and ride home whenever the tide turns.',
+          'At Hello Rent in the centre of Weligama — walking distance from Weligama Beach, the railway station, and the main bus stand — we hand over automatic scooters every morning to solo surfers, couples, and remote workers staying across the Southern Province.',
+        ],
+      },
+      {
+        id: 'weligama-scooter-prices-models',
+        eyebrow: '[ Models & Rates ]',
+        heading: 'Weligama scooter rental prices & which model to pick',
+        paragraphs: [
+          'Most visitors have never ridden an Asian commuter scooter before, so we keep our pricing simple and transparent by engine size rather than seasonal haggling. Every automatic 110cc scooter in our shop is €5 per day, and our 125cc scooter is €6 per day — with a clean helmet included and no credit card needed to reserve online.',
+          'Choosing the right scooter comes down to your height, whether you are riding solo or two-up with a passenger, and how much under-seat storage you want for beach gear, cameras, or groceries.',
         ],
         table: {
-          caption: '2026 Daily Rates at Hello Rent (Weligama, Southern Province)',
-          headers: ['Vehicle Class', 'Models in Fleet', 'Transmission', 'Daily Rate'],
+          caption: 'Hello Rent Weligama automatic scooter fleet comparison',
+          headers: ['Model', 'Engine', 'Daily Rate', 'Seat & Weight', 'Best For'],
           rows: [
-            ['110cc Scooter', 'Honda Dio, Yamaha Ray ZR, Honda Navi', 'Automatic (twist & go)', '€5 / day'],
-            ['125cc Scooter', 'TVS Ntorq 125', 'Automatic (twist & go)', '€6 / day'],
-            ['Manual Motorbike', 'Bajaj Pulsar N160, Yamaha FZ 160, TVS Apache 200', 'Manual clutch & gears', '€10 / day'],
-            ['Self-Drive Tuk-Tuk', 'Bajaj RE 4-Stroke Three-Wheeler', 'Manual handlebar clutch', '€15 / day'],
+            [
+              'Honda Dio 110cc',
+              '110cc Auto',
+              '€5 / day',
+              'Low 765mm seat · Combi Brake System',
+              'First-time Sri Lanka riders, solo beach runs, petite to average height',
+            ],
+            [
+              'Yamaha Ray ZR',
+              '110cc Hybrid Auto',
+              '€5 / day',
+              'Lightest at 99kg · 21L storage',
+              'Easy low-speed balance, extra knee room for taller riders',
+            ],
+            [
+              'Honda Navi 110cc',
+              '110cc Auto',
+              '€5 / day',
+              'Narrow mini-bike stance (box optional)',
+              'Riders who prefer motorcycle posture with twist-and-go simplicity',
+            ],
+            [
+              'TVS Ntorq 125',
+              '124.8cc Auto',
+              '€6 / day',
+              '22L storage · Digital console',
+              'Two-up couples, steeper inland hills, Ahangama to Hiriketiya runs',
+            ],
           ],
+        },
+        callout: {
+          eyebrow: '[ Check Live Availability ]',
+          title: 'Reserve your Weligama scooter in two minutes',
+          body: 'Pick your dates, add a second passenger helmet (€2/day) or phone mount (€1/day), and pay at pickup in Weligama or via hotel delivery.',
+          ctaLabel: 'BROWSE SCOOTERS & BOOK',
+          ctaTo: '/book-now',
         },
       },
       {
-        id: 'scooter-vs-bike-rent-weligama',
-        heading: 'Bike Rent in Weligama: Automatic Scooter vs Manual Motorbike',
+        id: 'permits-police-checks-weligama',
+        eyebrow: '[ Ride Legally ]',
+        heading: 'Licences, permits & what police check around Weligama and Mirissa',
         paragraphs: [
-          'Travelers searching for **bike rent Weligama** or **Weligama bike rental** often mean two very different machines: an automatic step-through scooter for beach runs, or a geared motorcycle for climbing into the hills. Picking the right one comes down to your licence, your height, and how far inland you plan to ride.',
-          'For 90% of south-coast trips between Hikkaduwa, Galle, Weligama, Mirissa and Hiriketiya, an automatic scooter is easier in town traffic and gives you lockable under-seat storage for flip-flops, sunscreen and a dry shirt. If you want a deeper model-by-model breakdown, read our [scooter vs motorbike comparison for Sri Lanka](/blog/scooter-vs-motorbike-sri-lanka).',
+          'This is the single piece of advice we give every guest before handing over a key: your home driving licence or International Driving Permit (IDP) alone is not legally sufficient in Sri Lanka. Traffic police along the Weligama–Mirissa coastal strip and outside Galle regularly run friendly routine checkpoints.',
+          'To ride a scooter legally, you need Category A (motorcycles) on your home licence, a government-issued IDP booklet (not an unofficial online PDF), and a temporary Sri Lankan recognition permit. You can pick up a one-month card at Colombo Airport or the Department of Motor Traffic, or let Hello Rent arrange an official six-month Automobile Association permit (€57 one-off) via WhatsApp before you even step off the plane.',
         ],
         bullets: [
           {
-            label: 'Honda Dio 110cc & Yamaha Ray ZR (€5/day)',
-            text: 'Low seat height (765mm on the Dio) and light weight (99kg on the Ray ZR) make these the easiest Weligama scooter rental choice for solo riders and narrow beach lanes.',
+            title: 'Always fasten your helmet chin-strap',
+            detail:
+              'Helmets are mandatory for both rider and pillion passenger across Sri Lanka. Unclipped straps are treated the same as riding without a helmet.',
           },
           {
-            label: 'TVS Ntorq 125 (€6/day)',
-            text: 'Extra torque for two adults riding together, larger 22L under-seat boot, and stronger acceleration when merging onto Matara Road.',
+            title: 'Carry physical or clear copies of documents',
+            detail:
+              'Keep your Sri Lankan driving permit, IDP, passport photo page copy, and rental slip under the seat or in a dry pouch.',
           },
           {
-            label: 'Pulsar N160, Yamaha FZ 160 & Apache 200 (€10/day)',
-            text: 'Proper manual motorbikes with bigger fuel tanks, perimeter frames and engine braking — built for riders heading up to Ella, Sinharaja or Deniyaya.',
+            title: 'Never take a scooter onto the Southern Expressway (E01)',
+            detail:
+              'Expressways in Sri Lanka are strictly for four-wheeled vehicles. Stick to the scenic A2 coast road or peaceful inland B-roads.',
           },
         ],
       },
       {
-        id: 'deposits-damage-honesty',
-        heading: 'No Passport Deposit & Fair Damage Rules at Hello Rent',
+        id: 'fuel-parking-coastal-tips',
+        eyebrow: '[ Local Know-How ]',
+        heading: 'Fuel stations, surf parking & avoiding rental traps in Weligama',
         paragraphs: [
-          'Two things ruin holiday rentals across South Asia faster than anything else: shops holding your original passport hostage, and inflated scratch bills on return day. When Bhagya ("Lucky") and Sandra built [Hello Rent](/about) from a hand-painted board in 2017, they set out to run the opposite kind of shop.',
-          'We **never** ask you to leave your physical passport as a deposit, and if a plastic panel ever gets scuffed in a tight surf-camp car park, we charge only the normal local market price of the part — zero invented labour fees and zero spare-parts commissions. Around a hundred Weligama families own the bikes in our fleet, so keeping every handover honest protects both travelers and our neighbours.',
-        ],
-        callout: {
-          eyebrow: '[ Permit Arranged Before You Land ]',
-          title: 'Need your Sri Lankan driving permit sorted?',
-          body: 'Your home licence alone is not valid here. Send your government-issued IDP booklet and passport page on WhatsApp and Hello Rent arranges the official 6-month Automobile Association permit so it is waiting with your bike.',
-          ctaLabel: 'See how the permit works',
-          ctaTo: '/driving-permit',
-          dark: true,
-        },
-      },
-      {
-        id: 'surf-racks-fuel-police-weligama',
-        heading: 'Surf Racks, Fuel Stations & Police Checks Around Weligama Bay',
-        paragraphs: [
-          'Weligama is a surf town first, so side-mounted surfboard racks, phone mounts (€1/day) and extra passenger helmets (€2/day) are everyday requests. Keep speeds calm when carrying a longboard across the bay bridge or past the open ocean breeze between Midigama and Kabalana — gusts off the water catch big boards if you rush.',
-          'Fuel is simple: both Ceypetco and Lanka IOC petrol stations sit right on the main road in Weligama town and accept cash in Sri Lankan rupees (and cards at most pumps). Traffic police regularly check riders between Weligama, Mirissa and Ahangama for three things: a fastened helmet, sober riding, and a valid [Sri Lankan driving permit](/driving-permit) matching your vehicle class.',
-        ],
-      },
-      {
-        id: 'pickup-delivery-hello-rent',
-        heading: 'Picking Up from Hello Rent - Scooter & Tuktuk Rental (or Hotel Delivery)',
-        paragraphs: [
-          'Our shop sits right in the centre of Weligama — walking distance from Weligama railway station, the main bus stand, the banks, and Weligama Beach, open seven days a week from **07:00 to 21:00**. Before handing over the keys, we walk through the brakes, tyres, lights and left-hand road habits with you so your first ten minutes feel natural.',
-          'Staying in Mirissa, Midigama, Ahangama, Kabalana or Matara? Add hotel delivery when you [book your scooter or bike online](/book-now) (no card required to reserve) or message us on [our Weligama contact page](/contact) and we will bring the ride straight to your guesthouse gate.',
+          'Filling up in Weligama is straightforward and inexpensive. Ask the attendant for “92 Octane Petrol” at the Ceypetco or Lanka IOC stations in Weligama town — a full tank on a Honda Dio or TVS Ntorq only takes around four to five litres and carries you well over 150 kilometres along the flat coast.',
+          'When parking along Weligama Bay, Coconut Tree Hill in Mirissa, or Kabalana in Ahangama, pull completely off the tarmac onto firm sand or designated bays so buses have full clearance, lock the steering column to the left, and never park directly underneath ripe coconut palms!',
+          'Finally, watch out for informal street rentals that ask to hold your original passport as collateral. Never hand over your physical passport to anyone. At Hello Rent, we take a simple copy, inspect the scooter together with you in daylight so every existing mark is noted honestly, and keep 24/7 roadside support on WhatsApp if you ever get a flat tyre.',
         ],
       },
     ],
@@ -178,580 +229,845 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         question: 'How much does scooter rental in Weligama cost per day?',
         answer:
-          'At Hello Rent in Weligama, 110cc automatic scooters (Honda Dio, Yamaha Ray ZR, Honda Navi) cost €5 per day, 125cc TVS Ntorq scooters cost €6 per day, and manual 160cc–200cc motorbikes cost €10 per day, including a helmet and roadside assistance.',
+          'At Hello Rent in Weligama, automatic 110cc scooters (Honda Dio, Yamaha Ray ZR, and Honda Navi) cost €5 per day, and the more powerful 125cc TVS Ntorq costs €6 per day. One helmet is included free with every scooter.',
       },
       {
-        question: 'Do I have to leave my passport for bike rent in Weligama?',
+        question: 'Do you deliver rental scooters to hotels in Weligama, Mirissa, or Ahangama?',
         answer:
-          'No. Hello Rent never holds your physical passport as a deposit. We verify your ID and driving permit at handover and offer fair, privacy-respecting deposit alternatives.',
+          'Yes. You can pick up directly from our central Weligama shop between 07:00 and 21:00 for free, or choose hotel delivery and collection across Weligama, Mirissa, Midigama, Ahangama, and nearby south coast towns (€15 flat fee).',
       },
       {
-        question: 'What licence do I need for a Weligama scooter rental?',
+        question: 'Do I have to leave my passport to rent a scooter in Weligama?',
         answer:
-          'To ride a scooter or motorbike legally in Weligama and across Sri Lanka, you need a full motorcycle category (Category A) on your government-issued International Driving Permit (1949 convention booklet) plus a Sri Lankan local recognition permit, which Hello Rent can arrange in advance.',
+          'No — we never hold your original passport. You keep your passport with you where it belongs; we only require a copy of your passport photo page and your valid driving permit.',
       },
       {
-        question: 'Where is Hello Rent - Scooter & Tuktuk Rental located?',
+        question: 'Which scooter is best for two people riding around Weligama?',
         answer:
-          'Hello Rent - Scooter & Tuktuk Rental is in the centre of Weligama town, Southern Province, within walking distance of Weligama Beach and Weligama train station, open daily from 07:00 to 21:00. We also deliver vehicles to hotels in Mirissa, Midigama, Ahangama and across the island.',
+          'For two adults riding together — especially if you are heading to Mirissa hills, Hiriketiya, or inland cafés — we recommend the TVS Ntorq 125 (€6/day). It has extra torque, stronger brakes, a roomy pillion seat, and 22 litres of under-seat storage.',
       },
     ],
     relatedSlugs: [
-      'rent-a-scooter-in-sri-lanka',
-      'tuktuk-rental-weligama-sri-lanka',
-      'south-coast-ride-weligama-to-galle',
+      'bike-rent-weligama-scooter-vs-motorbike',
+      'rent-a-scooter-sri-lanka-complete-guide',
+      'hello-rent-scooter-tuktuk-rental-weligama-guide',
+    ],
+    internalLinks: [
+      {
+        label: 'View Full Weligama Fleet & Rates',
+        to: '/fleet',
+        description: 'Compare every scooter, manual motorbike, tuk-tuk, and car in our shop.',
+      },
+      {
+        label: 'Sri Lankan Driving Permit Service',
+        to: '/driving-permit',
+        description: 'Send 3 photos on WhatsApp and have your 6-month legal permit waiting.',
+      },
+      {
+        label: 'One-Day Riding Routes from Weligama',
+        to: '/tours',
+        description: 'Beaches, rainforests, forts, and wildlife parks reachable in a day.',
+      },
     ],
   },
 
-  /* ------------------------------------------------------------------ */
-  /*  2. Rent a Scooter in Sri Lanka — Island-Wide First-Timer Guide     */
-  /* ------------------------------------------------------------------ */
+  /* ======================================================================== */
+  /* 2. Bike Rent Weligama / Weligama Bike Rental                             */
+  /* ======================================================================== */
   {
-    slug: 'rent-a-scooter-in-sri-lanka',
-    path: '/blog/rent-a-scooter-in-sri-lanka',
-    title: 'How to Rent a Scooter in Sri Lanka: Licences, Daily Costs & Road Rules',
-    seoTitle: 'Rent a Scooter in Sri Lanka: 2026 Permits & Costs | Hello Rent',
-    metaDescription:
-      'Everything you need to rent a scooter in Sri Lanka legally in 2026: AAC driving permits, real €5/day scooter rental prices, traffic rules and safety tips.',
+    slug: 'bike-rent-weligama-scooter-vs-motorbike',
+    title: 'Bike Rent in Weligama: Automatic Scooter vs Manual Motorbike — Which Should You Ride?',
+    seoTitle: 'Bike Rent Weligama: Scooter vs Motorbike | Hello Rent',
+    seoDescription:
+      'Searching for bike rent in Weligama? Compare €5 automatic scooters vs €10 manual motorbikes (Pulsar N160, Yamaha FZ, Apache 200) for coast & hill country rides.',
     keywords: [
-      'rent a scooter sri lanka',
-      'rent scooter sri lanka',
+      'bike rent weligama',
+      'weligama bike rental',
       'scooter rental weligama',
+      'weligama scooter rental',
       'hello rent',
-      'hello rent - scooter & tuktuk rental',
+      'rent scooter sri lanka',
     ],
-    category: 'Sri Lanka Tips',
-    publishedAt: '2026-10-19',
-    updatedAt: '2026-11-03',
-    displayDate: '19 Oct 2026',
-    readingTime: '8 min read',
-    heroImage: '/blog/permit.webp',
-    cardImage: '/blog/permit.webp',
-    heroAlt: 'Traveler preparing documents and helmet to rent a scooter in Sri Lanka',
+    category: 'Fleet & Advice',
+    publishedAt: '2026-04-24',
+    displayDate: '24 Apr 2026',
+    readingTime: '6 min read',
+    author: {
+      name: 'Bhagya “Lucky” & Sandra',
+      role: 'Founders, Hello Rent Weligama',
+    },
+    image: '/blog/coast-road.webp',
+    imageAlt: 'Rider cruising Sri Lanka’s palm-lined southern coast road on two wheels',
     excerpt:
-      'Planning to rent a scooter in Sri Lanka? Here is the honest breakdown of IDP and local permit laws, real daily costs, left-hand road habits, and how to inspect a bike before riding off.',
-    keyTakeaways: [
-      'Your home driving licence alone is not legal in Sri Lanka — you need a government-issued IDP booklet plus a local Sri Lankan recognition permit.',
-      'Online "digital IDPs" sold by private websites are rejected by Sri Lankan police and the Automobile Association.',
-      'Expect to pay €5–€6/day for a well-maintained 110cc–125cc automatic scooter on the south coast.',
-      'Sri Lanka drives on the left; expressways ("E" highways) are strictly closed to scooters, motorbikes and tuk-tuks.',
+      'When travelers search for bike rent in Weligama, half mean a twist-and-go beach scooter and half mean a geared 160cc–200cc motorcycle for Ella and Kandy. Here is how to pick the right two-wheeler for your route.',
+    whatsappPrompt:
+      "Hi Hello Rent! I'm comparing scooters vs manual motorbikes in Weligama — can you help me choose?",
+    quickFacts: [
+      { label: 'Auto Scooters', value: '€5 – €6 / day' },
+      { label: 'Manual Motorbikes', value: '€10 / day' },
+      { label: 'Engine Sizes', value: '110cc to 200cc' },
+      { label: 'Extras Available', value: 'Top Box & GPS Mount' },
     ],
     sections: [
       {
-        id: 'licence-requirements-sri-lanka',
-        heading: 'What Licence You Need to Rent a Scooter in Sri Lanka',
+        id: 'scooter-vs-motorbike-weligama',
+        eyebrow: '[ Two Kinds of Two-Wheelers ]',
+        heading: 'Understanding Weligama bike rental options: twist-and-go vs manual gears',
         paragraphs: [
-          'The biggest surprise for first-time visitors looking to **rent a scooter in Sri Lanka** is the paperwork. Unlike parts of Southeast Asia where travelers take chances on a home card, Sri Lankan traffic law strictly requires a locally endorsed permit — and travel insurance policies routinely void medical cover if you ride without the proper category.',
-          'To ride any 110cc or 125cc scooter legally here, your home licence and your **government-issued International Driving Permit (1949 Geneva booklet)** must carry **Category A** (motorcycles). Beware of €30 "instant PDF international licences" advertised online — they hold zero legal standing in Colombo or at south-coast checkpoints.',
-          'On top of your IDP, you need a Sri Lankan temporary recognition permit. You can queue at the airport arrival counter (valid 1 month), spend half a day at the Department of Motor Traffic in Werahera or Hambantota (valid 1 month), or let [Hello Rent arrange your 6-month Automobile Association permit](/driving-permit) over WhatsApp before you even pack your bags.',
+          'In Sri Lanka, travelers and locals alike say “bike” to mean everything on two wheels — from a 99kg automatic Yamaha Ray ZR scooter to a 200cc manual TVS Apache sport-tourer. When arranging bike rent in Weligama, the first question we always ask in the shop is simple: “Have you ridden with a manual hand clutch and foot gears before, and how far inland are you going?”',
+          'If your holiday revolves around Weligama, Midigama, Ahangama, Mirissa, Galle Fort, and Hiriketiya, the terrain is flat, warm, and dotted with village slowdowns. An automatic scooter lets you keep both hands relaxed, store your flip-flops and camera under the seat, and thread effortlessly into beach parking.',
+          'If you are strapping on a backpack and climbing 1,000+ metres into Deniyaya, Sinharaja Rain Forest, Ella, Haputale, or Kandy, a manual 160cc–200cc motorbike transforms the ride: larger 17-inch wheels smooth out rough mountain tarmac, engine braking saves your brake pads on long hairpins, and a 12-litre tank means fewer fuel stops.',
         ],
       },
       {
-        id: 'cost-to-rent-scooter-sri-lanka',
-        heading: 'How Much Does It Cost to Rent a Scooter in Sri Lanka?',
+        id: 'side-by-side-comparison',
+        eyebrow: '[ Head-to-Head ]',
+        heading: 'Weligama bike rental comparison: scooters vs big bikes',
         paragraphs: [
-          'When travelers search **rent scooter Sri Lanka**, quotes online swing wildly between beachfront touts and international aggregators taking 30% commission. Booking directly with an established local shop gives you newer tyres, real brakes, and honest local rates.',
-          'At **Hello Rent** in Weligama, daily scooter rental starts at **€5/day** for 110cc twist-and-go models (Honda Dio, Yamaha Ray ZR, Honda Navi) and **€6/day** for the 125cc TVS Ntorq. Optional extras are priced plainly: €1/day for a handlebar GPS phone mount, €2/day for a second passenger helmet, €3/day for a lockable top box, and €15 one-off for hotel delivery.',
+          'Here is how the two classes in the Hello Rent Weligama fleet stack up across daily rate, transmission, luggage practicality, and ideal Sri Lankan routes.',
+        ],
+        table: {
+          caption: 'Automatic Scooters vs Manual Motorbikes at Hello Rent Weligama',
+          headers: ['Feature', 'Automatic Scooters (110–125cc)', 'Manual Motorbikes (160–200cc)'],
+          rows: [
+            ['Models in Shop', 'Honda Dio, Honda Navi, Yamaha Ray ZR, TVS Ntorq 125', 'Bajaj Pulsar N160, Yamaha FZ 160, TVS Apache 200, Hero Hunk 200'],
+            ['Daily Rental Price', '€5/day (110cc) · €6/day (125cc)', '€10/day across all manual models'],
+            ['Transmission', 'Automatic CVT — twist and go', '5-speed manual — left-hand clutch & foot shifter'],
+            ['Braking & Wheels', 'Compact wheels, Combi Brake / front disc', 'Full-size 17" wheels, strong disc brakes (ABS on Pulsar N160)'],
+            ['Built-in Storage', '18L – 22L under-seat bay (plus optional top box)', 'None under seat — add our lockable rear box (€3/day) or backpack'],
+            ['Best Terrain', 'South coast towns, surf checks, short day trips (<80 km)', 'Hill country climbs (Ella, Kandy, Deniyaya) & long island loops'],
+          ],
+        },
+      },
+      {
+        id: 'manual-motorbike-lineup',
+        eyebrow: '[ Our Manual Fleet ]',
+        heading: 'Which manual motorbike should you rent in Weligama?',
+        paragraphs: [
+          'Every geared motorbike in our Weligama bike rental lineup is priced flat at €10 per day, maintained by mechanics who know south-coast salt air and hill-country gradients inside out.',
+        ],
+        bullets: [
+          {
+            title: 'Bajaj Pulsar N160 (€10/day) — Agile mountain all-rounder',
+            detail:
+              'Built around a stiff perimeter frame with a single-channel ABS option and a 12L fuel tank. Crisp handling on winding tea-estate roads.',
+          },
+          {
+            title: 'Yamaha FZ 160 (€10/day) — Smooth, upright & forgiving',
+            detail:
+              'Fuel-injected reliability and a relaxed upright handlebar position that keeps wrists and shoulders fresh all the way from Weligama to Ella.',
+          },
+          {
+            title: 'TVS Apache 200 & Hero Hunk 200 (€10/day) — Extra torque for two-up touring',
+            detail:
+              'The 200cc class gives noticeable extra pull when overtaking slow trucks uphill or riding two-up with luggage across multiple provinces.',
+          },
         ],
         callout: {
-          eyebrow: '[ Transparent Fleet Pricing ]',
-          title: 'Compare every scooter, bike & tuk-tuk side by side',
-          body: 'See live daily rates in euros, seat heights, storage space and transmission types across the full Hello Rent fleet — reserve online and pay at pickup.',
-          ctaLabel: 'Browse the fleet',
+          eyebrow: '[ Honest Matching ]',
+          title: 'Not sure which bike fits your height or confidence?',
+          body: 'Drop by our Weligama store to sit on a Dio, Ntorq, FZ, and Pulsar side by side — if we feel a heavy bike is not right for you yet, we will tell you honestly.',
+          ctaLabel: 'COMPARE THE FULL FLEET',
           ctaTo: '/fleet',
         },
       },
       {
-        id: 'sri-lanka-traffic-rules',
-        heading: 'Traffic Rules, Buses & Fuel Stations First-Time Riders Should Know',
+        id: 'luggage-helmets-extras',
+        eyebrow: '[ Practical Setup ]',
+        heading: 'Setting up your bike for south coast surf or island touring',
         paragraphs: [
-          'Riding in Sri Lanka is genuinely rewarding once you understand the rhythm of the road. Speeds outside cities are modest — coastal towns flow at 35–50 km/h — so you rarely feel pushed to ride fast, provided you stay alert and predictable.',
-        ],
-        bullets: [
-          {
-            label: 'Keep left & yield to buses',
-            text: 'Sri Lanka drives on the left. Private and red SLTB buses overtake assertively and flash their headlights to claim the lane — ease left, give them room, and never contest a gap with a bus.',
-          },
-          {
-            label: 'Stay off Expressways (E01 / E02)',
-            text: 'Toll expressways such as the Southern Expressway are car-and-bus only. Set Google Maps to "Two-wheeler" or toggle "Avoid highways" so your route stays on scenic A- and B-roads.',
-          },
-          {
-            label: 'Watch for wildlife, dogs & speed humps',
-            text: 'Unmarked speed bumps sit before pedestrian crossings and school zones, peacocks and monitor lizards cross rural lanes in the south, and dusk brings street dogs onto warm tarmac. Avoid long unfamiliar rides after dark.',
-          },
-          {
-            label: 'Fuel is plentiful at Ceypetco & Lanka IOC',
-            text: 'A 110cc scooter sips roughly 2–2.5 litres per 100 km. Carry small LKR notes (Rs. 1,000–2,000 fills a scooter tank from empty) and ask for 92 Octane petrol.',
-          },
-        ],
-      },
-      {
-        id: 'handover-inspection-checklist',
-        heading: 'Checklist Before You Ride Away from Any Rental Shop',
-        paragraphs: [
-          'Before setting off, spend two minutes checking five essentials: front and rear brake bite (test both levers rolling forward), tyre tread depth (smooth tyres slide immediately on tropical rain showers), working indicators and horn, mirrors tightened for your height, and a helmet strap that clicks firmly under your chin.',
-          'Take a quick walk-around video in daylight with the shop team so pre-existing scuffs are agreed upfront. At [Hello Rent - Scooter & Tuktuk Rental](/about#safety), we run an 8-point mechanical check before every handover — and if you have never ridden on the left before, we take time on a quiet lane until you feel completely steady.',
-        ],
-      },
-      {
-        id: 'why-start-in-weligama',
-        heading: 'Why South Coast Travelers Rent with Hello Rent in Weligama',
-        paragraphs: [
-          'Colombo traffic is hectic for your first hour in the country. Most travelers take the train or an airport transfer down to Weligama first, then [book a scooter in Weligama](/book-now) once the roads open into palm-lined coastal stretches and quiet inland paddy fields. From our door, you can explore [ten unforgettable south-coast day trips](/tours) or arrange island-wide delivery and collection if you are riding one-way.',
+          'Small details make a huge difference on Sri Lankan roads. A handlebar phone/GPS mount (€1/day) keeps Google Maps at eye level so you never have to check directions one-handed at busy junctions in Matara or Galle. If you need extra carrying capacity beyond under-seat storage, we fit a lockable rear luggage box (€3/day) for dry clothes, camera gear, and rain jackets.',
+          'Before every Weligama bike rental leaves the shop, we check tyre pressures, front and rear brake bite, horn, indicators, mirrors, and headlight beam together with you — because on Sri Lankan roads, a crisp horn and good mirrors matter just as much as horsepower.',
         ],
       },
     ],
     faqs: [
       {
-        question: 'Can I rent a scooter in Sri Lanka with a regular car licence?',
+        question: 'Can a beginner rent a manual motorbike in Weligama?',
         answer:
-          'Technically, riding a two-wheeled scooter or motorcycle legally in Sri Lanka requires motorcycle entitlement (Category A) on your International Driving Permit endorsed onto a Sri Lankan recognition permit. If you hold only a Category B licence, speak to us before booking — a self-drive automatic car or properly endorsed three-wheeler permit may suit you better.',
+          'If you have never used a motorcycle hand clutch and foot gear-lever before, Sri Lankan traffic is not the place to learn on day one. We strongly recommend starting with an automatic scooter (€5–€6/day) where there are zero gears to stall.',
       },
       {
-        question: 'How much does it cost to rent a scooter in Sri Lanka?',
+        question: 'Can I ride a 125cc scooter from Weligama to Ella, or do I need a motorbike?',
         answer:
-          'Direct local rates at Hello Rent start at €5 per day for a 110cc automatic scooter (Honda Dio, Yamaha Ray ZR) and €6 per day for a 125cc TVS Ntorq, with helmets and 24/7 roadside assistance included.',
+          'Solo riders regularly take our TVS Ntorq 125 to Ella without trouble if they take breaks, though a 160cc–200cc manual motorbike (€10/day) is more comfortable, stable on steep descents, and much better suited if you are riding with a passenger.',
       },
       {
-        question: 'Are scooters allowed on the Southern Expressway in Sri Lanka?',
+        question: 'What licence category covers bike rent in Weligama?',
         answer:
-          'No. Two-wheelers and three-wheelers are prohibited on Sri Lanka’s E-class expressways. Always select two-wheeler mode or "Avoid highways" in Google Maps to stay on coastal and hill A/B roads.',
+          'Both scooters and geared motorbikes require a motorcycle entitlement (Category A) on your home licence, paired with a valid International Driving Permit and a Sri Lankan recognition permit, which Hello Rent can arrange for you.',
       },
       {
-        question: 'How do I get the Sri Lankan driving permit without visiting Colombo?',
+        question: 'Is roadside assistance included with Weligama bike rental?',
         answer:
-          'Hello Rent arranges the official 6-month Sri Lankan permit endorsed through the Automobile Association. Simply send photos of your government-issued IDP booklet, passport photo page, and a plain-wall portrait via WhatsApp before arrival.',
+          'Yes. Hello Rent provides 24/7 WhatsApp support across our fleet so you always have a local team to call if you run into a puncture or mechanical issue.',
       },
     ],
     relatedSlugs: [
-      'weligama-scooter-bike-rental-guide',
-      'scooter-vs-motorbike-sri-lanka',
-      'tuktuk-rental-weligama-sri-lanka',
+      'scooter-rental-weligama-guide',
+      'scenic-coastal-hill-routes-from-weligama-sri-lanka',
+      'rent-a-scooter-sri-lanka-complete-guide',
+    ],
+    internalLinks: [
+      {
+        label: 'Book Your Scooter or Motorbike Online',
+        to: '/book-now',
+        description: 'Choose your vehicle class, dates, and extras — pay at pickup in Weligama.',
+      },
+      {
+        label: 'Read Our Safety & Family Promise',
+        to: '/about#safety',
+        description: 'How Bhagya & Sandra match every rider to a safe vehicle.',
+      },
+      {
+        label: 'Get Your Sri Lankan Permit Arranged',
+        to: '/driving-permit',
+        description: 'Skip government queues with our 6-month endorsed permit service.',
+      },
     ],
   },
 
-  /* ------------------------------------------------------------------ */
-  /*  3. Tuk-Tuk Rental in Weligama & Sri Lanka — Self-Drive Guide       */
-  /* ------------------------------------------------------------------ */
+  /* ======================================================================== */
+  /* 3. Rent a Scooter Sri Lanka / Rent Scooter Sri Lanka                     */
+  /* ======================================================================== */
   {
-    slug: 'tuktuk-rental-weligama-sri-lanka',
-    path: '/blog/tuktuk-rental-weligama-sri-lanka',
-    title: 'Tuk-Tuk Rental in Weligama & Sri Lanka: Self-Drive Costs, Permits & Tips',
-    seoTitle: 'Tuk-Tuk Rental Weligama & Sri Lanka: 2026 Guide | Hello Rent',
-    metaDescription:
-      'Self-drive tuktuk rental in Weligama & tuk tuk rental in Sri Lanka from €15/day. Learn handlebar gears, permit rules, luggage space & routes with Hello Rent.',
+    slug: 'rent-a-scooter-sri-lanka-complete-guide',
+    title: 'How to Rent a Scooter in Sri Lanka: Permits, Costs & Road Rules (2026 Guide)',
+    seoTitle: 'Rent a Scooter in Sri Lanka: 2026 Rules & Costs | Hello Rent',
+    seoDescription:
+      'Planning to rent a scooter in Sri Lanka? Learn the exact 2026 driving permit laws, daily rental costs, left-side traffic habits, monsoon seasons & safety checks.',
+    keywords: [
+      'rent a scooter sri lanka',
+      'rent scooter sri lanka',
+      'scooter rental weligama',
+      'weligama scooter rental',
+      'hello rent',
+    ],
+    category: 'Tips & Permits',
+    publishedAt: '2026-04-16',
+    displayDate: '16 Apr 2026',
+    readingTime: '8 min read',
+    author: {
+      name: 'Bhagya “Lucky” & Sandra',
+      role: 'Founders, Hello Rent Weligama',
+    },
+    image: '/blog/permit.webp',
+    imageAlt: 'Traveler preparing documents and helmet to rent a scooter in Sri Lanka',
+    excerpt:
+      'Planning to rent a scooter in Sri Lanka for the first time? From getting your legal Sri Lankan driving permit sorted without losing a beach day to understanding bus etiquette, fuel stops, and monsoon timing, here is the complete handbook.',
+    whatsappPrompt:
+      "Hi Hello Rent! I'm planning to rent a scooter in Sri Lanka and have a question about permits and booking.",
+    quickFacts: [
+      { label: 'Typical Daily Rate', value: '€5 – €6 / day' },
+      { label: 'Traffic Side', value: 'Drive on the Left' },
+      { label: 'Legal Requirement', value: 'IDP + SL Permit' },
+      { label: 'Permit via Hello Rent', value: '€57 (Valid 6 Months)' },
+    ],
+    sections: [
+      {
+        id: 'legal-permit-requirements-sri-lanka',
+        eyebrow: '[ Step 1: Paperwork ]',
+        heading: 'The legal way to rent a scooter in Sri Lanka (no guesswork)',
+        paragraphs: [
+          'Every week travelers ask us whether an International Driving Permit (IDP) from home is enough on its own when you rent a scooter in Sri Lanka. Under Sri Lankan Motor Traffic law, the answer is no: foreign visitors must hold a local Sri Lankan recognition permit endorsed on top of their valid IDP and home motorcycle licence (Category A).',
+          'Riding without the local endorsement carries two risks: spot fines at police checkpoints, and — far more importantly — travel insurers refusing medical or third-party claims if you were riding unlicensed under local law. Fortunately, getting legal takes ten minutes of preparation.',
+        ],
+        bullets: [
+          {
+            title: 'Option 1: Arrange in advance with Hello Rent (€57 · Valid 6 months)',
+            detail:
+              'WhatsApp us a photo of your official government-issued IDP booklet, your passport photo page, and a plain-wall selfie before you land. We have it legally endorsed via the Automobile Association so your permit is waiting with your scooter in Weligama.',
+          },
+          {
+            title: 'Option 2: Recognition counter at Colombo Airport (Valid 1 month)',
+            detail:
+              'Issued on arrival at Katunayake (CMB) airport. Convenient if your flight lands at a quiet hour and your trip is under 30 days.',
+          },
+          {
+            title: 'Option 3: Department of Motor Traffic in Werahera or Hambantota (Valid 1 month)',
+            detail:
+              'Inexpensive over the counter, though getting there and back eats up a full day of your holiday.',
+          },
+        ],
+        callout: {
+          eyebrow: '[ Zero Queueing ]',
+          title: 'Want your Sri Lankan permit ready when you arrive?',
+          body: 'See the exact three photos we need on WhatsApp so you can go straight from your hotel check-in to the beach.',
+          ctaLabel: 'HOW PERMIT ARRANGEMENT WORKS',
+          ctaTo: '/driving-permit',
+        },
+      },
+      {
+        id: 'what-it-costs-to-rent-scooter-sri-lanka',
+        eyebrow: '[ Step 2: Real Costs ]',
+        heading: 'How much does it actually cost to rent scooter Sri Lanka?',
+        paragraphs: [
+          'Sri Lanka is one of the best-value places in Asia to explore independently on two wheels. At an honest local shop like Hello Rent in Weligama, daily scooter rates start at €5 per day for well-maintained 110cc automatics (Honda Dio, Yamaha Ray ZR, Honda Navi) and €6 per day for a 125cc TVS Ntorq.',
+          'Petrol (92 Octane) is regulated nationwide at uniform pump prices, meaning a full tank costs only a few euros and delivers roughly 35–45 km per litre. Even factoring in your Sri Lankan recognition permit, an extra pillion helmet (€2/day), and a handlebar phone mount (€1/day), two weeks of complete coastal freedom costs a fraction of private car transfers.',
+        ],
+      },
+      {
+        id: 'sri-lanka-road-rules-etiquette',
+        eyebrow: '[ Step 3: Road Survival ]',
+        heading: '7 unwritten Sri Lankan road habits every first-time rider should know',
+        paragraphs: [
+          'Traffic in Sri Lanka flows slower than in Europe or Australia — average speeds on coastal and hill roads hover between 35 and 55 km/h — yet the road is shared with buses, tuk-tuks, cyclists, schoolkids, peacocks, monitor lizards, and the occasional sleepy dog. Once you understand the local rhythm, riding feels remarkably cooperative.',
+        ],
+        bullets: [
+          {
+            title: '1. Keep left and respect the “size hierarchy”',
+            detail:
+              'Sri Lanka drives on the left. Colourful private and red SLTB buses run to tight schedules and rarely yield — when you see a bus flashing its headlights and overtaking oncoming traffic, ease calmly left and give it room.',
+          },
+          {
+            title: '2. A short horn tap means “I am here”, not anger',
+            detail:
+              'Drivers give a polite, brief beep before overtaking a tuk-tuk or rounding a blind tea-country corner. Use yours gently and never take a beep personally.',
+          },
+          {
+            title: '3. Watch vehicle front wheels, not just indicators',
+            detail:
+              'Three-wheelers can pull out or U-turn suddenly near junctions and bakery stops. Leave a two-second cushion in town centres.',
+          },
+          {
+            title: '4. Avoid long inter-town rides after dark',
+            detail:
+              'After 18:30, unlit pedestrians, potholes, stray dogs, and high-beam oncoming headlights make unfamiliar roads tiring. Plan big rides for morning light (06:30–11:30).',
+          },
+          {
+            title: '5. Know the two monsoons before planning routes',
+            detail:
+              'The south and west coasts (Weligama, Mirissa, Galle, Hiriketiya) shine brightest from November through April, though warm sunny mornings are common year-round with brief tropical showers.',
+          },
+        ],
+      },
+      {
+        id: 'pre-ride-inspection-checklist',
+        eyebrow: '[ Step 4: Pickup Check ]',
+        heading: 'The 60-second inspection to do before riding away',
+        paragraphs: [
+          'Wherever you rent a scooter in Sri Lanka, take one minute before leaving the forecourt: film a quick walk-around video on your phone in daylight, squeeze both brake levers firmly, test the horn and high/low headlight switch, check tyre tread for wet-road grip, and make sure your helmet visor is scratch-free and fits snugly.',
+          'At Hello Rent we walk through every single one of those checks alongside you — and if you have never driven on the left before, we take ten calm minutes on a quiet Weligama lane first until your shoulders drop and you feel completely at home.',
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: 'Can tourists legally rent a scooter in Sri Lanka?',
+        answer:
+          'Yes. Tourists with a valid motorcycle licence (Category A), a government-issued International Driving Permit (1949 Geneva Convention booklet), and a Sri Lankan recognition permit can legally rent and ride scooters anywhere on public non-expressway roads in Sri Lanka.',
+      },
+      {
+        question: 'Are online “instant International Driving Permits” accepted in Sri Lanka?',
+        answer:
+          'No. Sri Lankan authorities and the Automobile Association only accept the official physical IDP booklet issued by the authorised motoring association or government office in your home country — not digital PDFs sold by commercial websites.',
+      },
+      {
+        question: 'What is the speed limit for scooters in Sri Lanka?',
+        answer:
+          'Unless posted lower, the statutory speed limit for motorcycles and scooters in Sri Lanka is 40 km/h in built-up urban areas (such as Weligama, Mirissa, and Galle town centres) and up to 70 km/h on open rural roads. Scooters are prohibited on expressways.',
+      },
+      {
+        question: 'Where is the easiest place on the south coast to rent a scooter?',
+        answer:
+          'Weligama is the central hub of the south coast — connected directly by train and highway bus from Colombo, and sitting right between Galle Fort to the west and Mirissa/Hiriketiya to the east. Hello Rent is a short walk from Weligama train station and also delivers to south-coast hotels.',
+      },
+    ],
+    relatedSlugs: [
+      'scooter-rental-weligama-guide',
+      'tuktuk-rental-weligama-sri-lanka-guide',
+      'bike-rent-weligama-scooter-vs-motorbike',
+    ],
+    internalLinks: [
+      {
+        label: 'Arrange Your Sri Lankan Permit',
+        to: '/driving-permit',
+        description: 'Full breakdown of Airport, DMT, and Hello Rent’s 6-month permit service.',
+      },
+      {
+        label: 'Reserve a Scooter in Weligama',
+        to: '/book-now',
+        description: 'Lock in your scooter from €5/day — no upfront card payment required.',
+      },
+      {
+        label: 'Contact Hello Rent Weligama',
+        to: '/contact',
+        description: 'Find our shop on Google Maps or message +94 76 707 3388 on WhatsApp.',
+      },
+    ],
+  },
+
+  /* ======================================================================== */
+  /* 4. TukTuk Rental Weligama / Tuk Tuk Rental Sri Lanka                     */
+  /* ======================================================================== */
+  {
+    slug: 'tuktuk-rental-weligama-sri-lanka-guide',
+    title: 'Tuk-Tuk Rental in Weligama & Sri Lanka: Self-Drive Costs, Lessons & Routes',
+    seoTitle: 'Tuk-Tuk Rental Weligama & Sri Lanka Guide | Hello Rent',
+    seoDescription:
+      'Self-drive tuk-tuk rental in Weligama & Sri Lanka for €15/day. Learn how to drive a Bajaj RE 4-stroke, permit rules, luggage space & top routes with Hello Rent.',
     keywords: [
       'tuktuk rental weligama',
       'tuk tuk rental sri lanka',
       'hello rent - scooter & tuktuk rental',
       'hello rent',
-      'weligama scooter rental',
+      'weligama bike rental',
     ],
     category: 'Tuk-Tuk Guides',
-    publishedAt: '2026-11-02',
-    updatedAt: '2026-11-05',
-    displayDate: '02 Nov 2026',
+    publishedAt: '2026-04-08',
+    displayDate: '08 Apr 2026',
     readingTime: '7 min read',
-    heroImage: '/fleet/bajaj-re-tuktuk.jpg',
-    cardImage: '/fleet/bajaj-re-tuktuk.jpg',
-    heroAlt: 'Bajaj RE 4-stroke self-drive tuk-tuk parked outside Hello Rent - Scooter & Tuktuk Rental in Weligama',
+    author: {
+      name: 'Bhagya “Lucky” & Sandra',
+      role: 'Founders, Hello Rent Weligama',
+    },
+    image: '/fleet/bajaj-re-tuktuk.jpg',
+    imageAlt: 'Bajaj RE 4-stroke self-drive tuk-tuk parked at Hello Rent in Weligama, Sri Lanka',
     excerpt:
-      'Three seats, a roof against tropical sun and rain, room for backpacks and surfboards, and pure Sri Lankan road-trip joy — everything you need to know about self-drive tuk-tuk rental in Weligama and across the island.',
-    keyTakeaways: [
-      'Self-drive Bajaj RE 4-stroke tuk-tuk rental at Hello Rent in Weligama is €15/day — flat, transparent pricing with no hidden mileage traps.',
-      'A tuk-tuk uses a 4-speed left-handlebar clutch and twist shift plus a right-foot brake; we give every driver a calm practice session before handover.',
-      'Three-wheelers have a legal top speed limit of 40 km/h in Sri Lanka and cannot enter toll expressways.',
-      'Ideal for couples, groups of three, surfboard trips, and multi-day loops where backpacks need to stay bone-dry.',
+      'Driving your own three-wheeler across Sri Lanka is an unforgettable way to travel with friends, surfboards, and backpacks — shaded from midday sun and dry in tropical rain. Here is everything to know about tuktuk rental in Weligama.',
+    whatsappPrompt:
+      "Hi Hello Rent! I'm interested in self-drive tuk-tuk rental in Weligama — could I check availability and permit details?",
+    quickFacts: [
+      { label: 'Bajaj RE 4-Stroke', value: '€15 / day' },
+      { label: 'Seating & Cargo', value: '3 Adults + 60–80L' },
+      { label: 'Transmission', value: '4-Speed Handlebar Clutch' },
+      { label: 'Legal Speed Limit', value: '40 km/h' },
     ],
     sections: [
       {
         id: 'why-self-drive-tuk-tuk-sri-lanka',
-        heading: 'Why Self-Drive Tuk Tuk Rental in Sri Lanka Beats Hiring Taxis',
+        eyebrow: '[ Three Wheels, Pure Joy ]',
+        heading: 'Why self-drive tuk tuk rental in Sri Lanka has become a bucket-list trip',
         paragraphs: [
-          'Ask ten travelers what made their Sri Lanka trip unforgettable and half of them will grin and say driving their own three-wheeler. Searching for **tuk tuk rental Sri Lanka** has exploded because a Bajaj RE hits the sweet spot between a scooter and a car: open sides so you smell cinnamon gardens and sea air, a canvas roof when an afternoon downpour rolls in, and a rear bench that seats up to three adults with 60–80 litres of backpack storage behind it.',
-          'Even around the south coast, three or four return tuk-tuk taxi rides between Weligama, Mirissa, Ahangama and Galle quickly match the cost of having your own keys parked outside your villa all day — without ever haggling after dinner in the rain.',
+          'Ask anyone who has driven a three-wheeler down the palm-fringed coast or up into Sri Lanka’s misty tea estates and they all say the same thing: nothing else connects you to the island like a tuk-tuk. Unlike an enclosed rental car, the open sides let in sea breezes, cinnamon-wood smoke, and friendly waves from every village you pass. Unlike a scooter, you have a full canvas roof over your head when an afternoon shower rolls through, space for three adults on the back bench, and 60 to 80 litres of luggage room behind the seat.',
+          'At Hello Rent - Scooter & Tuktuk Rental in Weligama, our Bajaj RE 4-stroke tuk-tuks (€15/day) are rented both for week-long south-coast surf hopping — carrying boards between Weligama, Midigama, Ahangama, and Hiriketiya — and for multi-day loops inland to Udawalawe, Ella, and Deniyaya.',
         ],
       },
       {
-        id: 'tuktuk-rental-weligama-rates',
-        heading: 'Tuktuk Rental in Weligama: Daily Rates & What Is Included',
+        id: 'how-to-drive-bajaj-re-tuktuk',
+        eyebrow: '[ Controls Explained ]',
+        heading: 'Is a tuk-tuk hard to drive? How the Bajaj RE handlebar clutch works',
         paragraphs: [
-          'Many national tuk-tuk agencies are based only near Negombo/Colombo airport and charge steep one-way fees or bundle mandatory extras you may not need. With **Hello Rent - Scooter & Tuktuk Rental**, you can pick up your three-wheeler right here on the south coast — or arrange island-wide delivery to your hotel or railway station.',
-          'Our [Bajaj RE 4-Stroke Tuk-Tuk](/fleet) rents for **€15 per day**. Every vehicle is inspected across brakes, tyres, lights, suspension, battery and engine oil before handover, backed by 24/7 emergency roadside support and our fair, no-passport-deposit rental policy.',
+          'The biggest surprise for first-timers booking tuktuk rental in Weligama is where the gears live. Our Bajaj RE 4-stroke three-wheelers are manual, yet there is no clutch pedal on the floor — only a rear foot brake on the right floorboard!',
+          'Instead, you pull the left-hand lever on the handlebar for the clutch and twist the entire left grip forward or back through gears 1, 2, 3, and 4, while your right hand twists the throttle just like a scooter. A small lever under the dashboard engages reverse gear so you never have to push the vehicle out of tight beach parking.',
+          'Even if you have only ever driven a manual car (or ridden a geared bike), muscle memory clicks within fifteen to twenty minutes. Before you leave Hello Rent in Weligama, Lucky or one of our team sits beside you for a relaxed hands-on practice session — starting on flat ground, practising hill starts, reverse parking, and smooth downshifts — until you are grinning and ready.',
         ],
         table: {
-          caption: 'Scooter vs Tuk-Tuk vs Automatic Car for South Coast & Island Trips',
-          headers: ['Feature', 'Scooter (€5–€6/day)', 'Tuk-Tuk (€15/day)', 'Automatic Car (€31/day)'],
+          caption: 'Tuk-Tuk vs Scooter vs Compact Car for Sri Lanka travel',
+          headers: ['Vehicle Type', 'Daily Rate at Hello Rent', 'Passengers & Bags', 'Weather Protection', 'Vibe & Pace'],
           rows: [
-            ['Seats', '1–2 riders', 'Driver + up to 3 passengers (best for 2–3)', '4–5 passengers'],
-            ['Weather protection', 'Open air (rain poncho needed)', 'Full roof + roll-down rain flaps', 'Enclosed cabin + A/C'],
-            ['Luggage & surfboards', '18–22L under-seat + side rack', '60–80L rear bay + roof rack option', 'Full boot / KDH van option'],
-            ['Transmission', 'Automatic twist-and-go', '4-speed handlebar manual + reverse', 'Automatic'],
+            [
+              'Bajaj RE Tuk-Tuk',
+              '€15 / day',
+              'Driver + up to 3 passengers · 60–80L luggage',
+              'Full roof & roll-down rain flaps',
+              'Iconic open-air road trip · steady 40 km/h',
+            ],
+            [
+              'Automatic Scooter',
+              '€5 – €6 / day',
+              '1–2 riders · 18–22L under-seat bay',
+              'Open to sun & rain',
+              'Nimble & effortless for short coastal hops',
+            ],
+            [
+              'Automatic A/C Car',
+              '€31 / day',
+              '4–5 passengers + full suitcases',
+              'Enclosed cabin + air conditioning',
+              'Fastest inter-city comfort & expressway access',
+            ],
           ],
         },
       },
       {
-        id: 'how-to-drive-bajaj-re',
-        heading: 'How to Drive a Bajaj RE 4-Stroke Tuk-Tuk (Handlebar Clutch Explained)',
+        id: 'tuktuk-licence-and-road-rules',
+        eyebrow: '[ Permits & Limits ]',
+        heading: 'Permits, speed limits & mountain tips for tuk tuk rental Sri Lanka',
         paragraphs: [
-          'Never driven a three-wheeler? Neither have most of our guests before day one. Our Bajaj RE fleet runs modern **4-stroke petrol engines** — quieter, cleaner and far easier to start than old smoky 2-strokes, with electric push-button start and a proper reverse gear lever.',
-          'Instead of a foot clutch like a car, you squeeze the **left handlebar lever** and twist the left grip through gears 1–2–3–4, while your right hand works the throttle and your **right foot presses the main hydraulic brake pedal** on the floorboard. Before you hit Matara Road, Lucky or one of our Weligama team walks you through smooth hill starts, reversing, and wide cornering until shifting feels second nature.',
-        ],
-      },
-      {
-        id: 'tuk-tuk-permits-speed-limits',
-        heading: 'Driving Permits & the 40 km/h Rule for Three-Wheelers',
-        paragraphs: [
-          'Three-wheelers are taken seriously by Sri Lankan traffic police. Two rules keep your trip completely trouble-free:',
+          'Three-wheelers have their own specific rules in Sri Lanka that every self-drive visitor must respect. First, you must hold a Sri Lankan recognition permit endorsed for three-wheelers / light vehicles alongside your valid International Driving Permit and home licence — message us a photo of your licence on WhatsApp before booking and we will verify your categories and arrange the local permit (€57, valid six months) ahead of your arrival.',
+          'Second, the national legal speed limit for three-wheelers in Sri Lanka is 40 km/h, and tuk-tuks are not permitted on expressways. That unhurried 40 km/h cruising speed is actually the secret to why tuk-tuk travel feels so relaxing: you spot roadside king-coconut stalls, elephants near Udawalawe, and hidden coves that cars blur straight past.',
         ],
         bullets: [
           {
-            label: 'Three-wheeler Sri Lankan recognition permit',
-            text: 'Your Sri Lankan driving permit must explicitly cover three-wheelers, endorsed through the Automobile Association on the strength of your valid home licence and government-issued IDP booklet. Message us your licence photo before booking so we confirm your exact category.',
+            title: 'Drop to 1st or 2nd gear BEFORE steep hill climbs & descents',
+            detail:
+              'Climbing toward Ella or Deniyaya with two passengers and backpacks? Shift down early and let the punchy 4-stroke engine chug steadily rather than slipping the clutch.',
           },
           {
-            label: '40 km/h national three-wheeler speed limit',
-            text: 'By law, tuk-tuks in Sri Lanka have a maximum speed limit of 40 km/h (and are banned from expressways). Embrace the unhurried pace — radar checks on wide A-roads outside towns enforce the 40 km/h cap.',
+            title: 'Corner smoothly — remember you have one front wheel',
+            detail:
+              'Brake in a straight line before entering tight turns rather than yanking the handlebars sharply mid-corner.',
           },
           {
-            label: 'Brake in a straight line before corners',
-            text: 'A tuk-tuk has one front wheel and two rear wheels, so slow down before turning rather than braking sharply mid-bend, especially on wet cobbles or gravel shoulders.',
+            title: 'Split the €15/day cost with a travel partner',
+            detail:
+              'At €7.50 per person for two travelers (or €5 each for three), a self-drive tuk-tuk costs nearly the same per person as two separate scooters while keeping all your bags dry together.',
           },
         ],
         callout: {
-          eyebrow: '[ Paperwork Handled ]',
-          title: 'Unsure if your licence covers a tuk-tuk in Sri Lanka?',
-          body: 'Send a photo of your licence and IDP on WhatsApp before you book. We check your categories for free and arrange the official 6-month Automobile Association permit for you.',
-          ctaLabel: 'Check permit requirements',
-          ctaTo: '/driving-permit',
-          dark: true,
-        },
-      },
-      {
-        id: 'best-tuk-tuk-routes-from-weligama',
-        heading: 'Best South Coast & Hill Routes from Hello Rent - Scooter & Tuktuk Rental',
-        paragraphs: [
-          'For **tuktuk rental Weligama** day trips, our favourite loop rolls west along Koggala Lake to [Galle Fort and Unawatuna](/blog/south-coast-ride-weligama-to-galle), or east past Dondra Head lighthouse to Hiriketiya Bay and Tangalle’s quiet coves. Planning a multi-day island adventure? Climb inland past Udawalawe’s elephant plains into [Ella and Sri Lanka’s tea country](/blog/scenic-routes-to-ride-in-sri-lanka) — 1st and 2nd gear pull steadily up mountain switchbacks while you stop at every waterfall view.',
-          'Ready to claim your three-wheeler? [Reserve your tuk-tuk online](/book-now?category=Tuk%20Tuk) in two minutes and pay when we hand over the keys in Weligama.',
-        ],
-      },
-    ],
-    faqs: [
-      {
-        question: 'How much does tuktuk rental in Weligama and Sri Lanka cost?',
-        answer:
-          'At Hello Rent - Scooter & Tuktuk Rental in Weligama, renting a self-drive Bajaj RE 4-stroke tuk-tuk costs €15 per day, including full mechanical inspection, handover driving guidance, and 24/7 roadside assistance.',
-      },
-      {
-        question: 'Is a tuk-tuk hard to learn if I have never driven one?',
-        answer:
-          'Most travelers pick up the handlebar clutch and twist-grip gears within 20–30 minutes, especially if you have ever driven a manual car or geared bike. Before every rental, our team gives you hands-on guidance on a quiet road until you are confident.',
-      },
-      {
-        question: 'What permit do I need for tuk tuk rental in Sri Lanka?',
-        answer:
-          'You need a valid Sri Lankan recognition permit endorsed for three-wheelers through the Automobile Association of Ceylon, backed by your home licence and a government-issued International Driving Permit booklet. Hello Rent can check your licence and arrange the 6-month permit via WhatsApp.',
-      },
-      {
-        question: 'How many people and bags fit inside a rental tuk-tuk?',
-        answer:
-          'The rear bench seats up to three adults alongside the driver, though two to three travelers total is most comfortable for multi-day trips with backpacks stored in the 60–80L rear luggage bay.',
-      },
-    ],
-    relatedSlugs: [
-      'weligama-scooter-bike-rental-guide',
-      'rent-a-scooter-in-sri-lanka',
-      'scenic-routes-to-ride-in-sri-lanka',
-    ],
-  },
-
-  /* ------------------------------------------------------------------ */
-  /*  4. Scooter vs Manual Motorbike Comparison                          */
-  /* ------------------------------------------------------------------ */
-  {
-    slug: 'scooter-vs-motorbike-sri-lanka',
-    path: '/blog/scooter-vs-motorbike-sri-lanka',
-    title: 'Scooter vs Manual Motorbike: Which Should You Rent in Sri Lanka?',
-    seoTitle: 'Scooter vs Motorbike Rental in Sri Lanka | Hello Rent Guide',
-    metaDescription:
-      'Automatic 110cc/125cc scooter or manual 160cc–200cc motorbike? Compare power, storage, hills and daily Weligama bike rental prices before you book.',
-    keywords: [
-      'weligama bike rental',
-      'bike rent weligama',
-      'weligama scooter rental',
-      'rent scooter sri lanka',
-      'hello rent',
-    ],
-    category: 'Sri Lanka Tips',
-    publishedAt: '2026-10-10',
-    updatedAt: '2026-11-01',
-    displayDate: '10 Oct 2026',
-    readingTime: '6 min read',
-    heroImage: '/blog/coast-road.webp',
-    cardImage: '/blog/coast-road.webp',
-    heroAlt: 'Coastal road in southern Sri Lanka ideal for scooters and manual motorbikes',
-    excerpt:
-      'Twist-and-go Honda Dio and TVS Ntorq scooters versus geared Bajaj Pulsar, Yamaha FZ and TVS Apache motorbikes — an honest mechanic’s guide to choosing the right two-wheeler.',
-    keyTakeaways: [
-      'Choose an automatic scooter (€5–€6/day) for coastal towns, surf hops, effortless traffic handling and lockable under-seat storage.',
-      'Choose a manual 160cc–200cc motorbike (€10/day) for steep hill-country climbs, engine braking on long descents, and 150+ km highway days.',
-      'Only rent a manual clutch motorbike if you already ride geared bikes confidently — coastal traffic on the left is not the place to learn clutch control.',
-    ],
-    sections: [
-      {
-        id: 'automatic-scooters-pros-cons',
-        heading: 'When an Automatic Scooter Is the Smarter Choice',
-        paragraphs: [
-          'Most riders walking into our shop for [Weligama scooter rental](/blog/weligama-scooter-bike-rental-guide) end up happiest on an automatic. With no clutch lever and no foot gear shifter, all your attention stays on reading Sri Lankan road traffic, spotting coastal turn-offs, and enjoying the sea breeze.',
-          'Step-through floorboards keep rain spray off your shoes, and popping the seat open gives you 18 to 22 litres of enclosed storage. If you are riding solo around Weligama, Mirissa and Ahangama, the **Honda Dio 110cc** or feather-light 99kg **Yamaha Ray ZR** (€5/day) turns in tight café courtyards effortlessly. Riding two-up or taller than 180cm? Step up to the **TVS Ntorq 125** (€6/day) for stronger hill pull and extra knee room.',
-        ],
-      },
-      {
-        id: 'manual-motorbikes-pros-cons',
-        heading: 'When You Need a Manual Motorbike ("Big Bike")',
-        paragraphs: [
-          'Once your route leaves the flat southern coastline and climbs past Wellawaya, Deniyaya, Haputale or Nuwara Eliya, larger wheels and manual gears earn their keep. Larger 17-inch wheels roll smoothly over broken mountain tarmac where small scooter wheels bounce, and downshifting into 2nd gear gives you controlled engine braking on long descents without overheating brake pads.',
-        ],
-        table: {
-          caption: 'Comparing Automatic Scooters & Manual Motorbikes in the Hello Rent Fleet',
-          headers: ['Model', 'Engine & Gears', 'Best Rider & Trip Fit', 'Rate'],
-          rows: [
-            ['Honda Dio / Yamaha Ray ZR', '110cc Automatic', 'Solo coastal rides, petite to average height, easy parking', '€5 / day'],
-            ['TVS Ntorq 125', '125cc Automatic', 'Tall riders, two-up beach trips, brisk A2 traffic pace', '€6 / day'],
-            ['Bajaj Pulsar N160 / Yamaha FZ 160', '160cc Manual', 'Experienced geared riders heading to Ella, Kandy or Sinharaja', '€10 / day'],
-            ['TVS Apache 200 / Hero Hunk 200', '200cc Manual', 'Two-up island touring, steep tea-country climbs & long range', '€10 / day'],
-          ],
-        },
-      },
-      {
-        id: 'honest-safety-advice',
-        heading: 'Our Rule at Hello Rent: Match the Bike to Your Real Experience',
-        paragraphs: [
-          'At **Hello Rent**, we always ask about your riding history before recommending a machine. If you ride a geared motorcycle at home, a Pulsar N160 or Apache 200 from our [Weligama bike rental fleet](/fleet) feels planted and responsive. If you have only ridden automatic scooters on holiday before, stick with the TVS Ntorq 125 — it climbs southern hills reliably without giving you a clutch to think about in busy roundabouts.',
-          'Want luggage space and rain protection without balancing two wheels at all? Take a look at our [self-drive tuk-tuk rental guide](/blog/tuktuk-rental-weligama-sri-lanka) too.',
-        ],
-      },
-    ],
-    faqs: [
-      {
-        question: 'Can a 125cc scooter make it from Weligama to Ella?',
-        answer:
-          'Yes — a solo rider with a light backpack can ride a well-maintained 125cc TVS Ntorq to Ella comfortably if you take breaks. However, if two adults are riding together with luggage into steep hill country, a manual 160cc–200cc motorbike or self-drive tuk-tuk is much more comfortable.',
-      },
-      {
-        question: 'Do scooters and manual motorbikes need the same Sri Lankan permit?',
-        answer:
-          'Yes. Both automatic scooters and manual motorbikes require Category A (motorcycles) on your International Driving Permit endorsed onto a local Sri Lankan recognition permit.',
-      },
-      {
-        question: 'Which scooter has the lowest seat for shorter riders?',
-        answer:
-          'The Honda Dio 110cc (765mm seat) and the narrow Honda Navi 110cc are the easiest flat-foot options for shorter riders, while the Yamaha Ray ZR is the lightest overall at just 99kg.',
-      },
-    ],
-    relatedSlugs: [
-      'weligama-scooter-bike-rental-guide',
-      'rent-a-scooter-in-sri-lanka',
-      'scenic-routes-to-ride-in-sri-lanka',
-    ],
-  },
-
-  /* ------------------------------------------------------------------ */
-  /*  5. South Coast Route: Weligama to Mirissa, Ahangama & Galle Fort   */
-  /* ------------------------------------------------------------------ */
-  {
-    slug: 'south-coast-ride-weligama-to-galle',
-    path: '/blog/south-coast-ride-weligama-to-galle',
-    title: 'The South Coast Ride: Weligama to Mirissa, Ahangama & Galle Fort',
-    seoTitle: 'Weligama to Galle by Scooter or Tuk-Tuk: South Coast Route',
-    metaDescription:
-      'Ride from Weligama to Ahangama, Koggala Lake, Unawatuna and Galle Fort by scooter or tuk-tuk — local backroads, parking tips and sunset stops.',
-    keywords: [
-      'weligama scooter rental',
-      'scooter rental weligama',
-      'tuktuk rental weligama',
-      'weligama bike rental',
-      'hello rent',
-    ],
-    category: 'Routes & Trips',
-    publishedAt: '2026-09-28',
-    updatedAt: '2026-10-30',
-    displayDate: '28 Sep 2026',
-    readingTime: '6 min read',
-    heroImage: '/blog/tea-country.webp',
-    cardImage: '/blog/hero-card.webp',
-    heroAlt: 'Palm-fringed southern Sri Lanka road between Weligama and Galle',
-    excerpt:
-      'Skip the bus exhaust on the main highway where it counts: our favourite half-day and full-day ride west from Weligama through Midigama, Koggala Lake’s cinnamon backroads, Unawatuna and Galle Fort.',
-    keyTakeaways: [
-      'Weligama to Galle Fort is roughly 30 km one way — 50 minutes straight on the A2, or a relaxed full day with lagoon detours and swims.',
-      'Turn inland around Koggala Lake to swap coastal bus traffic for quiet paddy-field lanes and cinnamon estates.',
-      'Any 110cc/125cc scooter (€5–€6/day) or self-drive tuk-tuk (€15/day) handles this flat coastal run effortlessly.',
-    ],
-    sections: [
-      {
-        id: 'morning-departure-weligama-ahangama',
-        heading: 'Morning: Weligama Bay Through Midigama & Ahangama (0–10 km)',
-        paragraphs: [
-          'Pick up your ride from **Hello Rent** at 07:30 while the coast air is cool and golden. Rolling west out of Weligama Bay, the ocean stays just steps off your left shoulder through Gurubebila (Plantations and Coconuts reef breaks) and Midigama.',
-          'Ten minutes further brings you into Ahangama and Kabalana — stop for a flat white or string hoppers overlooking the reef, and watch stilt fishermen perched along the shallow coral shelf before midday glare sets in.',
-        ],
-      },
-      {
-        id: 'koggala-lake-backroad',
-        heading: 'The Local Detour: Inland Around Koggala Lake (10–20 km)',
-        paragraphs: [
-          'Here is the tip Lucky gives every rider leaving our [Weligama scooter rental shop](/blog/weligama-scooter-bike-rental-guide): instead of staying glued to the busy A2 highway all the way to Habaraduwa, turn right onto the quiet B-roads skirting **Koggala Lake**.',
-          'Within two minutes, highway horns vanish into emerald rice paddies, kingfishers on telegraph wires, and small family cinnamon workshops. Loop back toward the sea near Mihiripenna and Dalawella Beach — home to the shallow reef lagoon where sea turtles feed in knee-deep water.',
-        ],
-      },
-      {
-        id: 'unawatuna-and-galle-fort',
-        heading: 'Afternoon: Unawatuna Swim & Parking at Galle Fort (20–30 km)',
-        paragraphs: [
-          'Curve around the Jungle Beach headland at Rumassala for a sheltered swim, then finish the final six kilometres into **Galle Fort**. Two-wheelers and tuk-tuks can enter through the Old Gate or Main Gate, though parking right beside the cricket stadium outside the ramparts (or along quiet Church Street bays inside, obeying no-parking signs) saves weaving past afternoon walkers.',
-          'Roll back east at 16:30 so you reach Weligama Bay or **Mirissa’s Coconut Tree Hill** (just 6 km east of our shop) in time for sunset. Looking for nine more directions you can reach before dark? Explore our full [Weligama one-day riding routes guide](/tours).',
-        ],
-        callout: {
-          eyebrow: '[ Ready for Tomorrow Morning? ]',
-          title: 'Book your scooter or tuk-tuk in Weligama',
-          body: 'Open 07:00–21:00 daily in central Weligama. Helmets included, phone mounts €1/day, no card needed to reserve.',
-          ctaLabel: 'Reserve your ride',
+          eyebrow: '[ Ready for Three Wheels? ]',
+          title: 'Book your Bajaj RE tuk-tuk in Weligama',
+          body: 'Our tuk-tuks are among the first vehicles in the shop to book out in peak south-coast season. Reserve yours online with zero upfront card charge.',
+          ctaLabel: 'RESERVE A TUK-TUK',
           ctaTo: '/book-now',
         },
       },
     ],
     faqs: [
       {
-        question: 'How long does it take to ride from Weligama to Galle by scooter?',
+        question: 'How much is tuktuk rental in Weligama per day?',
         answer:
-          'Direct along the A2 coastal road, Weligama to Galle Fort is around 30 km and takes 45 to 55 minutes by scooter or 60 to 70 minutes in a tuk-tuk. With stops at Ahangama, Koggala Lake and Unawatuna, allow a relaxed 5 to 7 hours round trip.',
+          'At Hello Rent - Scooter & Tuktuk Rental in Weligama, our well-maintained Bajaj RE 4-stroke tuk-tuks rent for €15 per day, including a full driving walkthrough before you set off and 24/7 roadside support.',
       },
       {
-        question: 'Is a 110cc scooter enough for Weligama to Galle and Mirissa?',
+        question: 'Do you give a driving lesson if I have never driven a tuk-tuk before?',
         answer:
-          'Yes — the south coast road is almost completely flat apart from the gentle headland at Rumassala, making a €5/day 110cc Honda Dio or Yamaha Ray ZR ideal.',
+          'Yes! Almost none of our guests have driven a handlebar-shift three-wheeler before arriving in Weligama. We walk you through the clutch, gears, reverse lever, and braking on quiet streets until you feel completely confident.',
       },
       {
-        question: 'Can you park a rental scooter or tuk-tuk at Galle Fort?',
+        question: 'What driving permit do I need for tuk tuk rental in Sri Lanka?',
         answer:
-          'Yes. Dedicated two-wheeler and three-wheeler parking bays sit just outside the Fort gates beside Galle International Cricket Stadium as well as marked bays inside the ramparts.',
+          'You need a valid home driving licence (typically Category B / light vehicle), an official physical International Driving Permit booklet, and a Sri Lankan recognition permit covering three-wheelers. Send us a photo of your licence on WhatsApp and Hello Rent can check eligibility and arrange your six-month Sri Lankan permit.',
+      },
+      {
+        question: 'Can a tuk-tuk carry surfboards around Weligama and Ahangama?',
+        answer:
+          'Yes — shortboards can tuck diagonally inside when riding solo or two-up, and longer boards can be strapped securely to the roof rack with soft straps for easy runs between Weligama Bay, Midigama, and Kabalana.',
       },
     ],
     relatedSlugs: [
-      'weligama-scooter-bike-rental-guide',
-      'scenic-routes-to-ride-in-sri-lanka',
-      'tuktuk-rental-weligama-sri-lanka',
+      'hello-rent-scooter-tuktuk-rental-weligama-guide',
+      'scenic-coastal-hill-routes-from-weligama-sri-lanka',
+      'scooter-rental-weligama-guide',
+    ],
+    internalLinks: [
+      {
+        label: 'See Our Bajaj RE Tuk-Tuk Specs',
+        to: '/fleet',
+        description: 'Compare our three-wheelers alongside scooters, motorbikes, and A/C cars.',
+      },
+      {
+        label: 'Arrange Your Sri Lankan Driving Permit',
+        to: '/driving-permit',
+        description: 'Check licence categories and let us handle the paperwork.',
+      },
+      {
+        label: 'Plan Your One-Day Route from Weligama',
+        to: '/tours',
+        description: 'Discover wildlife parks, rainforests, and beaches within easy reach.',
+      },
     ],
   },
 
-  /* ------------------------------------------------------------------ */
-  /*  6. Top Scenic Routes in Sri Lanka (Rainforest, Wildlife & Hills)   */
-  /* ------------------------------------------------------------------ */
+  /* ======================================================================== */
+  /* 5. Hello Rent - Scooter & Tuktuk Rental / Hello Rent                     */
+  /* ======================================================================== */
   {
-    slug: 'scenic-routes-to-ride-in-sri-lanka',
-    path: '/blog/scenic-routes-to-ride-in-sri-lanka',
-    title: 'Top Scenic Routes to Ride in Sri Lanka by Scooter, Bike or Tuk-Tuk',
-    seoTitle: 'Top Scenic Routes to Ride in Sri Lanka | Hello Rent Weligama',
-    metaDescription:
-      'From Deniyaya rainforest hairpins and Tangalle beaches to Ella’s misty tea estates — the best scenic Sri Lanka routes when you rent a scooter, bike or tuk-tuk.',
+    slug: 'hello-rent-scooter-tuktuk-rental-weligama-guide',
+    title: 'Hello Rent – Scooter & Tuk-Tuk Rental in Weligama: How Our Local Community Fleet Works',
+    seoTitle: 'Hello Rent - Scooter & Tuktuk Rental Weligama | Local Guide',
+    seoDescription:
+      'Meet Hello Rent - Scooter & Tuktuk Rental in Weligama. Family-run by Bhagya (“Lucky”) & Sandra, supporting ~100 local families with honest €5 scooters & €15 tuk-tuks.',
     keywords: [
-      'rent a scooter sri lanka',
-      'tuk tuk rental sri lanka',
-      'weligama bike rental',
       'hello rent - scooter & tuktuk rental',
       'hello rent',
+      'scooter rental weligama',
+      'tuktuk rental weligama',
+      'weligama scooter rental',
+      'bike rent weligama',
     ],
-    category: 'Routes & Trips',
-    publishedAt: '2026-09-15',
-    updatedAt: '2026-10-29',
-    displayDate: '15 Sep 2026',
-    readingTime: '7 min read',
-    heroImage: '/photos/tea-country-ride.jpg',
-    cardImage: '/blog/packing.webp',
-    heroAlt: 'Riders overlooking misty emerald tea estates in Sri Lanka’s central highlands',
+    category: 'Local Stories',
+    publishedAt: '2026-03-29',
+    displayDate: '29 Mar 2026',
+    readingTime: '5 min read',
+    author: {
+      name: 'Bhagya “Lucky” & Sandra',
+      role: 'Founders, Hello Rent Weligama',
+    },
+    image: '/photos/shop-front.jpg',
+    imageAlt: 'The Hello Rent - Scooter & Tuktuk Rental storefront in central Weligama',
     excerpt:
-      'Ride twenty kilometres inland from the surf coast and coconut palms give way to lowland rainforest, elephant corridors and high-altitude tea estates. Here are four routes worth every kilometre.',
-    keyTakeaways: [
-      'Sri Lanka packs surf coast, UNESCO lowland rainforest, dry-zone elephant parks and 1,800m tea hills within half a day’s ride of Weligama.',
-      'Start mountain climbs before 08:00 — mist and brief afternoon rain regularly roll across Ella, Haputale and Deniyaya after 14:00.',
-      'Match your vehicle to the climb: scooters shine on coastal & foothill runs, while manual 160–200cc bikes and 4-stroke tuk-tuks excel on multi-day hill loops.',
+      'What started in 2017 with a hand-painted wooden sign and three borrowed scooters near Weligama Beach now supports around a hundred local families. Here is what to expect when you rent with Hello Rent.',
+    whatsappPrompt:
+      "Hi Lucky & Sandra at Hello Rent! I read your story and I'd love to book a vehicle for my stay in Weligama.",
+    quickFacts: [
+      { label: 'Founded in Weligama', value: '2017 by Lucky & Sandra' },
+      { label: 'Community Impact', value: '~100 Local Families' },
+      { label: 'Passport Held?', value: 'Never — Copy Only' },
+      { label: 'Opening Hours', value: 'Mon–Sun 07:00–21:00' },
     ],
     sections: [
       {
-        id: 'weligama-to-deniyaya-sinharaja',
-        heading: '1. Weligama to Deniyaya & the Edge of Sinharaja Rainforest',
+        id: 'story-behind-hello-rent-weligama',
+        eyebrow: '[ From Surf Camp to Central Weligama ]',
+        heading: 'How Hello Rent – Scooter & Tuktuk Rental began with three friends’ scooters',
         paragraphs: [
-          'Heading straight north from Weligama through Akuressa swaps salt air for rubber plantations, spice gardens and terraced low-grown tea within an hour. By the time you wind up toward **Deniyaya** and the UNESCO-protected **Sinharaja Rainforest**, temperatures drop five degrees and waterfalls spill beside the road.',
-          'You can ride this there-and-back in one full day from our [Weligama shop](/contact) (~75 km each way). Pack a light rain jacket in your under-seat boot and fuel up in Akuressa before the final climb.',
+          'Between 2016 and 2020, Bhagya — whom everyone on the coast calls “Lucky”, the English meaning of his Sinhala name — taught surfing on Weligama Beach. Every afternoon after surf lessons, students asked the exact same question: where in Weligama can we rent a clean scooter without getting overcharged or hassled over tiny scratches?',
+          'Lucky started by lending his own scooter and borrowing two or three well-kept bikes from trusted friends for fellow surfers. In 2017, he reclaimed a family plot right in the heart of Weligama town — walking distance from Weligama Beach, the railway station, the bus stand, and local banks — painted the words “Hello Rent” on an old wooden board, and parked his friends’ scooters out front.',
+          'Today, run side by side by husband-and-wife team Bhagya and Sandra, Hello Rent - Scooter & Tuktuk Rental operates on a unique community model: around one hundred Weligama families place their vehicles in our care and earn steady household income from tourism, while travelers receive mechanically inspected scooters, motorbikes, tuk-tuks, and cars backed by one accountable local shop.',
         ],
       },
       {
-        id: 'tangalle-hiriketiya-quiet-south',
-        heading: '2. East Along the Deep South: Dondra Head, Hiriketiya & Tangalle',
+        id: 'what-makes-hello-rent-different',
+        eyebrow: '[ Zero Rental Anxiety ]',
+        heading: 'Six things we do differently at Hello Rent',
         paragraphs: [
-          'While most newcomers turn west toward Galle, riding east past Matara rewards you with Sri Lanka’s southernmost tip at **Dondra Head Lighthouse**, the horseshoe surf cove of **Hiriketiya**, and long empty golden beaches around **Tangalle** and Rekawa.',
-          'This flat, breezy stretch is pure joy when you [rent a scooter in Sri Lanka](/blog/rent-a-scooter-in-sri-lanka) or cruise at 35 km/h with two friends in a [self-drive tuk-tuk](/blog/tuktuk-rental-weligama-sri-lanka).',
+          'Renting a vehicle abroad can feel stressful when rules are unclear. Everything in our Weligama shop is built around one simple Buddhist principle: treat visitors like a brother or sister arriving in town for the first time.',
         ],
+        bullets: [
+          {
+            title: '1. Published euro rates — zero haggling or hidden add-ons',
+            detail:
+              '110cc scooters are €5/day, 125cc TVS Ntorq €6/day, manual motorbikes €10/day, Bajaj RE tuk-tuks €15/day, and automatic A/C cars or vans €31/day.',
+          },
+          {
+            title: '2. We never hold your original passport',
+            detail:
+              'Your passport belongs safely with you. A quick copy of your photo page and driving permit is all we take at handover.',
+          },
+          {
+            title: '3. Safety comes before making a sale',
+            detail:
+              'Before handing over keys, we ask about your experience with two-wheelers, manual clutches, and left-hand Asian traffic. If a vehicle isn’t safe for you right now, we say so honestly and suggest a better match.',
+          },
+          {
+            title: '4. Official 6-month Sri Lankan permits arranged before arrival',
+            detail:
+              'Send your IDP, passport page, and photo by WhatsApp and skip government office queues altogether (€57 one-off).',
+          },
+          {
+            title: '5. South-coast hotel delivery & collection',
+            detail:
+              'Staying in Mirissa, Midigama, Ahangama, or a hillside villa? We bring your scooter, tuk-tuk, or car straight to your door and collect it when you check out (€15 flat).',
+          },
+          {
+            title: '6. 24/7 local WhatsApp support',
+            detail:
+              'Flat tyre near Kabalana? Unsure which turn leads to Deniyaya? Message +94 76 707 3388 anytime and talk directly to people who know every road in the south.',
+          },
+        ],
+        callout: {
+          eyebrow: '[ Come as a Traveler, Leave as Family ]',
+          title: 'Read Bhagya & Sandra’s full Weligama story',
+          body: 'Learn more about our values, safety commitment, and the local families behind the Hello Rent fleet.',
+          ctaLabel: 'READ OUR STORY',
+          ctaTo: '/about',
+        },
       },
       {
-        id: 'udawalawe-to-ella-gap',
-        heading: '3. Udawalawe Elephant Corridor to Wellawaya & Ella Gap',
+        id: 'finding-our-weligama-store',
+        eyebrow: '[ Visit the Shop ]',
+        heading: 'How to find Hello Rent in Weligama (and how booking works)',
         paragraphs: [
-          'Turning a south-coast holiday into a 3-to-5-day loop? Ride northeast past **Udawalawe National Park** (watch carefully near the reservoir fence where wild elephants stand right beside the road — never stop close or rev your engine), then climb through **Ella Gap** past Rawana Falls.',
-          'For this climb, our geared **Yamaha FZ 160**, **Bajaj Pulsar N160** or **TVS Apache 200** (€10/day) from the [Hello Rent fleet](/fleet) gives you effortless overtaking power and engine braking on the hairpins.',
-        ],
-      },
-      {
-        id: 'ella-to-haputale-liptons-seat',
-        heading: '4. Ella to Bandarawela, Haputale & Lipton’s Seat',
-        paragraphs: [
-          'Arguably the finest morning on two wheels anywhere on the island: depart Ella at 06:00, thread along high-ridge roads through Bandarawela to **Haputale**, and wind up the narrow tea-estate lane to **Lipton’s Seat** before morning cloud rises from the southern plains below.',
-          'Planning a custom multi-day route and unsure about road works or monsoon seasons? Message Bhagya ("Lucky") directly from our [day-trips and route planning page](/tours) — we share real, current road notes free of charge with every guest.',
+          'If you arrive on the coastal train from Colombo Fort or Galle, our Weligama shop is just a few minutes away in the town centre — open seven days a week from 07:00 to 21:00. You can walk in, test seat heights across our Honda Dio, Yamaha Ray ZR, TVS Ntorq, Pulsar, or Bajaj RE tuk-tuk, and ride out in fifteen minutes.',
+          'Travelling between December and April? South-coast surf season gets busy fast, so we recommend locking in your dates online via our booking page. It takes under two minutes, requires no credit card upfront, and guarantees your preferred vehicle is freshly serviced and waiting.',
         ],
       },
     ],
     faqs: [
       {
-        question: 'Can I take a Hello Rent scooter, motorbike or tuk-tuk on a multi-day trip across Sri Lanka?',
+        question: 'Where is Hello Rent - Scooter & Tuktuk Rental located?',
         answer:
-          'Yes! Many of our guests pick up in Weligama for multi-day or multi-week loops through Tangalle, Udawalawe, Ella and Kandy, and we can also arrange island-wide delivery or collection if you do not want to backtrack.',
+          'Hello Rent is located in central Weligama, Southern Province, Sri Lanka — walking distance from Weligama Beach, Weligama railway station, and the main bus stand. You can get exact turn-by-turn directions on our Contact page.',
       },
       {
-        question: 'When is the best season to ride the south coast and hill country?',
+        question: 'Do I need a credit card to book online with Hello Rent?',
         answer:
-          'November through April brings the sunniest, calmest weather to Weligama, Galle and the south coast, as well as crisp mornings in Ella. Even between May and October, mornings often start bright and the eastern side around Hiriketiya, Tangalle and Yala stays much drier.',
+          'No credit card is required to reserve online. Choose your vehicle, dates, and optional extras on our website, and pay simply when you pick up your vehicle in Weligama or when we deliver to your hotel.',
       },
       {
-        question: 'Which bike in Hello Rent’s fleet is best for Ella and mountain roads?',
+        question: 'What vehicles does Hello Rent offer besides scooters and tuk-tuks?',
         answer:
-          'Experienced geared riders love the Yamaha FZ 160, Bajaj Pulsar N160 and TVS Apache 200 (€10/day) for hill country. Solo automatic riders prefer the 125cc TVS Ntorq (€6/day), while couples with luggage often pick our Bajaj RE 4-stroke tuk-tuk (€15/day).',
+          'Alongside 110cc–125cc automatic scooters and Bajaj RE 4-stroke tuk-tuks, Hello Rent offers 160cc–200cc manual motorbikes (Pulsar, FZ, Apache, Hunk) and automatic air-conditioned cars and vans (Suzuki Wagon R, Spacia, Toyota Roomy, Raize, Prius, and KDH surfboard vans).',
+      },
+      {
+        question: 'What are Hello Rent’s opening hours in Weligama?',
+        answer:
+          'Our Weligama shop is open every day from 07:00 to 21:00 (Monday through Sunday), with 24/7 roadside assistance available for active rentals.',
       },
     ],
     relatedSlugs: [
-      'scooter-vs-motorbike-sri-lanka',
-      'tuktuk-rental-weligama-sri-lanka',
-      'south-coast-ride-weligama-to-galle',
+      'scooter-rental-weligama-guide',
+      'tuktuk-rental-weligama-sri-lanka-guide',
+      'scenic-coastal-hill-routes-from-weligama-sri-lanka',
+    ],
+    internalLinks: [
+      {
+        label: 'Find Hello Rent on Google Maps',
+        to: '/contact#store',
+        description: 'Directions, opening hours, and one-tap WhatsApp contact.',
+      },
+      {
+        label: 'Explore Our Full Fleet',
+        to: '/fleet',
+        description: 'Scooters (€5), Motorbikes (€10), Tuk-Tuks (€15), and Cars (€31).',
+      },
+      {
+        label: 'Book Your Ride Online',
+        to: '/book-now',
+        description: 'Reserve in two minutes with zero upfront card payment.',
+      },
+    ],
+  },
+
+  /* ======================================================================== */
+  /* 6. Best Routes from Weligama (Coast & Hill Country)                      */
+  /* ======================================================================== */
+  {
+    slug: 'scenic-coastal-hill-routes-from-weligama-sri-lanka',
+    title: 'Best South Coast & Hill Country Routes from Weligama by Scooter, Bike or Tuk-Tuk',
+    seoTitle: 'Best Scooter & Tuk-Tuk Routes from Weligama | Hello Rent',
+    seoDescription:
+      '4 unforgettable Sri Lanka routes starting with a Weligama scooter rental, bike rental, or self-drive tuk-tuk: Galle Fort, Hiriketiya, Sinharaja & Ella.',
+    keywords: [
+      'weligama scooter rental',
+      'weligama bike rental',
+      'tuk tuk rental sri lanka',
+      'rent scooter sri lanka',
+      'hello rent',
+    ],
+    category: 'Riding Guides',
+    publishedAt: '2026-03-18',
+    displayDate: '18 Mar 2026',
+    readingTime: '8 min read',
+    author: {
+      name: 'Bhagya “Lucky” & Sandra',
+      role: 'Founders, Hello Rent Weligama',
+    },
+    image: '/blog/tea-country.webp',
+    imageAlt: 'Winding green tea-country road in Sri Lanka ideal for motorbikes and tuk-tuks',
+    excerpt:
+      'Ride twenty kilometres in any direction from Weligama and Sri Lanka changes completely — Dutch forts to the west, horseshoe surf bays to the east, and misty rainforests and tea estates inland. Here are Lucky’s four favourite routes.',
+    whatsappPrompt:
+      "Hi Hello Rent! I'm planning a road trip from Weligama and would love route and vehicle advice.",
+    quickFacts: [
+      { label: 'Starting Point', value: 'Hello Rent Weligama' },
+      { label: 'Half-Day Coast Runs', value: '15 – 45 km each way' },
+      { label: 'Inland Tea & Forest', value: '65 – 85 km each way' },
+      { label: 'Hill Country Loop', value: '2 – 5 Days' },
+    ],
+    sections: [
+      {
+        id: 'route-1-west-coast-galle-fort',
+        eyebrow: '[ Route 01 · West Along the Reefs ]',
+        heading: 'Weligama → Midigama → Ahangama → Koggala Lake → Galle Fort (30 km)',
+        paragraphs: [
+          'If it is your very first morning with a Weligama scooter rental, turn right (west) onto the coastal road after sunrise. Within ten minutes you roll past the reef breaks of Midigama (Lazy Left and Rams) and the iconic stilt fishermen platforms between Ahangama and Koggala.',
+          'Before pushing on to Unawatuna and the 17th-century ramparts of Galle Fort, detour five minutes inland around Koggala Lake — a glass-calm lagoon ringed by cinnamon islands and quiet Buddhist temples where tour buses never go. An automatic 110cc Honda Dio or Yamaha Ray ZR (€5/day) handles this entire 60 km round trip on less than two litres of petrol.',
+        ],
+      },
+      {
+        id: 'route-2-east-bays-mirissa-hiriketiya',
+        eyebrow: '[ Route 02 · East to Hidden Bays ]',
+        heading: 'Weligama → Mirissa → Madiha → Hiriketiya → Tangalle (42 – 58 km)',
+        paragraphs: [
+          'Head east from Weligama and the coastline breaks into a string of palm-fringed coves. Pass Coconut Tree Hill in Mirissa early before the midday crowd arrives, skirt through Matara, and cruise the quiet oceanfront lane of Madiha — one of the best spots on the south coast to spot green sea turtles swimming right off the reef.',
+          'Forty-two kilometres east of Weligama sits Hiriketiya, a lush horseshoe bay near Dickwella with gentle longboard waves on one side and café-lined jungle hills above. Keep rolling another twenty minutes to Tangalle if you want wide, empty golden beaches. Our TVS Ntorq 125 (€6/day) or a Bajaj RE tuk-tuk (€15/day) makes this an effortless full-day beach crawl.',
+        ],
+      },
+      {
+        id: 'route-3-inland-deniyaya-sinharaja',
+        eyebrow: '[ Route 03 · Rainforest & Tea ]',
+        heading: 'Weligama → Akuressa → Deniyaya & Sinharaja Edge (72 km)',
+        paragraphs: [
+          'Most visitors don’t realise how fast the tropical beach gives way to cool mountain air. Turn directly inland from Weligama through Akuressa and watch coconut palms give way to rubber estates, cinnamon gardens, low-grown tea slopes, and roadside waterfalls around Deniyaya on the border of the UNESCO-listed Sinharaja Rain Forest.',
+          'Start by 06:30 so you arrive before midday clouds gather over the canopy, visit a working tea factory, swim in a clear rock pool, and coast back down to Weligama before dusk. Because the road climbs and twists past tea lorries, we recommend at least the 125cc TVS Ntorq for solo riders or a 160cc–200cc manual motorbike (€10/day) if riding two-up.',
+        ],
+        table: {
+          caption: 'Matching Lucky’s 4 routes to the ideal Hello Rent vehicle',
+          headers: ['Route from Weligama', 'One-Way Distance', 'Trip Length', 'Recommended Vehicle'],
+          rows: [
+            ['West: Midigama, Koggala & Galle Fort', '~30 km', 'Half day', '110cc Scooter (€5/day) or Tuk-Tuk (€15/day)'],
+            ['East: Mirissa, Madiha & Hiriketiya', '~42 km', 'Full day', 'TVS Ntorq 125 (€6/day) or Tuk-Tuk (€15/day)'],
+            ['Inland: Deniyaya Tea & Sinharaja', '~72 km', 'Early full day', '160–200cc Motorbike (€10/day) or Ntorq 125'],
+            ['Multi-Day: Udawalawe, Ella & Kandy', '165 – 290 km', '3 – 6 days', 'Yamaha FZ / Pulsar / Apache (€10) or Tuk-Tuk (€15)'],
+          ],
+        },
+      },
+      {
+        id: 'route-4-multi-day-ella-hill-country',
+        eyebrow: '[ Route 04 · The Classic Island Climb ]',
+        heading: 'Multi-day loop: Weligama → Udawalawe → Ella → Nuwara Eliya',
+        paragraphs: [
+          'Planning a multi-day Weligama bike rental or self-drive tuk tuk rental in Sri Lanka? Break the climb to Ella in two scenic stages: ride east and inland across open plains past Udawalawe National Park (famous for wild elephants right beside the reservoir fence), stay overnight or grab lunch near Wellawaya, and climb through Ravana Falls pass into Ella at 1,040 metres.',
+          'Pack a windproof layer and light rain shell — temperatures drop quickly from 30°C in Weligama to 16°C in the central highlands! Before setting out on any multi-day trip, drop by the shop and Lucky will check live road conditions and mark the best fuel and tea stops on your phone.',
+        ],
+        callout: {
+          eyebrow: '[ More Day-Trip Ideas ]',
+          title: 'See all 10 places you can reach in one day from Weligama',
+          body: 'Explore Lucky’s complete 360° day-trip guide including Yala, Hiyare Rain Forest, Hikkaduwa, and ancient southern temples.',
+          ctaLabel: 'EXPLORE DAY TRIPS GUIDE',
+          ctaTo: '/tours',
+        },
+      },
+    ],
+    faqs: [
+      {
+        question: 'Can I take a Weligama scooter rental or tuk-tuk on a multi-day trip to Ella?',
+        answer:
+          'Yes! Guests regularly take our manual motorbikes (Yamaha FZ 160, Bajaj Pulsar N160, TVS Apache 200), Bajaj RE tuk-tuks, and 125cc TVS Ntorq scooters on multi-day loops to Udawalawe, Ella, and back to Weligama. Tell us your planned route at pickup so we prep the vehicle and luggage setup accordingly.',
+      },
+      {
+        question: 'How long does it take to ride from Weligama to Galle Fort or Hiriketiya?',
+        answer:
+          'Allow around 50–60 minutes at a relaxed coastal pace to reach Galle Fort (30 km west) and roughly 70–85 minutes to reach Hiriketiya (42 km east), plus plenty of extra time for coffee, surf checks, and beach swims along the way.',
+      },
+      {
+        question: 'Are Google Maps travel times accurate for scooters and tuk-tuks in Sri Lanka?',
+        answer:
+          'Google Maps is reliable for navigation on main A- and B-roads (be sure to toggle “Avoid Highways/Tolls” so it never routes you onto the E01 Southern Expressway), though in a tuk-tuk or on steep mountain roads you should add 25–30% to Google’s estimated driving time.',
+      },
+      {
+        question: 'What if rain catches me halfway through a south-coast ride?',
+        answer:
+          'South-coast showers outside peak monsoon usually pass in 20 to 40 minutes — do what Sri Lankan riders do: pull into a roadside bakery or king-coconut stall, enjoy a hot cup of Ceylon tea and a roti, and wait for the sun to break back out rather than rushing on slick first-rain tarmac.',
+      },
+    ],
+    relatedSlugs: [
+      'scooter-rental-weligama-guide',
+      'bike-rent-weligama-scooter-vs-motorbike',
+      'tuktuk-rental-weligama-sri-lanka-guide',
+    ],
+    internalLinks: [
+      {
+        label: 'Full 1-Day Destinations from Weligama',
+        to: '/tours',
+        description: '10 beaches, parks, and rainforests mapped from our Weligama door.',
+      },
+      {
+        label: 'Choose Your Vehicle for the Trip',
+        to: '/fleet',
+        description: 'Compare scooters, manual hill-country motorbikes, tuk-tuks, and cars.',
+      },
+      {
+        label: 'Book Your Dates Now',
+        to: '/book-now',
+        description: 'Add a GPS phone mount and rear luggage box in seconds.',
+      },
     ],
   },
 ];
 
-export const BLOG_CATEGORIES: ('All' | BlogCategory)[] = [
-  'All',
-  'Weligama Local',
-  'Sri Lanka Tips',
-  'Tuk-Tuk Guides',
-  'Routes & Trips',
+export const BLOG_CATEGORIES = [
+  'All Guides',
+  ...Array.from(new Set(BLOG_POSTS.map(post => post.category))),
 ];
 
-export function getBlogPost(slug: string | undefined): BlogPost | undefined {
+export function getBlogPostBySlug(slug: string | undefined): BlogPost | undefined {
   if (!slug) return undefined;
   return BLOG_POSTS.find(post => post.slug === slug);
 }
 
-export function getBlogPostByPath(path: string): BlogPost | undefined {
-  const clean = '/' + path.replace(/^\/+|\/+$/g, '');
-  return BLOG_POSTS.find(post => post.path === clean);
-}
+export function getRelatedBlogPosts(post: BlogPost, limit = 3): BlogPost[] {
+  const explicit = post.relatedSlugs
+    .map(slug => getBlogPostBySlug(slug))
+    .filter((p): p is BlogPost => Boolean(p));
 
+  if (explicit.length >= limit) return explicit.slice(0, limit);
+
+  const fallback = BLOG_POSTS.filter(
+    p => p.slug !== post.slug && !explicit.some(e => e.slug === p.slug),
+  );
+  return [...explicit, ...fallback].slice(0, limit);
+}

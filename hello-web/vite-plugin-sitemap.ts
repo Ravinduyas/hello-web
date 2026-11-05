@@ -1,13 +1,16 @@
 import type { Plugin } from 'vite';
-import { getBlogPostByPath } from './src/data/blog';
-import { ALL_ROUTE_PATHS } from './src/data/routes';
+import { ALL_PUBLIC_PATHS } from './src/data/routes';
 
 /**
  * Writes sitemap.xml and robots.txt into the build from the shared route list
- * (core pages plus every `/blog/<slug>` guide).
+ * (both core pages and every `/blog/:slug` article).
+ *
+ * Generated at build time rather than kept in public/ because both need absolute
+ * URLs, and the site's address depends on SITE_URL and BASE_PATH.
  */
 export default function sitemap(options: { siteUrl: string }): Plugin {
   const origin = options.siteUrl.replace(/\/+$/, '');
+
   let base = '/';
   const urlFor = (path: string) => `${origin}${base}${path.replace(/^\//, '')}`;
 
@@ -20,11 +23,7 @@ export default function sitemap(options: { siteUrl: string }): Plugin {
     },
 
     generateBundle() {
-      const urls = ALL_ROUTE_PATHS.map(path => {
-        const post = getBlogPostByPath(path);
-        const lastmod = post ? `<lastmod>${post.updatedAt}</lastmod>` : '';
-        return `  <url><loc>${urlFor(path)}</loc>${lastmod}</url>`;
-      }).join('\n');
+      const urls = ALL_PUBLIC_PATHS.map(path => `  <url><loc>${urlFor(path)}</loc></url>`).join('\n');
 
       this.emitFile({
         type: 'asset',
