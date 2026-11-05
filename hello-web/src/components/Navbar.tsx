@@ -47,7 +47,8 @@ export default function Navbar() {
 
           <div className="hidden md:flex items-center gap-1 text-sm font-medium">
             {links.map(link => {
-              const activeLink = pathname === link.to;
+              const activeLink =
+                link.to === '/blog' ? pathname.startsWith('/blog') : pathname === link.to;
               return (
                 <Link
                   key={link.to}
@@ -71,7 +72,7 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <Link to="/book" target="_blank" rel="noopener" className="btn-primary text-xs px-5 py-2.5 md:text-sm">
+            <Link to="/book-now" target="_blank" rel="noopener" className="btn-primary text-xs px-5 py-2.5 md:text-sm">
               BOOK NOW
             </Link>
             <button
@@ -114,7 +115,9 @@ export default function Navbar() {
                   to={link.to}
                   onClick={() => setOpen(false)}
                   className={`font-display text-3xl font-bold transition-colors hover:text-brand ${
-                    pathname === link.to ? 'text-brand' : 'text-dark'
+                    (link.to === '/blog' ? pathname.startsWith('/blog') : pathname === link.to)
+                      ? 'text-brand'
+                      : 'text-dark'
                   }`}
                 >
                   {link.label}
@@ -122,7 +125,7 @@ export default function Navbar() {
               ))}
             </nav>
             <Link
-              to="/book"
+              to="/book-now"
               target="_blank"
               rel="noopener"
               onClick={() => setOpen(false)}

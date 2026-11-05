@@ -1,14 +1,18 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, ChevronDown, Pencil, Percent, DollarSign, Plus, Trash2 } from 'lucide-react';
+import { RefreshCw, ChevronDown, Pencil, Percent, DollarSign, Plus, Trash2, Printer } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { Loading, SkeletonStats, SkeletonTable } from '../components/Skeleton';
 import {
-  fetchOwners, fetchUnits, fetchBookings, updateOwner, paidOf, dueOf,
+  fetchOwners, fetchUnits, fetchBookings, fetchBikes, updateOwner, paidOf, dueOf,
   fetchTransactions, createTransaction, deleteTransaction,
-  UnauthorizedError, type Owner, type Unit, type Booking, type Transaction,
+  UnauthorizedError, type Owner, type Unit, type Booking, type Bike, type Transaction,
 } from '../lib/api';
 import { ownerCommission } from '../lib/commission';
+import { buildMonthlyReport, monthLabel } from '../lib/report';
+import MonthlyReportDoc from '../components/MonthlyReport';
 
 import { money } from '../lib/money';
+import { PageHeader, Segmented, TabPanel } from '../components/ui';
 
 type DateRange = 'all' | 'today' | 'week' | 'month' | 'custom';
 const RANGES: { key: DateRange; label: string }[] = [
@@ -19,13 +23,23 @@ const RANGES: { key: DateRange; label: string }[] = [
   { key: 'custom', label: 'Custom' },
 ];
 
-type SubTab = 'payouts' | 'payments' | 'transactions' | 'reports';
+type SubTab = 'payouts' | 'payments' | 'transactions' | 'reports' | 'monthly';
 const SUBTABS: { key: SubTab; label: string }[] = [
   { key: 'payouts', label: 'Owner payouts' },
   { key: 'payments', label: 'Customer payments' },
   { key: 'transactions', label: 'Transactions' },
   { key: 'reports', label: 'Reports' },
+  { key: 'monthly', label: 'Monthly statement' },
 ];
+
+/** The month a statement opens on: the one just finished, which is the one
+ *  being paid out. */
+function lastMonth(): string {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+}
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const isoLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -54,6 +68,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bikes, setBikes] = useState<Bike[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,6 +77,8 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
   const [customTo, setCustomTo] = useState('');
   const [editing, setEditing] = useState<Owner | null>(null);
   const [reportBy, setReportBy] = useState<'plate' | 'customer'>('plate');
+  const [month, setMonth] = useState(lastMonth());
+  const [stmtOwner, setStmtOwner] = useState('all');
 
   // Add-transaction form
   const [txnKind, setTxnKind] = useState<'in' | 'out'>('out');
@@ -75,10 +92,17 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
     setLoading(true);
     setError('');
     try {
-      const [o, u, b, tx] = await Promise.all([fetchOwners(), fetchUnits(), fetchBookings(), fetchTransactions()]);
+      const [o, u, b, k, tx] = await Promise.all([
+        fetchOwners(),
+        fetchUnits(),
+        fetchBookings(),
+        fetchBikes(),
+        fetchTransactions(),
+      ]);
       setOwners(o);
       setUnits(u);
       setBookings(b);
+      setBikes(k);
       setTransactions(tx);
     } catch (err) {
       if (err instanceof UnauthorizedError) return onLogout();
@@ -203,15 +227,13 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-        <span className="eyebrow">[ Finance ]</span>
-        <div className="flex flex-wrap items-center gap-2">
+      <PageHeader title="Finance" subtitle={RANGES.find(r => r.key === range)?.label}>
           <div className="relative">
             <select
               value={range}
               onChange={e => setRange(e.target.value as DateRange)}
               aria-label="Period"
-              className="appearance-none cursor-pointer bg-white border border-dark/15 rounded-full pl-4 pr-9 py-2 text-sm font-bold text-dark hover:border-dark/30 focus:outline-none focus:border-brand"
+              className="appearance-none cursor-pointer bg-dark/[0.05] hover:bg-dark/[0.09] rounded-full pl-4 pr-9 py-2 text-[13px] font-medium text-dark focus:outline-none transition-colors"
             >
               {RANGES.map(r => (
                 <option key={r.key} value={r.key}>{r.label}</option>
@@ -222,26 +244,19 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
           <button onClick={load} className="btn-outline" disabled={loading} aria-label="Refresh">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-        </div>
-      </div>
+      </PageHeader>
 
       {/* Sub-tabs */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {SUBTABS.map(s => (
-          <button
-            key={s.key}
-            onClick={() => setTab(s.key)}
-            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
-              tab === s.key ? 'bg-dark text-white' : 'bg-white text-dark border border-dark/10 hover:border-dark/30'
-            }`}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label="Finance sections"
+        className="mb-6"
+        value={tab}
+        onChange={setTab}
+        options={SUBTABS.map(s => ({ id: s.key, label: s.label }))}
+      />
 
       {range === 'custom' && (
-        <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
+        <div className="no-print flex flex-wrap items-center justify-end gap-2 mb-6">
           <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input max-w-[170px]" aria-label="From date" />
           <span className="text-dark/40">→</span>
           <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input max-w-[170px]" aria-label="To date" />
@@ -262,8 +277,14 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
         )}
       </Drawer>
 
+      <TabPanel tabKey={tab} order={SUBTABS.findIndex(s => s.key === tab)}>
       {loading ? (
-        <p className="text-dark/50">Loading…</p>
+        <Loading label="Loading the finance figures">
+          <SkeletonStats count={4} />
+          <div className="mt-4">
+            <SkeletonTable rows={5} cols={5} />
+          </div>
+        </Loading>
       ) : tab === 'payouts' ? (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -274,24 +295,24 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
           </div>
 
           {payoutRows.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No owners yet.</div>
+            <div className="bg-card rounded-3xl p-12 text-center text-dark/50">No owners yet.</div>
           ) : (
-            <div className="bg-white rounded-2xl overflow-x-auto">
+            <div className="bg-card rounded-2xl overflow-x-auto">
               <table className="w-full text-sm min-w-[680px]">
-                <thead className="text-dark/40 text-[10px] uppercase tracking-widest border-b border-dark/10">
+                <thead className="text-dark/40 text-[10px] border-b border-dark/10">
                   <tr>
-                    <th className="text-left font-bold px-4 py-3">Owner</th>
-                    <th className="text-right font-bold px-4 py-3">Rentals</th>
-                    <th className="text-right font-bold px-4 py-3">Revenue</th>
-                    <th className="text-left font-bold px-4 py-3">Rate</th>
-                    <th className="text-right font-bold px-4 py-3">Commission</th>
-                    <th className="text-right font-bold px-4 py-3">Owner payout</th>
+                    <th className="text-left font-semibold px-4 py-3">Owner</th>
+                    <th className="text-right font-semibold px-4 py-3">Rentals</th>
+                    <th className="text-right font-semibold px-4 py-3">Revenue</th>
+                    <th className="text-left font-semibold px-4 py-3">Rate</th>
+                    <th className="text-right font-semibold px-4 py-3">Commission</th>
+                    <th className="text-right font-semibold px-4 py-3">Owner payout</th>
                   </tr>
                 </thead>
                 <tbody>
                   {payoutRows.map(({ owner, c }) => (
                     <tr key={owner.id} className="border-b border-dark/5 last:border-0">
-                      <td className="px-4 py-3 font-bold whitespace-nowrap">{owner.name}</td>
+                      <td className="px-4 py-3 font-semibold whitespace-nowrap">{owner.name}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{c.rentals}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{money(c.revenue)}</td>
                       <td className="px-4 py-3">
@@ -300,13 +321,13 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
                           <Pencil className="w-3.5 h-3.5 text-dark/40 group-hover:text-brand" />
                         </button>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums font-bold text-emerald-700">{money(c.commission)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-bold">{money(c.payout)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-emerald-700">{money(c.commission)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold">{money(c.payout)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t border-dark/10 font-bold">
+                  <tr className="border-t border-dark/10 font-semibold">
                     <td className="px-4 py-3">Total</td>
                     <td className="px-4 py-3 text-right tabular-nums">{payoutTotals.rentals}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{money(payoutTotals.revenue)}</td>
@@ -330,34 +351,34 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
           </div>
 
           {billRows.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No rentals in this period.</div>
+            <div className="bg-card rounded-3xl p-12 text-center text-dark/50">No rentals in this period.</div>
           ) : (
-            <div className="bg-white rounded-2xl overflow-x-auto">
+            <div className="bg-card rounded-2xl overflow-x-auto">
               <table className="w-full text-sm min-w-[720px]">
-                <thead className="text-dark/40 text-[10px] uppercase tracking-widest border-b border-dark/10">
+                <thead className="text-dark/40 text-[10px] border-b border-dark/10">
                   <tr>
-                    <th className="text-left font-bold px-4 py-3">Customer</th>
-                    <th className="text-left font-bold px-4 py-3">Bike</th>
-                    <th className="text-right font-bold px-4 py-3">Total</th>
-                    <th className="text-right font-bold px-4 py-3">Paid</th>
-                    <th className="text-right font-bold px-4 py-3">Due</th>
-                    <th className="text-right font-bold px-4 py-3">Deposit</th>
+                    <th className="text-left font-semibold px-4 py-3">Customer</th>
+                    <th className="text-left font-semibold px-4 py-3">Bike</th>
+                    <th className="text-right font-semibold px-4 py-3">Total</th>
+                    <th className="text-right font-semibold px-4 py-3">Paid</th>
+                    <th className="text-right font-semibold px-4 py-3">Due</th>
+                    <th className="text-right font-semibold px-4 py-3">Deposit</th>
                   </tr>
                 </thead>
                 <tbody>
                   {billRows.map(({ b, paid, due }) => (
                     <tr key={b.id} className="border-b border-dark/5 last:border-0">
-                      <td className="px-4 py-3 font-bold whitespace-nowrap">{b.renter.firstName} {b.renter.lastName}</td>
+                      <td className="px-4 py-3 font-semibold whitespace-nowrap">{b.renter.firstName} {b.renter.lastName}</td>
                       <td className="px-4 py-3 text-dark/60 whitespace-nowrap">{b.bikeTitle}{b.plate ? ` · ${b.plate}` : ''}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{money(b.total)}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{money(paid)}</td>
-                      <td className={`px-4 py-3 text-right tabular-nums font-bold ${due > 0 ? 'text-red-600' : 'text-dark/40'}`}>{money(due)}</td>
+                      <td className={`px-4 py-3 text-right tabular-nums font-semibold ${due > 0 ? 'text-red-600' : 'text-dark/40'}`}>{money(due)}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{b.deposit > 0 ? money(b.deposit) + (b.depositReturned ? ' ↩' : '') : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t border-dark/10 font-bold">
+                  <tr className="border-t border-dark/10 font-semibold">
                     <td className="px-4 py-3" colSpan={2}>Total</td>
                     <td className="px-4 py-3 text-right tabular-nums">{money(billTotals.revenue)}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{money(billTotals.paid)}</td>
@@ -378,11 +399,16 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
             <Stat label="Net" value={money(net)} />
           </div>
 
-          <form onSubmit={addTxn} className="bg-white rounded-2xl p-4 mb-4 flex flex-wrap items-end gap-2">
-            <div className="flex rounded-full border border-dark/15 overflow-hidden text-sm font-bold">
-              <button type="button" onClick={() => setTxnKind('in')} className={`px-3 py-2 transition ${txnKind === 'in' ? 'bg-emerald-600 text-white' : 'bg-white text-dark/60'}`}>Money in</button>
-              <button type="button" onClick={() => setTxnKind('out')} className={`px-3 py-2 transition ${txnKind === 'out' ? 'bg-dark text-white' : 'bg-white text-dark/60'}`}>Money out</button>
-            </div>
+          <form onSubmit={addTxn} className="bg-card rounded-2xl p-4 mb-4 flex flex-wrap items-end gap-2">
+            <Segmented
+              label="Money in or out"
+              value={txnKind}
+              onChange={setTxnKind}
+              options={[
+                { id: 'in', label: 'Money in' },
+                { id: 'out', label: 'Money out' },
+              ]}
+            />
             <input className="input max-w-[120px]" type="number" min={0} step="0.5" placeholder="Amount" value={txnAmount} onChange={e => setTxnAmount(e.target.value)} />
             <input className="input max-w-[180px]" placeholder="Category" list="txn-cats" value={txnCategory} onChange={e => setTxnCategory(e.target.value)} />
             <datalist id="txn-cats">
@@ -396,17 +422,17 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
           </form>
 
           {ledger.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No payments in this period.</div>
+            <div className="bg-card rounded-3xl p-12 text-center text-dark/50">No payments in this period.</div>
           ) : (
-            <div className="bg-white rounded-2xl overflow-x-auto">
+            <div className="bg-card rounded-2xl overflow-x-auto">
               <table className="w-full text-sm min-w-[640px]">
-                <thead className="text-dark/40 text-[10px] uppercase tracking-widest border-b border-dark/10">
+                <thead className="text-dark/40 text-[10px] border-b border-dark/10">
                   <tr>
-                    <th className="text-left font-bold px-4 py-3">Date</th>
-                    <th className="text-left font-bold px-4 py-3">Category</th>
-                    <th className="text-left font-bold px-4 py-3">Detail</th>
-                    <th className="text-right font-bold px-4 py-3">In</th>
-                    <th className="text-right font-bold px-4 py-3">Out</th>
+                    <th className="text-left font-semibold px-4 py-3">Date</th>
+                    <th className="text-left font-semibold px-4 py-3">Category</th>
+                    <th className="text-left font-semibold px-4 py-3">Detail</th>
+                    <th className="text-right font-semibold px-4 py-3">In</th>
+                    <th className="text-right font-semibold px-4 py-3">Out</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
@@ -414,9 +440,9 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
                   {ledger.map(e => (
                     <tr key={e.id} className="border-b border-dark/5 last:border-0">
                       <td className="px-4 py-3 whitespace-nowrap text-dark/60">{new Date(e.at).toLocaleDateString()}</td>
-                      <td className="px-4 py-3 font-bold whitespace-nowrap">
+                      <td className="px-4 py-3 font-semibold whitespace-nowrap">
                         {e.category}
-                        {!e.manual && <span className="ml-2 text-[9px] font-bold uppercase tracking-widest text-dark/30">auto</span>}
+                        {!e.manual && <span className="ml-2 text-[9px] font-semibold text-dark/30">auto</span>}
                       </td>
                       <td className="px-4 py-3 text-dark/50 truncate max-w-[220px]">{e.desc || '—'}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{e.kind === 'in' ? money(e.amount) : ''}</td>
@@ -432,7 +458,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t border-dark/10 font-bold">
+                  <tr className="border-t border-dark/10 font-semibold">
                     <td className="px-4 py-3" colSpan={3}>Net {money(net)}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{money(ledgerTotals.in)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{money(ledgerTotals.out)}</td>
@@ -444,13 +470,72 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
           )}
           <p className="text-[11px] text-dark/40 mt-3">Rental payments are pulled in automatically (“auto”). Add other income &amp; expenses above. Filtered by payment date.</p>
         </>
+      ) : tab === 'monthly' ? (
+        <>
+          {/* The statement is a document, so its controls sit outside it and
+              leave the page when it is printed. */}
+          <div className="no-print flex flex-wrap items-end justify-between gap-4 mb-5 bg-card rounded-2xl px-5 py-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="block">
+                <span className="label">Statement month</span>
+                <input
+                  id="stmt-month"
+                  type="month"
+                  value={month}
+                  onChange={e => setMonth(e.target.value)}
+                  className="input max-w-[190px] mt-1"
+                />
+              </label>
+              {/* One owner's copy is the one that gets handed over. The
+                  whole-shop version carries everybody's figures, which is the
+                  shop's own record and nobody else's reading. */}
+              <label className="block">
+                <span className="label">Statement for</span>
+                <select
+                  id="stmt-owner"
+                  value={stmtOwner}
+                  onChange={e => setStmtOwner(e.target.value)}
+                  className="input max-w-[230px] mt-1"
+                >
+                  <option value="all">All owners (shop copy)</option>
+                  {owners.map(o => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button onClick={() => window.print()} className="btn-primary">
+              <Printer className="w-4 h-4" /> Print / Save as PDF
+            </button>
+          </div>
+
+          <p className="no-print text-[11px] text-dark/40 mb-4 max-w-2xl">
+            Every confirmed rental that started in {monthLabel(month)}
+            {stmtOwner === 'all'
+              ? ', under the owner of the machine it went out on, and under its plate.'
+              : ` on ${owners.find(o => o.id === stmtOwner)?.name ?? 'this owner'}'s machines, and nothing else — theirs is the copy to hand over.`}{' '}
+            Print to paper, or choose “Save as PDF” in the print dialog.
+          </p>
+
+          <MonthlyReportDoc
+            report={buildMonthlyReport(month, owners, units, bikes, bookings, stmtOwner)}
+            shop="Hello Rent · Weligama"
+          />
+        </>
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div className="flex rounded-full border border-dark/15 overflow-hidden text-sm font-bold">
-              <button onClick={() => setReportBy('plate')} className={`px-4 py-2 transition ${reportBy === 'plate' ? 'bg-dark text-white' : 'bg-white text-dark/60 hover:text-dark'}`}>By plate</button>
-              <button onClick={() => setReportBy('customer')} className={`px-4 py-2 transition ${reportBy === 'customer' ? 'bg-dark text-white' : 'bg-white text-dark/60 hover:text-dark'}`}>By customer</button>
-            </div>
+            <Segmented
+              label="Report by"
+              value={reportBy}
+              onChange={setReportBy}
+              options={[
+                { id: 'plate', label: 'By plate' },
+                { id: 'customer', label: 'By customer' },
+              ]}
+            />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
@@ -460,30 +545,30 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
           </div>
 
           {reportRows.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No collected payments in this period.</div>
+            <div className="bg-card rounded-3xl p-12 text-center text-dark/50">No collected payments in this period.</div>
           ) : (
-            <div className="bg-white rounded-2xl overflow-x-auto">
+            <div className="bg-card rounded-2xl overflow-x-auto">
               <table className="w-full text-sm min-w-[560px]">
-                <thead className="text-dark/40 text-[10px] uppercase tracking-widest border-b border-dark/10">
+                <thead className="text-dark/40 text-[10px] border-b border-dark/10">
                   <tr>
-                    <th className="text-left font-bold px-4 py-3">{reportBy === 'plate' ? 'Plate' : 'Customer'}</th>
-                    <th className="text-left font-bold px-4 py-3">{reportBy === 'plate' ? 'Model' : 'Phone'}</th>
-                    <th className="text-right font-bold px-4 py-3">Payments</th>
-                    <th className="text-right font-bold px-4 py-3">Collected</th>
+                    <th className="text-left font-semibold px-4 py-3">{reportBy === 'plate' ? 'Plate' : 'Customer'}</th>
+                    <th className="text-left font-semibold px-4 py-3">{reportBy === 'plate' ? 'Model' : 'Phone'}</th>
+                    <th className="text-right font-semibold px-4 py-3">Payments</th>
+                    <th className="text-right font-semibold px-4 py-3">Collected</th>
                   </tr>
                 </thead>
                 <tbody>
                   {reportRows.map((r, i) => (
                     <tr key={i} className="border-b border-dark/5 last:border-0">
-                      <td className="px-4 py-3 font-bold whitespace-nowrap">{r.label}</td>
+                      <td className="px-4 py-3 font-semibold whitespace-nowrap">{r.label}</td>
                       <td className="px-4 py-3 text-dark/60 whitespace-nowrap">{r.sub || '—'}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{r.count}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-bold text-emerald-700">{money(r.total)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-emerald-700">{money(r.total)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t border-dark/10 font-bold">
+                  <tr className="border-t border-dark/10 font-semibold">
                     <td className="px-4 py-3" colSpan={2}>Total</td>
                     <td className="px-4 py-3 text-right tabular-nums">{collected.length}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{money(totalCollected)}</td>
@@ -495,6 +580,7 @@ export default function Finance({ onLogout }: { onLogout: () => void }) {
           <p className="text-[11px] text-dark/40 mt-3">From collected payments only (recorded on bookings), by payment date in the selected period.</p>
         </>
       )}
+      </TabPanel>
     </div>
   );
 }
@@ -548,14 +634,14 @@ function CommissionForm({
         </label>
       </div>
 
-      <div className="bg-dark text-beige rounded-2xl p-5">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-beige/50 mb-3">
+      <div className="bg-beige rounded-2xl p-5">
+        <p className="text-[10px] font-semibold text-dark/40 mb-3">
           {periodLabel} · {rentals} rental{rentals === 1 ? '' : 's'}
         </p>
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-beige/70">Revenue</span><span className="tabular-nums">{money(revenue)}</span></div>
-          <div className="flex justify-between"><span className="text-beige/70">Shop commission</span><span className="tabular-nums font-bold text-emerald-300">{money(commission)}</span></div>
-          <div className="flex justify-between border-t border-beige/15 pt-2 mt-1"><span className="font-bold">Owner payout</span><span className="tabular-nums font-bold">{money(payout)}</span></div>
+          <div className="flex justify-between"><span className="text-dark/60">Revenue</span><span className="tabular-nums">{money(revenue)}</span></div>
+          <div className="flex justify-between"><span className="text-dark/60">Shop commission</span><span className="tabular-nums font-semibold text-emerald-600">{money(commission)}</span></div>
+          <div className="flex justify-between border-t border-dark/[0.08] pt-2 mt-1"><span className="font-semibold">Owner payout</span><span className="tabular-nums font-semibold">{money(payout)}</span></div>
         </div>
       </div>
 
@@ -568,8 +654,8 @@ function CommissionForm({
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="bg-white rounded-2xl px-5 py-4">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-dark/40">{label}</p>
+    <div className="bg-card rounded-2xl px-5 py-4">
+      <p className="text-[10px] font-semibold text-dark/40">{label}</p>
       <p className={`font-display text-2xl font-black mt-1 ${accent ? 'text-emerald-700' : 'text-dark'}`}>{value}</p>
     </div>
   );

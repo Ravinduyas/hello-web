@@ -9,12 +9,14 @@ import { whatsappLink } from '../data/contact';
  * who wants to dial it, and printing it here only widened the button over the
  * content it floats above.
  *
- * It sits higher on the booking route, where a fixed action bar occupies the
- * foot of the screen and the two would otherwise overlap.
+ * It sits higher on the booking route, where the summary bar holds the foot of
+ * the screen and the two would otherwise overlap. The offset is in pixels
+ * rather than spacing units because it answers that bar - 85px tall, plus a
+ * gap - and not the type scale, whose rem here is 12px.
  */
 export default function WhatsAppButton() {
   const { pathname } = useLocation();
-  const aboveBookingBar = pathname === '/book';
+  const aboveBookingBar = pathname === '/book-now';
 
   return (
     <a
@@ -26,7 +28,7 @@ export default function WhatsAppButton() {
       className={`fixed right-5 z-50 grid place-items-center w-14 h-14 rounded-full bg-[#25D366] text-white
                   shadow-lg shadow-dark/20 transition-all hover:scale-105 hover:shadow-xl
                   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25D366]
-                  ${aboveBookingBar ? 'bottom-24 md:bottom-28' : 'bottom-5'}`}
+                  ${aboveBookingBar ? 'bottom-[97px]' : 'bottom-5'}`}
     >
       {/* WhatsApp glyph. lucide carries no brand marks, and a generic speech
           bubble would not be recognised as WhatsApp at a glance. */}

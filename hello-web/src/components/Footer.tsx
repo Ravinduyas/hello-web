@@ -46,22 +46,22 @@ export default function Footer() {
             <div className="space-y-4">
               <h4 className="font-bold text-sm uppercase tracking-wider text-dark/40">Company</h4>
               <ul className="space-y-1 -my-2 text-sm font-medium [&_a]:inline-block [&_a]:py-2">
-                <li><Link to="/" className="hover:text-brand transition-colors">Home</Link></li>
-                <li><Link to="/fleet" className="hover:text-brand transition-colors">Our Fleet</Link></li>
-                <li><Link to="/about" className="hover:text-brand transition-colors">About Us</Link></li>
-                <li><Link to="/contact#store" className="hover:text-brand transition-colors">Find Our Store</Link></li>
-                <li><Link to="/blog" className="hover:text-brand transition-colors">Blog</Link></li>
-                <li><Link to="/contact" className="hover:text-brand transition-colors">Contact Us</Link></li>
+                <li><Link to="/" className="inline-flex items-center min-h-[44px] hover:text-brand transition-colors">Home</Link></li>
+                <li><Link to="/fleet" className="inline-flex items-center min-h-[44px] hover:text-brand transition-colors">Our Fleet</Link></li>
+                <li><Link to="/about" className="inline-flex items-center min-h-[44px] hover:text-brand transition-colors">About Us</Link></li>
+                <li><Link to="/contact#store" className="inline-flex items-center min-h-[44px] hover:text-brand transition-colors">Find Our Store</Link></li>
+                <li><Link to="/blog" className="inline-flex items-center min-h-[44px] hover:text-brand transition-colors">Blog</Link></li>
+                <li><Link to="/contact" className="inline-flex items-center min-h-[44px] hover:text-brand transition-colors">Contact Us</Link></li>
               </ul>
             </div>
             <div className="space-y-4">
               <h4 className="font-bold text-sm uppercase tracking-wider text-dark/40">Support</h4>
               <ul className="space-y-1 -my-2 text-sm font-medium [&_a]:inline-block [&_a]:py-2">
-                <li><Link to="/driving-permit" className="hover:text-brand transition-colors">Driving Permit</Link></li>
-                <li><Link to="/tours" className="hover:text-brand transition-colors">Day Trips</Link></li>
-                <li><Link to="/about#safety" className="hover:text-brand transition-colors">Safety Guide</Link></li>
+                <li><Link to="/driving-permit" className="inline-flex items-center min-h-[44px] hover:text-brand transition-colors">Driving Permit</Link></li>
+                <li><Link to="/tours" className="inline-flex items-center min-h-[44px] hover:text-brand transition-colors">Day Trips</Link></li>
+                <li><Link to="/about#safety" className="inline-flex items-center min-h-[44px] hover:text-brand transition-colors">Safety Guide</Link></li>
                 <li className="hover:text-brand cursor-pointer transition-colors">Rental Terms</li>
-                <li><Link to="/fleet" className="hover:text-brand transition-colors">Book Now</Link></li>
+                <li><Link to="/fleet" className="inline-flex items-center min-h-[44px] hover:text-brand transition-colors">Book Now</Link></li>
               </ul>
             </div>
           </div>

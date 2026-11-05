@@ -8,7 +8,10 @@ frontend:
       commands:
         # Amplify serves the site at the domain root, not under /hello-web/
         # (the GitHub Pages default in vite.config.ts), so override the base.
-        - cd hello-web && BASE_PATH=/ npm run build
+        # SITE_URL is the address sitemap.xml and robots.txt hand to crawlers.
+        # Set it in the Amplify console the moment the shop has its own domain;
+        # until then this is the branch's default amplifyapp.com address.
+        - cd hello-web && BASE_PATH=/ SITE_URL="${SITE_URL:-https://$AWS_BRANCH.$AWS_APP_ID.amplifyapp.com}" npm run build
   artifacts:
     baseDirectory: hello-web/dist
     files:

@@ -1,13 +1,58 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", sans-serif;
+/* Dark mode is a class on <html> (set from the theme switch or the OS). */
+@custom-variant dark (&:where(.dark, .dark *));
 
-  --color-brand: #B0764F;
-  --color-beige: #EFE7DB;
-  --color-dark: #2E211B;
+/*
+ * Apple-style look: San Francisco where the OS has it (macOS / iOS), Inter
+ * elsewhere; Apple's light-grey canvas, near-black ink and system blue accent.
+ * The token names (brand / beige / dark / card) are kept so every page picks
+ * the palette up without changes — and flips with it in dark mode.
+ *   beige = the canvas, dark = the ink, card = raised panels.
+ */
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", system-ui, sans-serif;
+
+  --color-brand: #007AFF;
+  --color-beige: #F5F5F7;
+  --color-dark: #1D1D1F;
+  --color-card: #FFFFFF;
+}
+
+/*
+ * Dark appearance — Apple's dark system colours. Canvas and ink swap, cards
+ * become elevated grey, and the tinted status colours (red / amber / green
+ * backgrounds, borders and text) are re-mixed so they read on black.
+ */
+.dark {
+  color-scheme: dark;
+  --color-brand: #0A84FF;
+  --color-beige: #000000;
+  --color-dark: #F5F5F7;
+  --color-card: #1C1C1E;
+
+  --color-red-50: rgb(255 69 58 / 0.14);
+  --color-red-100: rgb(255 69 58 / 0.22);
+  --color-red-200: rgb(255 69 58 / 0.35);
+  --color-red-600: #FF453A;
+  --color-red-700: #FF6961;
+
+  --color-amber-50: rgb(255 159 10 / 0.14);
+  --color-amber-100: rgb(255 159 10 / 0.22);
+  --color-amber-200: rgb(255 159 10 / 0.35);
+  --color-amber-400: #FFD60A;
+  --color-amber-500: #FF9F0A;
+  --color-amber-700: #FFB340;
+  --color-amber-800: #FFC966;
+
+  --color-emerald-50: rgb(48 209 88 / 0.14);
+  --color-emerald-100: rgb(48 209 88 / 0.22);
+  --color-emerald-200: rgb(48 209 88 / 0.35);
+  --color-emerald-500: #30D158;
+  --color-emerald-700: #4CD97B;
+  --color-emerald-800: #6EE098;
 }
 
 @layer base {
@@ -15,38 +60,182 @@
     color-scheme: light;
     background-color: var(--color-beige);
   }
+  html.dark {
+    color-scheme: dark;
+  }
   body {
     @apply font-sans bg-beige text-dark antialiased;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  h1, h2, h3 {
+    letter-spacing: -0.022em;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--color-brand) 25%, transparent);
   }
   a:focus-visible,
   button:focus-visible,
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-beige rounded-md;
+    @apply outline-none ring-4 ring-brand/30 rounded-lg;
   }
 }
 
 @layer components {
+  /* Filled, tinted and plain buttons — Apple's three weights. */
   .btn-primary {
-    @apply bg-brand text-beige px-5 py-2.5 text-sm rounded-full font-medium transition-all hover:brightness-110 flex items-center gap-2 disabled:opacity-40 disabled:pointer-events-none;
+    @apply bg-brand text-white px-4 py-2 text-[13px] rounded-full font-medium transition-all hover:brightness-110 active:scale-[0.98] flex items-center gap-2 disabled:opacity-40 disabled:pointer-events-none;
   }
   .btn-dark {
-    @apply bg-dark text-beige px-5 py-2.5 text-sm rounded-full font-medium transition-all hover:brightness-125 flex items-center gap-2;
+    @apply bg-dark text-beige px-4 py-2 text-[13px] rounded-full font-medium transition-all hover:opacity-90 active:scale-[0.98] flex items-center gap-2;
   }
   .btn-outline {
-    @apply border border-dark/20 text-dark px-5 py-2.5 text-sm rounded-full font-medium transition-all hover:bg-dark hover:text-beige flex items-center gap-2 disabled:opacity-40 disabled:pointer-events-none;
+    @apply bg-dark/[0.06] text-dark px-4 py-2 text-[13px] rounded-full font-medium transition-all hover:bg-dark/[0.1] active:scale-[0.98] flex items-center gap-2 disabled:opacity-40 disabled:pointer-events-none;
   }
+  /* Page kicker: small, quiet, grey — not a shouting label. */
   .eyebrow {
-    @apply text-[11px] font-bold uppercase tracking-[0.25em] text-brand;
+    @apply text-[13px] font-medium text-dark/50;
   }
   .display-xl {
-    @apply font-display font-bold uppercase tracking-tight leading-[0.9];
+    @apply font-display font-semibold tracking-tight leading-tight;
   }
   .input {
-    @apply w-full bg-beige border border-dark/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand transition-colors;
+    @apply w-full bg-card dark:bg-dark/[0.06] border border-dark/[0.1] rounded-[10px] px-3.5 py-2 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/20 transition-all placeholder:text-dark/30;
   }
   .label {
-    @apply text-[10px] font-bold uppercase tracking-widest text-dark/40;
+    @apply text-[12px] font-medium text-dark/50;
+  }
+}
+
+/*
+ * Cards: panels float on the canvas with a hairline and a soft shadow, the
+ * way macOS / iOS grouped panels do. In dark mode a shadow is invisible on
+ * black, so the hairline alone carries the edge.
+ */
+.bg-card.rounded-2xl,
+.bg-card.rounded-3xl,
+.bg-card.rounded-xl {
+  box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.08);
+}
+.dark .bg-card.rounded-2xl,
+.dark .bg-card.rounded-3xl,
+.dark .bg-card.rounded-xl {
+  box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.08);
+}
+
+/*
+ * Printing a statement.
+ *
+ * The report is a document inside an application, so printing hides the
+ * application rather than the report: visibility instead of display, so the
+ * report keeps its own layout while the shell around it stops existing.
+ * Backgrounds are forced on — a table that reads by its shading on screen is
+ * unreadable as bare text.
+ */
+@media print {
+  html.dark {
+    color-scheme: light;
+    --color-brand: #007AFF;
+    --color-beige: #F5F5F7;
+    --color-dark: #1D1D1F;
+    --color-card: #FFFFFF;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-report,
+  .print-report * {
+    visibility: visible;
+  }
+
+  .print-report {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* A rental should not be cut in half by a page break. */
+  .break-inside-avoid {
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}
+
+/*
+ * Waiting, and arriving.
+ *
+ * A page that says "Loading…" tells someone their click worked and nothing
+ * else. A shape where the content will be tells them what is coming and how
+ * much, and the page does not jump when it lands because the space was already
+ * taken. The shimmer is what separates a placeholder from a broken layout.
+ *
+ * Everything here is switched off for anyone who has asked their system for
+ * less motion — a sweeping gradient behind every row is exactly the kind of
+ * thing that setting exists for.
+ */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@layer components {
+  .skeleton {
+    @apply relative overflow-hidden bg-dark/[0.07] rounded-lg;
+  }
+
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-card) 60%, transparent), transparent);
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Content arriving. The delay is set per item so a list lands in sequence
+     rather than all at once, which reads as one movement instead of a flash. */
+  .rise {
+    animation: rise 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+
+  .rise {
+    animation: none;
   }
 }

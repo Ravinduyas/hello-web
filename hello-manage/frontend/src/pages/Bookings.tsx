@@ -1,6 +1,8 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { RefreshCw, Check, X, Trash2, Calendar, MapPin, Mail, Phone, ChevronDown, Wallet, Plus, Search, ArrowUpDown, AlertTriangle, SlidersHorizontal, MoreHorizontal } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { Loading, SkeletonCards } from '../components/Skeleton';
 import {
   fetchBookings,
   setBookingStatus,
@@ -16,6 +18,7 @@ import {
 } from '../lib/api';
 
 import { money } from '../lib/money';
+import { PageHeader, Segmented } from '../components/ui';
 
 const statusStyles: Record<BookingStatus, string> = {
   pending: 'bg-amber-100 text-amber-800',
@@ -31,6 +34,84 @@ const RANGES: { key: DateRange; label: string }[] = [
   { key: 'month', label: 'This month' },
   { key: 'custom', label: 'Custom' },
 ];
+
+/**
+ * Where a booking stands against today, which its status does not say.
+ *
+ * A booking is "confirmed" whether the bike went out this morning or was due
+ * back a week ago — the shop only finds out by reading dates off every row.
+ * These are worked out from the dates each time they are needed rather than
+ * stored, because the answer changes at midnight on its own.
+ */
+type Timing = 'upcoming' | 'out' | 'due' | 'latePickup' | 'lateReturn';
+
+const TIMING_FILTERS: { key: Timing | 'all'; label: string }[] = [
+  { key: 'all', label: 'Any timing' },
+  { key: 'out', label: 'Out now' },
+  { key: 'due', label: 'Back today' },
+  { key: 'lateReturn', label: 'Return overdue' },
+  { key: 'latePickup', label: 'Pickup passed' },
+  { key: 'upcoming', label: 'Upcoming' },
+];
+
+/** Only the states worth interrupting someone about are drawn on a row. */
+const timingStyles: Partial<Record<Timing, string>> = {
+  latePickup: 'bg-amber-100 text-amber-800',
+  lateReturn: 'bg-red-100 text-red-700',
+  due: 'bg-brand/10 text-brand',
+  out: 'bg-dark/5 text-dark/70',
+};
+
+/**
+ * Which of a booking's dates the range applies to.
+ *
+ * It was always the pickup, which answers "who is collecting this week" and
+ * nothing else. The shop also needs "what comes back this week" to plan the
+ * yard, and "what was booked this week" to see the week's trade.
+ */
+type DateField = 'pickup' | 'dropoff' | 'created';
+const DATE_FIELDS: { key: DateField; label: string }[] = [
+  { key: 'pickup', label: 'By pickup' },
+  { key: 'dropoff', label: 'By return' },
+  { key: 'created', label: 'By booked' },
+];
+
+/** Where a booking stands on money, derived rather than stored. */
+type PayState = 'unpaid' | 'part' | 'paid';
+const PAY_FILTERS: { key: PayState | 'all'; label: string }[] = [
+  { key: 'all', label: 'Any payment' },
+  { key: 'unpaid', label: 'Unpaid' },
+  { key: 'part', label: 'Part paid' },
+  { key: 'paid', label: 'Paid in full' },
+];
+
+/** How the list is ordered. */
+type Sort = 'newest' | 'oldest' | 'pickup' | 'dropoff' | 'due' | 'name';
+const SORTS: { key: Sort; label: string }[] = [
+  { key: 'newest', label: 'Newest booked' },
+  { key: 'oldest', label: 'Oldest booked' },
+  { key: 'pickup', label: 'Pickup soonest' },
+  { key: 'dropoff', label: 'Return soonest' },
+  { key: 'due', label: 'Most owed' },
+  { key: 'name', label: 'Customer A–Z' },
+];
+
+/**
+ * Whether a booking has a machine set aside for it yet.
+ *
+ * Confirming promises a model and some dates; the plate is chosen later. Until
+ * it is, the booking cannot be paid for — the server refuses — so finding the
+ * ones still waiting is a job of its own, not a shade of status.
+ */
+type PlateState = 'all' | 'assigned' | 'none';
+const PLATE_FILTERS: { key: PlateState; label: string }[] = [
+  { key: 'all', label: 'Any plate' },
+  { key: 'assigned', label: 'Plate assigned' },
+  { key: 'none', label: 'No plate yet' },
+];
+
+/** How many rows to put on screen before asking whether more are wanted. */
+const PAGE = 20;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const isoLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -61,15 +142,172 @@ function rangeBounds(range: DateRange, from: string, to: string): [string, strin
   }
 }
 
+/** Whole days between two ISO dates, for saying how late something is. */
+const daysBetween = (from: string, to: string) =>
+  Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000);
+
+/**
+ * A booking's standing against today.
+ *
+ * A cancelled booking has none: nothing is owed and nothing is out, so
+ * flagging it as overdue would be noise on a row that is already closed.
+ * A pickup date that has passed only matters while a booking is still
+ * pending — once confirmed, the bike is out and the return is what counts.
+ */
+/** "Thu 17 Sep" — a date someone can picture, rather than 2026-09-17. */
+const dayLabel = (iso: string) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+
+function timingOf(b: Booking, today: string): Timing | null {
+  if (b.status === 'cancelled') return null;
+  if (b.status === 'pending' && b.pickupDate < today) return 'latePickup';
+  if (b.status === 'confirmed' && b.dropoffDate < today) return 'lateReturn';
+  if (b.pickupDate > today) return 'upcoming';
+  if (b.pickupDate <= today && today <= b.dropoffDate) return today === b.dropoffDate ? 'due' : 'out';
+  return null;
+}
+
+/** What the badge says, including how late where lateness is the point. */
+function timingLabel(t: Timing, b: Booking, today: string): string {
+  switch (t) {
+    case 'lateReturn': {
+      const late = daysBetween(b.dropoffDate, today);
+      return `Return overdue · ${late} day${late === 1 ? '' : 's'}`;
+    }
+    case 'latePickup': {
+      const late = daysBetween(b.pickupDate, today);
+      return `Pickup passed · ${late} day${late === 1 ? '' : 's'}`;
+    }
+    case 'due':
+      return 'Back today';
+    case 'out':
+      return 'Out now';
+    default:
+      return '';
+  }
+}
+
+/** The date a booking is filtered on. createdAt is a timestamp; cut it to a day. */
+const dateOf = (b: Booking, field: DateField) =>
+  field === 'created' ? b.createdAt.slice(0, 10) : field === 'dropoff' ? b.dropoffDate : b.pickupDate;
+
+const payStateOf = (b: Booking): PayState => {
+  if (paidOf(b) <= 0) return 'unpaid';
+  return dueOf(b) > 0 ? 'part' : 'paid';
+};
+
+/**
+ * What a search looks at: the reference someone quotes on the phone, the person,
+ * the machine, and the plate — whichever of those the counter happens to have.
+ */
+const haystack = (b: Booking) =>
+  [b.reference, b.renter.firstName, b.renter.lastName, b.renter.email, b.renter.phone, b.bikeTitle, b.plate]
+    .join(' ')
+    .toLowerCase();
+
+const nameOf = (b: Booking) => `${b.renter.firstName} ${b.renter.lastName}`.trim();
+
+function compare(a: Booking, b: Booking, sort: Sort): number {
+  switch (sort) {
+    case 'oldest':
+      return a.createdAt.localeCompare(b.createdAt);
+    case 'pickup':
+      return a.pickupDate.localeCompare(b.pickupDate) || a.createdAt.localeCompare(b.createdAt);
+    case 'dropoff':
+      return a.dropoffDate.localeCompare(b.dropoffDate) || a.createdAt.localeCompare(b.createdAt);
+    case 'due':
+      return dueOf(b) - dueOf(a);
+    case 'name':
+      return nameOf(a).localeCompare(nameOf(b));
+    default:
+      return b.createdAt.localeCompare(a.createdAt);
+  }
+}
+
+/** A pill-shaped select with the chevron laid over it. */
+function PillSelect<T extends string>({
+  value,
+  onChange,
+  label,
+  options,
+  icon: Icon,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  label: string;
+  options: { key: T; label: string }[];
+  icon?: typeof ChevronDown;
+}) {
+  return (
+    <div className="relative">
+      {Icon && <Icon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-dark/40" />}
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value as T)}
+        aria-label={label}
+        className={`appearance-none cursor-pointer bg-dark/[0.05] hover:bg-dark/[0.09] rounded-full ${Icon ? 'pl-9' : 'pl-4'} pr-9 py-2 text-[13px] font-medium text-dark focus:outline-none transition-colors`}
+      >
+        {options.map(o => (
+          <option key={o.key} value={o.key}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dark/40" />
+    </div>
+  );
+}
+
 export default function Bookings({ onLogout }: { onLogout: () => void }) {
+  /*
+   * The dashboard sends people here already asking a question — "the six that
+   * are late", "the one waiting to be confirmed" — so the filters can be set
+   * from the link. Read once, as the initial state: after that the controls on
+   * this page own them, and changing one must not fight with the URL.
+   */
+  const [params] = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<'all' | BookingStatus>('all');
+  const [filter, setFilter] = useState<'all' | BookingStatus>(() => {
+    const s = params.get('status');
+    return s === 'pending' || s === 'confirmed' || s === 'cancelled' ? s : 'all';
+  });
   const [range, setRange] = useState<DateRange>('all');
+  const [dateField, setDateField] = useState<DateField>('pickup');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [search, setSearch] = useState(() => params.get('q') ?? '');
+  const [pay, setPay] = useState<PayState | 'all'>(() => {
+    const p = params.get('pay');
+    return PAY_FILTERS.some(o => o.key === p) ? (p as PayState) : 'all';
+  });
+  const [timing, setTiming] = useState<Timing | 'all'>(() => {
+    const t = params.get('timing');
+    return TIMING_FILTERS.some(o => o.key === t) ? (t as Timing) : 'all';
+  });
+  const [plate, setPlate] = useState<PlateState>(() => {
+    const p = params.get('plate');
+    return PLATE_FILTERS.some(o => o.key === p) ? (p as PlateState) : 'all';
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  /*
+   * Rows are shut by default and opened one at a time. Eleven full cards is
+   * already more scrolling than reading; the line that identifies a booking is
+   * what people scan for, and the rest is what they open when they have found
+   * the one they want.
+   */
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const [shown, setShown] = useState(PAGE);
+
+  const toggleRow = (id: string) =>
+    setOpenIds(prev => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  const [sort, setSort] = useState<Sort>('newest');
   const [payId, setPayId] = useState<string | null>(null);
 
   // `silent` polls update data without the spinner or clobbering the UI with a
@@ -88,6 +326,12 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
       if (!silent) setLoading(false);
     }
   }, [onLogout]);
+
+  // A narrowed list starts from the top again — holding a deep page position
+  // across a filter change shows a stranger's bookings.
+  useEffect(() => {
+    setShown(PAGE);
+  }, [search, filter, range, customFrom, customTo, pay, timing, plate, sort, dateField]);
 
   useEffect(() => {
     load();
@@ -128,161 +372,370 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
     }
   }
 
+  /*
+   * Dates, then text, then money, then status, then order. Status is applied
+   * last of the filters so the counts beside it can be taken from the set just
+   * before — each number then says what that status would actually show,
+   * rather than counting rows the other filters have already excluded.
+   */
+  const today = isoLocal(new Date());
   const [rangeFrom, rangeTo] = rangeBounds(range, customFrom, customTo);
-  const dateFiltered = bookings.filter(
-    b => (!rangeFrom || b.pickupDate >= rangeFrom) && (!rangeTo || b.pickupDate <= rangeTo),
-  );
-  const visible = filter === 'all' ? dateFiltered : dateFiltered.filter(b => b.status === filter);
+  const query = search.trim().toLowerCase();
+  const dateFiltered = bookings.filter(b => {
+    const d = dateOf(b, dateField);
+    return (!rangeFrom || d >= rangeFrom) && (!rangeTo || d <= rangeTo);
+  });
+  const searched = query ? dateFiltered.filter(b => haystack(b).includes(query)) : dateFiltered;
+  const paid_ = pay === 'all' ? searched : searched.filter(b => payStateOf(b) === pay);
+  const timed = timing === 'all' ? paid_ : paid_.filter(b => timingOf(b, today) === timing);
+  const narrowed = plate === 'all' ? timed : timed.filter(b => (plate === 'assigned' ? !!b.unitId : !b.unitId));
+  const visible = (filter === 'all' ? narrowed : narrowed.filter(b => b.status === filter))
+    .slice()
+    .sort((a, b) => compare(a, b, sort));
   const counts = {
-    all: dateFiltered.length,
-    pending: dateFiltered.filter(b => b.status === 'pending').length,
-    confirmed: dateFiltered.filter(b => b.status === 'confirmed').length,
-    cancelled: dateFiltered.filter(b => b.status === 'cancelled').length,
+    all: narrowed.length,
+    pending: narrowed.filter(b => b.status === 'pending').length,
+    confirmed: narrowed.filter(b => b.status === 'confirmed').length,
+    cancelled: narrowed.filter(b => b.status === 'cancelled').length,
   };
+  const filtering =
+    !!query || range !== 'all' || pay !== 'all' || timing !== 'all' || plate !== 'all' || filter !== 'all';
+  // Only the ones folded away behind the button — the badge counts what is on
+  // but out of sight, which is exactly what someone needs warning about.
+  const extraFilters = [range !== 'all', pay !== 'all', timing !== 'all', plate !== 'all'].filter(Boolean).length;
+  // Counted before any filter, so the warning is the same number whatever the
+  // list is currently showing — and does not vanish because of a filter.
+  const overdue = bookings.filter(b => timingOf(b, today) === 'lateReturn').length;
+  function clearFilters() {
+    setSearch('');
+    setRange('all');
+    setCustomFrom('');
+    setCustomTo('');
+    setPay('all');
+    setTiming('all');
+    setPlate('all');
+    setFilter('all');
+  }
   const payBooking = payId ? bookings.find(b => b.id === payId) ?? null : null;
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <span className="flex items-center gap-2">
-          <span className="eyebrow">[ Bookings ]</span>
-          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-dark/40" title="Auto-refreshing every 15s">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
+      <PageHeader
+        title="Bookings"
+        subtitle={
+          <span className="flex items-center gap-1.5" title="Auto-refreshing every 15s">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live · updates every 15 seconds
           </span>
-        </span>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Date range menu (by pickup date) */}
-          <div className="relative">
-            <select
-              value={range}
-              onChange={e => setRange(e.target.value as DateRange)}
-              aria-label="Date range"
-              className="appearance-none cursor-pointer bg-white border border-dark/15 rounded-full pl-4 pr-9 py-2 text-sm font-bold text-dark hover:border-dark/30 focus:outline-none focus:border-brand"
-            >
-              {RANGES.map(r => (
-                <option key={r.key} value={r.key}>{r.label}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dark/40" />
-          </div>
+        }
+      >
+        <button onClick={() => load()} className="btn-outline" disabled={loading} aria-label="Refresh">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </PageHeader>
 
-          {/* Status menu */}
-          <div className="relative">
-            <select
-              value={filter}
-              onChange={e => setFilter(e.target.value as 'all' | BookingStatus)}
-              aria-label="Status"
-              className="appearance-none cursor-pointer bg-white border border-dark/15 rounded-full pl-4 pr-9 py-2 text-sm font-bold text-dark hover:border-dark/30 focus:outline-none focus:border-brand"
+      {/* One line of controls, not six.
+          Searching and picking a status is nearly all anyone does here, so
+          those stay out in the open; the rest fold away behind one button
+          that says how many of them are switched on. */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-dark/35" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search a name, phone, reference or plate…"
+            aria-label="Search bookings"
+            className="w-full bg-dark/[0.05] rounded-[10px] pl-11 pr-10 py-2 text-sm placeholder:text-dark/40 focus:bg-card focus:outline-none focus:ring-4 focus:ring-brand/20 transition-all"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-dark/40 hover:text-dark"
             >
-              <option value="all">All ({counts.all})</option>
-              <option value="pending">Pending ({counts.pending})</option>
-              <option value="confirmed">Confirmed ({counts.confirmed})</option>
-              <option value="cancelled">Cancelled ({counts.cancelled})</option>
-            </select>
-            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dark/40" />
-          </div>
-
-          <button onClick={() => load()} className="btn-outline" disabled={loading} aria-label="Refresh">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
+
+        <button
+          onClick={() => setShowFilters(v => !v)}
+          aria-expanded={showFilters}
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition ${
+            showFilters || extraFilters > 0
+              ? 'bg-brand/10 text-brand'
+              : 'bg-dark/[0.05] text-dark hover:bg-dark/[0.09]'
+          }`}
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          Filters
+          {extraFilters > 0 && (
+            <span className="bg-brand text-white rounded-full px-1.5 text-[11px] leading-5">{extraFilters}</span>
+          )}
+        </button>
+
+        <PillSelect value={sort} onChange={setSort} label="Sort by" options={SORTS} icon={ArrowUpDown} />
       </div>
 
-      {/* Custom date range inputs */}
-      {range === 'custom' && (
-        <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
-          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input max-w-[170px]" aria-label="From date" />
-          <span className="text-dark/40">→</span>
-          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input max-w-[170px]" aria-label="To date" />
+      {/* Status is the one filter worth seeing all of at once: four numbers
+          that add up to the whole list, each a click away. */}
+      <Segmented
+        label="Booking status"
+        className="mb-3"
+        value={filter}
+        onChange={setFilter}
+        options={[
+          { id: 'all', label: 'All', count: counts.all },
+          { id: 'pending', label: 'Pending', count: counts.pending },
+          { id: 'confirmed', label: 'Confirmed', count: counts.confirmed },
+          { id: 'cancelled', label: 'Cancelled', count: counts.cancelled },
+        ]}
+      />
+
+      {/* Every control here says what it is. Unlabelled pills reading "By
+          pickup" and "Any timing" meant opening each one to find out. */}
+      {showFilters && (
+        <div className="bg-card rounded-2xl p-5 mb-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="block">
+            <span className="label">Dates to filter on</span>
+            <select value={dateField} onChange={e => setDateField(e.target.value as DateField)} className="input mt-1">
+              {DATE_FIELDS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="label">Date range</span>
+            <select value={range} onChange={e => setRange(e.target.value as DateRange)} className="input mt-1">
+              {RANGES.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="label">Payment</span>
+            <select value={pay} onChange={e => setPay(e.target.value as PayState | 'all')} className="input mt-1">
+              {PAY_FILTERS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="label">Plate</span>
+            <select value={plate} onChange={e => setPlate(e.target.value as PlateState)} className="input mt-1">
+              {PLATE_FILTERS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="label">Where it stands today</span>
+            <select value={timing} onChange={e => setTiming(e.target.value as Timing | 'all')} className="input mt-1">
+              {TIMING_FILTERS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+
+          {range === 'custom' && (
+            <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center gap-2">
+              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input max-w-[170px]" aria-label="From date" />
+              <span className="text-dark/40">→</span>
+              <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input max-w-[170px]" aria-label="To date" />
+            </div>
+          )}
         </div>
       )}
+
+      {/* A bike that has not come back is the one thing on this page worth
+          interrupting someone about, so it is said once at the top rather than
+          left to be noticed row by row. */}
+      {overdue > 0 && timing !== 'lateReturn' && (
+        <button
+          onClick={() => setTiming('lateReturn')}
+          className="flex items-center gap-2 w-full text-left bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 mb-3 text-sm font-semibold hover:bg-red-100 transition"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          {overdue} booking{overdue === 1 ? ' is' : 's are'} past their return date — show
+          {overdue === 1 ? ' it' : ' them'}
+        </button>
+      )}
+
+      {/* What is narrowing the list, said in words, each one removable on its
+          own. A count alone left people guessing which control was doing it. */}
+      <div className="flex flex-wrap items-center gap-2 mb-6 text-xs">
+        {/* While the first load is still running this would read "0 of 0",
+            which is a claim rather than a wait. */}
+        {!(loading && bookings.length === 0) && (
+          <span className="text-dark/45">
+            Showing {visible.length} of {bookings.length} booking{bookings.length === 1 ? '' : 's'}
+          </span>
+        )}
+        {query && <Chip label={'“' + search.trim() + '”'} onClear={() => setSearch('')} />}
+        {filter !== 'all' && <Chip label={filter} onClear={() => setFilter('all')} />}
+        {range !== 'all' && (
+          <Chip
+            label={
+              (RANGES.find(r => r.key === range)?.label ?? '') +
+              ' ' +
+              (DATE_FIELDS.find(d => d.key === dateField)?.label ?? '').toLowerCase()
+            }
+            onClear={() => setRange('all')}
+          />
+        )}
+        {pay !== 'all' && <Chip label={PAY_FILTERS.find(p => p.key === pay)!.label} onClear={() => setPay('all')} />}
+        {timing !== 'all' && <Chip label={TIMING_FILTERS.find(t => t.key === timing)!.label} onClear={() => setTiming('all')} />}
+        {plate !== 'all' && <Chip label={PLATE_FILTERS.find(p => p.key === plate)!.label} onClear={() => setPlate('all')} />}
+        {filtering && (
+          <button onClick={clearFilters} className="font-semibold text-brand hover:underline">
+            Clear all
+          </button>
+        )}
+      </div>
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
       {loading ? (
-        <p className="text-dark/50">Loading bookings…</p>
+        <Loading label="Loading bookings">
+          <SkeletonCards count={5} lines={1} />
+        </Loading>
       ) : visible.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No bookings here yet.</div>
+        <div className="bg-card rounded-3xl p-12 text-center text-dark/50">No bookings here yet.</div>
       ) : (
-        <div className="space-y-4">
-          {visible.map(b => (
-            <div key={b.id} className="bg-white rounded-2xl p-5 md:p-6">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${statusStyles[b.status]}`}>
+        <div className="space-y-3">
+          {visible.slice(0, shown).map((b, i) => (
+            // Rows land in sequence rather than all at once; past the first
+            // screenful the stagger would only be a delay nobody sees.
+            <div key={b.id} className="bg-card rounded-2xl rise" style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
+              {/* The line that identifies a booking, and nothing else until it
+                  is asked for. The customer's name leads, because that is who
+                  is standing at the counter or on the phone; the machine, the
+                  plate and the reference follow on one quiet line beneath. */}
+              <button
+                type="button"
+                onClick={() => toggleRow(b.id)}
+                aria-expanded={openIds.has(b.id)}
+                aria-controls={`booking-${b.id}`}
+                className="w-full text-left p-5 md:p-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 rounded-2xl hover:bg-dark/[0.02] transition-colors"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold text-lg leading-tight">
+                      {b.renter.firstName} {b.renter.lastName}
+                    </h3>
+                    <span className={`text-[11px] font-medium capitalize px-2 py-0.5 rounded-full ${statusStyles[b.status]}`}>
                       {b.status}
                     </span>
-                    {b.plate && (
-                      <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-dark/5 text-dark/70">
-                        Plate {b.plate}
-                      </span>
-                    )}
+                    {(() => {
+                      const t = timingOf(b, today);
+                      return t && timingStyles[t] ? (
+                        <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${timingStyles[t]}`}>
+                          {timingLabel(t, b, today)}
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
-                  <p className="font-bold">{b.bikeTitle}</p>
-                  <p className="text-sm text-dark/50">
-                    {b.renter.firstName} {b.renter.lastName}
+                  <p className="text-sm text-dark/55 mt-1">
+                    {b.bikeTitle}
+                    {b.plate && (
+                      <>
+                        {' · Plate '}
+                        <b className="text-dark/75">{b.plate}</b>
+                      </>
+                    )}
+                    {' · '}
+                    <span className="font-display font-semibold text-dark/70">{b.reference}</span>
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="font-display text-2xl font-black text-brand">{money(b.total)}</p>
-                  <p className="text-[10px] text-dark/40 uppercase tracking-wide">{new Date(b.createdAt).toLocaleDateString()}</p>
-                </div>
+                <span className="flex items-center gap-3 shrink-0">
+                  <span className="text-[10px] text-dark/35">
+                    Booked {new Date(b.createdAt).toLocaleDateString()}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand whitespace-nowrap">
+                    {openIds.has(b.id) ? 'Less' : 'More'}
+                    <ChevronDown className={`w-4 h-4 transition-transform ${openIds.has(b.id) ? 'rotate-180' : ''}`} />
+                  </span>
+                </span>
+              </button>
+
+              {openIds.has(b.id) && (
+              <div id={`booking-${b.id}`} className="px-5 md:px-6 pb-5 md:pb-6">
+
+              {/* When it goes out and when it is due back is what this page is
+                  asked most, so it is one readable line rather than two
+                  timestamps and a "(7d)". */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-4 border-t border-dark/10 text-sm">
+                <span className="inline-flex items-center gap-2 font-medium">
+                  <Calendar className="w-4 h-4 text-brand shrink-0" />
+                  {dayLabel(b.pickupDate)} → {dayLabel(b.dropoffDate)}
+                  <span className="text-dark/45 font-normal">
+                    · {b.days} day{b.days === 1 ? '' : 's'}
+                  </span>
+                </span>
+                <Detail icon={MapPin} text={b.pickupLocation} />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mt-4 pt-4 border-t border-dark/10 text-sm text-dark/60">
-                <Detail icon={Calendar} text={`${b.pickupDate} → ${b.dropoffDate} (${b.days}d)`} />
-                <Detail icon={MapPin} text={b.pickupLocation} />
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2 text-sm text-dark/60">
                 <Detail icon={Mail} text={b.renter.email} />
                 <Detail icon={Phone} text={b.renter.phone} />
               </div>
 
               {b.extras.length > 0 && (
-                <p className="text-xs text-dark/40 mt-3">Extras: {b.extras.map(e => e.label).join(', ')}</p>
+                <p className="text-xs text-dark/40 mt-2">Extras: {b.extras.map(e => e.label).join(', ')}</p>
               )}
 
-              {/* Billing summary */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs">
-                <span className="text-dark/50">Paid <b className="text-emerald-700">{money(paidOf(b))}</b></span>
-                <span className="text-dark/50">Due <b className={dueOf(b) > 0 ? 'text-red-600' : 'text-dark/60'}>{money(dueOf(b))}</b></span>
+              {/* The money and what to do about it on one line: the figures read
+                  left to right, the actions sit at the end of them. */}
+              <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-dark/10">
+                <Money label="Total" value={money(b.total)} tone="total" />
+                <Money label="Paid" value={money(paidOf(b))} tone={paidOf(b) > 0 ? 'good' : 'muted'} />
+                <Money
+                  label={dueOf(b) > 0 ? 'Due' : 'Settled'}
+                  value={money(dueOf(b))}
+                  tone={dueOf(b) > 0 ? 'owed' : 'muted'}
+                />
                 {b.deposit > 0 && (
-                  <span className="text-dark/50">
-                    Deposit <b className="text-dark">{money(b.deposit)}</b>
-                    {b.depositReturned && <span className="text-dark/40"> · returned</span>}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 mt-5">
-                {b.status !== 'confirmed' && (
-                  <ConfirmControl
-                    plates={units.filter(u => u.bikeId === b.bikeId && u.status === 'available')}
-                    onConfirm={unitId => changeStatus(b.id, 'confirmed', unitId)}
+                  <Money
+                    label={b.depositReturned ? 'Deposit returned' : 'Deposit held'}
+                    value={money(b.deposit)}
+                    tone={b.depositReturned ? 'muted' : 'held'}
                   />
                 )}
-                <button
-                  onClick={() => setPayId(b.id)}
-                  className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand/10 text-brand hover:bg-brand/20 transition"
-                >
-                  <Wallet className="w-4 h-4" /> Payments
-                </button>
-                {b.status !== 'cancelled' && (
+
+                <div className="flex items-center gap-2 ml-auto">
+                  {b.status !== 'confirmed' && <ConfirmControl onConfirm={() => changeStatus(b.id, 'confirmed')} />}
                   <button
-                    onClick={() => changeStatus(b.id, 'cancelled')}
-                    className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
+                    onClick={() => setPayId(b.id)}
+                    className="text-sm font-semibold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand/10 text-brand hover:bg-brand/20 transition"
                   >
-                    <X className="w-4 h-4" /> Cancel
+                    <Wallet className="w-4 h-4" /> Payments
                   </button>
-                )}
-                <button
-                  onClick={() => remove(b.id)}
-                  className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-red-600 hover:bg-red-50 transition ml-auto"
-                >
-                  <Trash2 className="w-4 h-4" /> Delete
-                </button>
+                  {/* Cancelling and deleting are rarer, and one of them cannot
+                      be undone, so neither sits under a thumb by default. */}
+                  <RowMenu>
+                    {b.status !== 'cancelled' && (
+                      <button
+                        onClick={() => changeStatus(b.id, 'cancelled')}
+                        className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-dark/5 flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4 text-dark/50" /> Cancel booking
+                      </button>
+                    )}
+                    <button
+                      onClick={() => remove(b.id)}
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete permanently
+                    </button>
+                  </RowMenu>
+                </div>
               </div>
+              </div>
+              )}
             </div>
           ))}
+
+          {/* A shop with a season behind it should not have to scroll through
+              all of it to reach the bottom of a filter. */}
+          {visible.length > shown && (
+            <button
+              onClick={() => setShown(n => n + PAGE)}
+              className="w-full bg-card rounded-2xl py-4 text-sm font-semibold text-brand hover:bg-brand/5 transition"
+            >
+              Show {Math.min(PAGE, visible.length - shown)} more
+              <span className="text-dark/40 font-medium"> · {visible.length - shown} left</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -293,93 +746,88 @@ export default function Bookings({ onLogout }: { onLogout: () => void }) {
         subtitle={payBooking ? `${payBooking.bikeTitle} · ${payBooking.renter.firstName} ${payBooking.renter.lastName}`.trim() : ''}
         widthClass="max-w-md"
       >
-        {payBooking && <PaymentsForm booking={payBooking} onApply={ops => applyBilling(payBooking.id, ops)} />}
+        {payBooking && (
+          <PaymentsForm
+            booking={payBooking}
+            plates={units.filter(
+              u => u.bikeId === payBooking.bikeId && (u.status === 'available' || u.id === payBooking.unitId),
+            )}
+            onAssign={unitId => changeStatus(payBooking.id, 'confirmed', unitId)}
+            onApply={ops => applyBilling(payBooking.id, ops)}
+          />
+        )}
       </Drawer>
     </div>
   );
 }
 
-/** Confirm button that expands into a plate picker. The admin must choose an
- *  available plate (physical unit) of the booking's model before confirming. */
-function ConfirmControl({ plates, onConfirm }: { plates: Unit[]; onConfirm: (unitId: string) => Promise<void> | void }) {
-  const [open, setOpen] = useState(false);
-  const [unitId, setUnitId] = useState('');
+/**
+ * Confirms a booking, and nothing else.
+ *
+ * It used to insist on a plate first. But confirming is the shop agreeing to
+ * the rental — a model and some dates — and which machine goes out is not
+ * known until the customer is at the counter. Tying the two together meant a
+ * booking could not be accepted until a plate was set aside for it, days early.
+ * The plate is asked for where it is actually decided: at payment.
+ */
+function ConfirmControl({ onConfirm }: { onConfirm: () => Promise<void> | void }) {
   const [busy, setBusy] = useState(false);
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 text-white hover:brightness-110 transition"
-      >
-        <Check className="w-4 h-4" /> Confirm
-      </button>
-    );
-  }
-
-  if (plates.length === 0) {
-    return (
-      <span className="inline-flex items-center gap-2 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
-        No available plates for this model — add one in Fleet.
-        <button onClick={() => setOpen(false)} aria-label="Cancel" className="text-amber-800/70 hover:text-amber-900">
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </span>
-    );
-  }
-
   async function confirm() {
-    if (!unitId) return;
     setBusy(true);
     try {
-      await onConfirm(unitId);
+      await onConfirm();
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <span className="inline-flex items-center gap-2">
-      <select
-        value={unitId}
-        onChange={e => setUnitId(e.target.value)}
-        aria-label="Plate to assign"
-        className="text-sm rounded-full border border-dark/15 bg-white px-3 py-1.5 focus:outline-none focus:border-brand"
-      >
-        <option value="">Select plate…</option>
-        {plates.map(u => (
-          <option key={u.id} value={u.id}>
-            {u.plate}
-          </option>
-        ))}
-      </select>
-      <button
-        onClick={confirm}
-        disabled={!unitId || busy}
-        className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 text-white hover:brightness-110 transition disabled:opacity-40 disabled:pointer-events-none"
-      >
-        <Check className="w-4 h-4" /> {busy ? 'Assigning…' : 'Assign & confirm'}
-      </button>
-      <button
-        onClick={() => setOpen(false)}
-        aria-label="Cancel"
-        className="text-sm font-bold inline-flex items-center justify-center w-9 h-9 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    </span>
+    <button
+      onClick={confirm}
+      disabled={busy}
+      className="text-sm font-semibold inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 text-white hover:brightness-110 transition disabled:opacity-40 disabled:pointer-events-none"
+    >
+      <Check className="w-4 h-4" /> {busy ? 'Confirming…' : 'Confirm'}
+    </button>
   );
 }
 
 /** Payments & deposit manager (drawer body). Operates on the live booking and
  *  applies each change immediately via onApply. */
-function PaymentsForm({ booking, onApply }: { booking: Booking; onApply: (ops: Parameters<typeof updateBilling>[1]) => Promise<void> }) {
+function PaymentsForm({
+  booking,
+  plates,
+  onAssign,
+  onApply,
+}: {
+  booking: Booking;
+  plates: Unit[];
+  onAssign: (unitId: string) => Promise<void> | void;
+  onApply: (ops: Parameters<typeof updateBilling>[1]) => Promise<void>;
+}) {
   const paid = paidOf(booking);
   const due = dueOf(booking);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [deposit, setDeposit] = useState(String(booking.deposit || ''));
   const [busy, setBusy] = useState(false);
+  const [unitId, setUnitId] = useState(booking.unitId || '');
+  const [assigning, setAssigning] = useState(false);
+
+  // Money cannot be taken against a booking with no machine behind it: the
+  // backend refuses it, and the counter needs to know which bike went out.
+  const assigned = !!booking.plate;
+
+  async function assign() {
+    if (!unitId) return;
+    setAssigning(true);
+    try {
+      await onAssign(unitId);
+    } finally {
+      setAssigning(false);
+    }
+  }
 
   async function addPayment(e: React.FormEvent) {
     e.preventDefault();
@@ -398,12 +846,48 @@ function PaymentsForm({ booking, onApply }: { booking: Booking; onApply: (ops: P
   return (
     <div className="space-y-6">
       {/* Summary */}
-      <div className="bg-dark text-beige rounded-2xl p-5">
+      <div className="bg-beige rounded-2xl p-5">
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div><p className="text-[10px] uppercase tracking-widest text-beige/50">Total</p><p className="font-display text-xl font-black mt-1">{money(booking.total)}</p></div>
-          <div><p className="text-[10px] uppercase tracking-widest text-beige/50">Paid</p><p className="font-display text-xl font-black mt-1 text-emerald-300">{money(paid)}</p></div>
-          <div><p className="text-[10px] uppercase tracking-widest text-beige/50">Due</p><p className={`font-display text-xl font-black mt-1 ${due > 0 ? 'text-amber-300' : 'text-beige/60'}`}>{money(due)}</p></div>
+          <div><p className="text-[10px] text-dark/40">Total</p><p className="font-display text-xl font-black mt-1">{money(booking.total)}</p></div>
+          <div><p className="text-[10px] text-dark/40">Paid</p><p className="font-display text-xl font-black mt-1 text-emerald-600">{money(paid)}</p></div>
+          <div><p className="text-[10px] text-dark/40">Due</p><p className={`font-display text-xl font-black mt-1 ${due > 0 ? 'text-amber-600' : 'text-dark/50'}`}>{money(due)}</p></div>
         </div>
+      </div>
+
+      {/* Which machine is going out. Asked here because this is where it is
+          settled — the customer is at the counter and a bike is being handed
+          over. Payment is held back until it is answered. */}
+      <div className={`rounded-2xl p-4 border ${assigned ? 'border-dark/10 bg-beige' : 'border-amber-200 bg-amber-50'}`}>
+        <p className="label">Plate</p>
+        {assigned ? (
+          <div className="flex items-center gap-2 mt-2">
+            <span className="font-display font-semibold">{booking.plate}</span>
+            <span className="text-xs text-dark/45">assigned to this booking</span>
+          </div>
+        ) : plates.length === 0 ? (
+          <p className="text-sm text-amber-800 mt-2">
+            No available plates for this model — add one in Fleet before taking payment.
+          </p>
+        ) : (
+          <div className="flex gap-2 mt-2">
+            <select
+              value={unitId}
+              onChange={e => setUnitId(e.target.value)}
+              aria-label="Plate to assign"
+              className="input flex-1"
+            >
+              <option value="">Select plate…</option>
+              {plates.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.plate}
+                </option>
+              ))}
+            </select>
+            <button onClick={assign} disabled={!unitId || assigning} className="btn-primary shrink-0 disabled:opacity-40 disabled:pointer-events-none">
+              <Check className="w-4 h-4" /> {assigning ? 'Assigning…' : 'Assign'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Add payment */}
@@ -412,12 +896,19 @@ function PaymentsForm({ booking, onApply }: { booking: Booking; onApply: (ops: P
         <div className="flex gap-2">
           <input type="number" min={0} step="0.5" className="input max-w-[130px]" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
           <input className="input flex-1" placeholder="Note (cash, card…)" value={note} onChange={e => setNote(e.target.value)} />
-          <button type="submit" className="btn-primary shrink-0" disabled={busy || !(Number(amount) > 0)}>
+          <button
+            type="submit"
+            className="btn-primary shrink-0 disabled:opacity-40 disabled:pointer-events-none"
+            disabled={busy || !assigned || !(Number(amount) > 0)}
+          >
             <Plus className="w-4 h-4" /> Add
           </button>
         </div>
+        {!assigned && (
+          <p className="text-xs text-amber-800">Assign a plate above before recording payment.</p>
+        )}
         {due > 0 && (
-          <button type="button" onClick={() => setAmount(String(due))} className="text-xs font-bold text-brand hover:underline">
+          <button type="button" onClick={() => setAmount(String(due))} className="text-xs font-semibold text-brand hover:underline">
             Pay full due ({money(due)})
           </button>
         )}
@@ -429,7 +920,7 @@ function PaymentsForm({ booking, onApply }: { booking: Booking; onApply: (ops: P
           <p className="label">Payment history</p>
           {booking.payments.map(p => (
             <div key={p.id} className="flex items-center gap-3 bg-beige rounded-xl px-3 py-2 text-sm">
-              <span className="font-bold tabular-nums">{money(p.amount)}</span>
+              <span className="font-semibold tabular-nums">{money(p.amount)}</span>
               <span className="text-dark/50 flex-1 truncate">{p.note || '—'}</span>
               <span className="text-[10px] text-dark/40">{new Date(p.at).toLocaleDateString()}</span>
               <button onClick={() => onApply({ removePaymentId: p.id })} title="Remove payment" className="text-red-600 hover:bg-red-50 rounded-full p-1 transition">
@@ -454,6 +945,95 @@ function PaymentsForm({ booking, onApply }: { booking: Booking; onApply: (ops: P
           </label>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * One figure from a booking's billing, coloured by what it means rather than
+ * printed in the same grey as everything else.
+ *
+ * The three of these are what the counter actually acts on — whether money is
+ * owed, and whether a deposit is still the shop's to give back — and they were
+ * the smallest, faintest text on the row. Colour does the reading here: green
+ * is settled, red is owed, amber is money being held that is not ours.
+ */
+function Money({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'good' | 'owed' | 'held' | 'muted' | 'total';
+}) {
+  const tones = {
+    total: 'bg-brand/10 text-brand border-brand/20',
+    good: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    owed: 'bg-red-50 text-red-700 border-red-200',
+    held: 'bg-amber-50 text-amber-800 border-amber-200',
+    muted: 'bg-dark/[0.04] text-dark/55 border-dark/10',
+  };
+  return (
+    <span className={`inline-flex items-baseline gap-2 rounded-full border px-3 py-1 ${tones[tone]}`}>
+      <span className="text-[10px] font-semibold opacity-70">{label}</span>
+      <b className="font-display text-sm tabular-nums">{value}</b>
+    </span>
+  );
+}
+
+/**
+ * One active filter, and the way to switch just that one off.
+ *
+ * The list used to say only how many rows survived, which told you that
+ * something was hiding them but never what.
+ */
+function Chip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 bg-dark/5 text-dark/70 rounded-full pl-3 pr-1.5 py-1 capitalize">
+      {label}
+      <button
+        onClick={onClear}
+        aria-label={`Remove filter ${label}`}
+        className="rounded-full p-0.5 hover:bg-dark/10 text-dark/50 hover:text-dark"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </span>
+  );
+}
+
+/**
+ * The actions that are not the everyday ones.
+ *
+ * Deleting a booking cannot be undone, and it used to sit in the open next to
+ * the button people press all day. The backdrop closes the menu on any click
+ * elsewhere, which is cheaper than listening on the document and unmounts with
+ * the row.
+ */
+function RowMenu({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        aria-label="More actions"
+        aria-expanded={open}
+        className="text-dark/50 hover:text-dark hover:bg-dark/5 rounded-full p-2 transition"
+      >
+        <MoreHorizontal className="w-5 h-5" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div
+            className="absolute right-0 top-full mt-1 z-20 w-52 bg-card rounded-xl shadow-lg border border-dark/10 overflow-hidden py-1"
+            onClick={() => setOpen(false)}
+          >
+            {children}
+          </div>
+        </>
+      )}
     </div>
   );
 }

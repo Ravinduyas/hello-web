@@ -1,0 +1,23 @@
+# Response headers Amplify adds to every file it serves.
+#
+# The site had none at all: no HSTS, no nosniff, no framing or referrer policy.
+# These four cost nothing and are the ones a scanner looks for first.
+#
+# No Content-Security-Policy yet. The site loads Google Fonts, Unsplash imagery
+# and talks to the admin API, so a policy written blind would break the page in
+# production and nowhere else. It wants writing against a real page audit.
+customHeaders:
+  - pattern: '**'
+    headers:
+      # A year, and only after the domain is known good over HTTPS.
+      - key: Strict-Transport-Security
+        value: 'max-age=31536000; includeSubDomains'
+      # Stops a browser second-guessing a declared content type.
+      - key: X-Content-Type-Options
+        value: nosniff
+      # Nothing here is meant to be embedded in someone else's page.
+      - key: X-Frame-Options
+        value: SAMEORIGIN
+      # Send the origin to other sites, the full path only to ourselves.
+      - key: Referrer-Policy
+        value: strict-origin-when-cross-origin

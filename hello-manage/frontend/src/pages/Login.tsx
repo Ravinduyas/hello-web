@@ -24,12 +24,12 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
-      <form onSubmit={submit} className="w-full max-w-sm bg-white rounded-3xl p-8 md:p-10 shadow-sm">
+      <form onSubmit={submit} className="w-full max-w-sm bg-card rounded-3xl p-8 md:p-10 shadow-sm">
         <div className="w-14 h-14 bg-brand/10 rounded-full flex items-center justify-center mb-6">
           <Lock className="w-6 h-6 text-brand" />
         </div>
-        <span className="eyebrow">[ Hello Manage ]</span>
-        <h1 className="font-display text-2xl font-bold mt-2 mb-6">Admin sign in</h1>
+        <span className="eyebrow">Hello Manage</span>
+        <h1 className="font-display text-2xl font-semibold mt-2 mb-6">Admin sign in</h1>
 
         <label className="block space-y-2 mb-4">
           <span className="label">Username</span>

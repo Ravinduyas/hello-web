@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Save, RefreshCw, X, Check, ChevronDown, ChevronRight, Tag, LayoutGrid, List, Pencil } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { Loading, SkeletonCards } from '../components/Skeleton';
 import { money } from '../lib/money';
 import {
   fetchBikes,
@@ -23,6 +24,7 @@ import {
   type UnitStatus,
   type Owner,
 } from '../lib/api';
+import { PageHeader, Segmented, TabPanel } from '../components/ui';
 
 export default function Fleet({ onLogout }: { onLogout: () => void }) {
   const [bikes, setBikes] = useState<Bike[]>([]);
@@ -146,26 +148,7 @@ export default function Fleet({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-        <div>
-          <span className="eyebrow">[ Fleet ]</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* View toggle: models (cards) vs plates (flat list) */}
-          <div className="flex rounded-full border border-dark/15 overflow-hidden text-sm font-bold">
-            <button
-              onClick={() => setView('models')}
-              className={`flex items-center gap-1.5 px-3 py-2 transition ${view === 'models' ? 'bg-dark text-white' : 'bg-white text-dark/60 hover:text-dark'}`}
-            >
-              <LayoutGrid className="w-4 h-4" /> Models
-            </button>
-            <button
-              onClick={() => setView('plates')}
-              className={`flex items-center gap-1.5 px-3 py-2 transition ${view === 'plates' ? 'bg-dark text-white' : 'bg-white text-dark/60 hover:text-dark'}`}
-            >
-              <List className="w-4 h-4" /> Plates
-            </button>
-          </div>
+      <PageHeader title="Fleet" subtitle="Models, sub-categories and plates">
           <button onClick={() => setAddOpen(true)} className="btn-primary">
             <Plus className="w-4 h-4" /> Add sub-category
           </button>
@@ -176,8 +159,19 @@ export default function Fleet({ onLogout }: { onLogout: () => void }) {
           <button onClick={load} className="btn-outline" disabled={loading} aria-label="Refresh">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-        </div>
-      </div>
+      </PageHeader>
+
+      {/* View toggle: models (cards) vs plates (flat list) */}
+      <Segmented
+        label="Fleet view"
+        className="mb-6"
+        value={view}
+        onChange={setView}
+        options={[
+          { id: 'models', label: 'Models', icon: LayoutGrid },
+          { id: 'plates', label: 'Plates', icon: List },
+        ]}
+      />
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
@@ -207,8 +201,11 @@ export default function Fleet({ onLogout }: { onLogout: () => void }) {
         <AddBike categories={categoryNames} onCreate={handleCreate} />
       </Drawer>
 
+      <TabPanel tabKey={view} order={view === 'models' ? 0 : 1}>
       {loading ? (
-        <p className="text-dark/50 mt-6">Loading fleet…</p>
+        <Loading label="Loading the fleet">
+          <SkeletonCards count={5} lines={2} />
+        </Loading>
       ) : view === 'plates' ? (
         <PlatesList
           units={units}
@@ -222,7 +219,7 @@ export default function Fleet({ onLogout }: { onLogout: () => void }) {
           {groupByCategory(bikes, categoryNames).map(group => (
             <section key={group.category}>
               <div className="flex items-baseline gap-3 mb-3 border-b border-dark/10 pb-2">
-                <h2 className="font-display text-xl font-bold">{group.category}</h2>
+                <h2 className="font-display text-xl font-semibold">{group.category}</h2>
                 <span className="text-dark/40 text-sm">
                   {group.items.length} sub-categor{group.items.length === 1 ? 'y' : 'ies'}
                 </span>
@@ -251,6 +248,7 @@ export default function Fleet({ onLogout }: { onLogout: () => void }) {
           ))}
         </div>
       )}
+      </TabPanel>
     </div>
   );
 }
@@ -300,7 +298,7 @@ function PlatesList({
 
   if (units.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-12 text-center text-dark/50 mt-6">
+      <div className="bg-card rounded-2xl p-12 text-center text-dark/50 mt-6">
         No number plates yet. Switch to <b>Models</b> and add bikes under a sub-category.
       </div>
     );
@@ -311,15 +309,15 @@ function PlatesList({
       <p className="text-dark/50 text-sm mb-3">
         {units.length} bike{units.length !== 1 ? 's' : ''} · {available} available
       </p>
-      <div className="bg-white rounded-2xl overflow-x-auto">
+      <div className="bg-card rounded-2xl overflow-x-auto">
         <table className="w-full text-sm min-w-[680px]">
-          <thead className="text-dark/40 text-[10px] uppercase tracking-widest border-b border-dark/10">
+          <thead className="text-dark/40 text-[10px] border-b border-dark/10">
             <tr>
-              <th className="text-left font-bold px-4 py-3">Plate</th>
-              <th className="text-left font-bold px-4 py-3">Model</th>
-              <th className="text-left font-bold px-4 py-3">Category</th>
-              <th className="text-left font-bold px-4 py-3">Status</th>
-              <th className="text-left font-bold px-4 py-3">Owner</th>
+              <th className="text-left font-semibold px-4 py-3">Plate</th>
+              <th className="text-left font-semibold px-4 py-3">Model</th>
+              <th className="text-left font-semibold px-4 py-3">Category</th>
+              <th className="text-left font-semibold px-4 py-3">Status</th>
+              <th className="text-left font-semibold px-4 py-3">Owner</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -328,14 +326,14 @@ function PlatesList({
               const bike = bikeById.get(u.bikeId);
               return (
                 <tr key={u.id} className="border-b border-dark/5 last:border-0">
-                  <td className="px-4 py-3 font-mono font-bold tracking-wide whitespace-nowrap">{u.plate}</td>
+                  <td className="px-4 py-3 font-mono font-semibold whitespace-nowrap">{u.plate}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{bike?.title ?? '—'}</td>
                   <td className="px-4 py-3 text-dark/60 whitespace-nowrap">{bike?.category ?? '—'}</td>
                   <td className="px-4 py-3">
                     <select
                       value={u.status}
                       onChange={e => onUpdate(u.id, { status: e.target.value as UnitStatus })}
-                      className={`text-xs font-bold rounded-full px-3 py-1.5 appearance-none cursor-pointer ${STATUS_STYLE[u.status]}`}
+                      className={`text-xs font-semibold rounded-full px-3 py-1.5 appearance-none cursor-pointer ${STATUS_STYLE[u.status]}`}
                     >
                       {STATUS_OPTIONS.map(s => (
                         <option key={s} value={s}>{STATUS_LABEL[s]}</option>
@@ -406,7 +404,7 @@ function CategoriesManager({
       <div className="flex flex-wrap gap-2 mb-4">
         {categories.length === 0 && <span className="text-dark/40 text-sm">No categories yet.</span>}
         {categories.map(c => (
-          <span key={c} className="inline-flex items-center gap-2 bg-beige border border-dark/10 rounded-full pl-4 pr-2 py-1.5 text-sm font-bold">
+          <span key={c} className="inline-flex items-center gap-2 bg-beige border border-dark/10 rounded-full pl-4 pr-2 py-1.5 text-sm font-semibold">
             {c}
             <span className="text-dark/40 text-xs font-medium">{usage[c] ?? 0}</span>
             <button
@@ -510,7 +508,7 @@ function BikeRow({
   const [editOpen, setEditOpen] = useState(false);
 
   return (
-    <div className={`bg-white rounded-2xl p-5 md:p-6 transition-opacity ${bike.active ? '' : 'opacity-60'}`}>
+    <div className={`bg-card rounded-2xl p-5 md:p-6 transition-opacity ${bike.active ? '' : 'opacity-60'}`}>
       {/* Summary row */}
       <div className="flex items-center gap-4">
         <div className="w-16 h-12 rounded-lg overflow-hidden bg-beige border border-dark/10 shrink-0">
@@ -522,9 +520,9 @@ function BikeRow({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="font-bold truncate">{bike.title}</p>
+            <p className="font-semibold truncate">{bike.title}</p>
             {!bike.active && (
-              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-dark/10 text-dark/50 shrink-0">Inactive</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-dark/10 text-dark/50 shrink-0">Inactive</span>
             )}
           </div>
           <p className="text-sm text-dark/50">{bike.category} · {money(bike.pricePerDay)}/day</p>
@@ -532,14 +530,14 @@ function BikeRow({
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setEditOpen(true)}
-            className="text-sm font-bold inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
+            className="text-sm font-semibold inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
           >
             <Pencil className="w-4 h-4" /> Edit
           </button>
           <button
             onClick={() => onDelete(bike.id)}
             aria-label={`Delete ${bike.title}`}
-            className="text-sm font-bold inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-red-600 hover:bg-red-50 transition"
+            className="text-sm font-semibold inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-red-600 hover:bg-red-50 transition"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -593,7 +591,7 @@ function EditBike({ bike, categories, onSave }: { bike: Bike; categories: string
         <button
           type="button"
           onClick={() => setDraft({ ...draft, active: !draft.active })}
-          className={`text-xs font-bold uppercase tracking-wide px-3 py-1.5 rounded-full transition ${draft.active ? 'bg-emerald-100 text-emerald-800' : 'bg-dark/10 text-dark/50'}`}
+          className={`text-xs font-semibold px-3 py-1.5 rounded-full transition ${draft.active ? 'bg-emerald-100 text-emerald-800' : 'bg-dark/10 text-dark/50'}`}
         >
           {draft.active ? 'Active' : 'Inactive'}
         </button>
@@ -649,7 +647,7 @@ function UnitsPanel({
 
   return (
     <div className="mt-4 pt-4 border-t border-dark/10">
-      <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-sm font-bold">
+      <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-sm font-semibold">
         {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         Bikes — {units.length} plate{units.length !== 1 ? 's' : ''}
         <span className="text-dark/40 font-medium">· {available} available</span>
@@ -733,12 +731,12 @@ function PlateRow({
           }}
         />
       ) : (
-        <span className="font-mono font-bold tracking-wide">{u.plate}</span>
+        <span className="font-mono font-semibold">{u.plate}</span>
       )}
       <select
         value={u.status}
         onChange={e => onUpdate(u.id, { status: e.target.value as UnitStatus })}
-        className={`text-xs font-bold rounded-full px-3 py-1.5 appearance-none cursor-pointer ${STATUS_STYLE[u.status]}`}
+        className={`text-xs font-semibold rounded-full px-3 py-1.5 appearance-none cursor-pointer ${STATUS_STYLE[u.status]}`}
       >
         {STATUS_OPTIONS.map(s => (
           <option key={s} value={s}>{STATUS_LABEL[s]}</option>
@@ -748,7 +746,7 @@ function PlateRow({
         value={owners.some(o => o.id === u.ownerId) ? u.ownerId : ''}
         onChange={e => onUpdate(u.id, { ownerId: e.target.value })}
         title="Owner"
-        className="text-xs bg-white border border-dark/10 rounded-full px-3 py-1.5 max-w-[160px]"
+        className="text-xs bg-card border border-dark/10 rounded-full px-3 py-1.5 max-w-[160px]"
       >
         <option value="">— no owner —</option>
         {owners.map(o => (

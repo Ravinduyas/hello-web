@@ -46,9 +46,9 @@ export default function Drawer({
             aria-modal="true"
             aria-label={title}
           >
-            <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-dark/10 bg-white">
+            <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-dark/10 bg-card">
               <div>
-                <h2 className="font-display font-bold text-lg">{title}</h2>
+                <h2 className="font-display font-semibold text-lg">{title}</h2>
                 {subtitle && <p className="text-dark/50 text-sm mt-0.5">{subtitle}</p>}
               </div>
               <button

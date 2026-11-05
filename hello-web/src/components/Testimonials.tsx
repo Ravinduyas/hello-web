@@ -193,14 +193,14 @@ export default function Testimonials() {
                     <button
                       onClick={() => go(-1)}
                       aria-label="Previous testimonial"
-                      className="w-10 h-10 rounded-full border border-dark/10 flex items-center justify-center hover:bg-dark hover:text-white transition-all"
+                      className="w-11 h-11 rounded-full border border-dark/10 flex items-center justify-center hover:bg-dark hover:text-white transition-all"
                     >
                       <ArrowLeft className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => go(1)}
                       aria-label="Next testimonial"
-                      className="w-10 h-10 rounded-full border border-brand/20 text-brand flex items-center justify-center hover:bg-dark hover:text-white hover:border-dark transition-all"
+                      className="w-11 h-11 rounded-full border border-brand/20 text-brand flex items-center justify-center hover:bg-dark hover:text-white hover:border-dark transition-all"
                     >
                       <ArrowRight className="w-4 h-4" />
                     </button>

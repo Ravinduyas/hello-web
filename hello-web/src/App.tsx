@@ -3,9 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { lazy, Suspense, type ReactElement } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ROUTE_PATHS, type RoutePath } from './data/routes';
 import { BASE_URL } from './lib/asset';
 import ScrollToTop from './components/ScrollToTop';
+import PageSeo from './components/PageSeo';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Hero from './components/Hero';
@@ -19,13 +22,14 @@ import Testimonials from './components/Testimonials';
 import TrustBand from './components/TrustBand';
 import WhatsAppButton from './components/WhatsAppButton';
 import { Blog, CTASection } from './components/Blog';
-import AboutPage from './pages/AboutPage';
-import TourPlansPage from './pages/TourPlansPage';
-import DrivingPermitPage from './pages/DrivingPermitPage';
-import FleetPage from './pages/FleetPage';
-import BlogPage from './pages/BlogPage';
-import ContactPage from './pages/ContactPage';
-import BookingPage from './pages/BookingPage';
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const TourPlansPage = lazy(() => import('./pages/TourPlansPage'));
+const DrivingPermitPage = lazy(() => import('./pages/DrivingPermitPage'));
+const FleetPage = lazy(() => import('./pages/FleetPage'));
+const BlogPage = lazy(() => import('./pages/BlogPage'));
+const BlogPostPage = lazy(() => import('./pages/BlogPostPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const BookingPage = lazy(() => import('./pages/BookingPage'));
 
 function HomePage() {
   return (
@@ -45,6 +49,36 @@ function HomePage() {
 }
 
 /**
+ * What each public path renders.
+ *
+ * Typed against the shared route list, so a page and its URL cannot fall out
+ * of step — and neither can sitemap.xml, which the build writes from that same
+ * list. A path added there is a type error here until it has a page.
+ */
+const PAGES: Record<RoutePath, ReactElement> = {
+  '/': <HomePage />,
+  '/fleet': <FleetPage />,
+  '/book-now': <BookingPage />,
+  '/tours': <TourPlansPage />,
+  '/driving-permit': <DrivingPermitPage />,
+  '/about': <AboutPage />,
+  '/blog': <BlogPage />,
+  '/contact': <ContactPage />,
+};
+
+/**
+ * A redirect that does not throw away what the old URL was carrying.
+ *
+ * `<Navigate to="/book-now">` would drop `?category=Scooter` and land the
+ * visitor on a booking page with nothing chosen, which is worse than the link
+ * they clicked.
+ */
+function KeepQuery({ to }: { to: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={`${to}${search}${hash}`} replace />;
+}
+
+/**
  * Booking runs without the site's furniture — no navbar, trust band or footer.
  *
  * Once someone is filling in a booking, a menu inviting them to read the blog
@@ -53,25 +87,35 @@ function HomePage() {
  */
 function Shell() {
   const { pathname } = useLocation();
-  const bare = pathname === '/book';
+  const bare = pathname === '/book-now';
 
   return (
     <div className="min-h-screen">
+      <PageSeo />
       {!bare && <Navbar />}
-      <div id="main-content">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/tours" element={<TourPlansPage />} />
-          <Route path="/driving-permit" element={<DrivingPermitPage />} />
-          <Route path="/fleet" element={<FleetPage />} />
-          <Route path="/book" element={<BookingPage />} />
-          {/* The Locations page was folded into Contact; keep the old URL
-              working for anyone arriving from a bookmark or search result. */}
-          <Route path="/locations" element={<Navigate to="/contact#store" replace />} />
-          <Route path="/blog" element={<BlogPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-        </Routes>
+      {/* Keyed on the path so each page plays the entrance once when it
+          arrives, rather than the container animating a single time on load. */}
+      <div id="main-content" key={pathname} className="rise">
+        {/* A route's code arrives as its own file now, so there is a moment
+            between clicking and rendering. The fallback holds the page's height
+            so the footer does not jump up to meet the header and back down. */}
+        <Suspense fallback={<div className="min-h-[60vh]" aria-busy="true" />}>
+          <Routes>
+            {ROUTE_PATHS.map(path => (
+              <Route key={path} path={path} element={PAGES[path]} />
+            ))}
+            <Route path="/blog/:slug" element={<BlogPostPage />} />
+            {/* The Locations page was folded into Contact; keep the old URL
+                working for anyone arriving from a bookmark or search result.
+                A redirect is not a page, so it stays out of the sitemap. */}
+            <Route path="/locations" element={<Navigate to="/contact#store" replace />} />
+            {/* /book was the booking page's URL until it became /book-now. It
+                has been shared over WhatsApp and indexed, and the fleet used to
+                link to it with a category attached, so the query has to survive
+                the move or the arrival lands on an empty picker. */}
+            <Route path="/book" element={<KeepQuery to="/book-now" />} />
+          </Routes>
+        </Suspense>
       </div>
       {!bare && (
         <>

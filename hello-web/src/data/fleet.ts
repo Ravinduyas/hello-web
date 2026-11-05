@@ -27,6 +27,13 @@ export const formatPrice = (amount: number) => `${CURRENCY}${amount}`;
  */
 export const priceLabel = (amount: number) => (amount <= 0 ? 'Free' : formatPrice(amount));
 
+/** The photograph that stands for a class on a card. */
+export interface CategoryPhoto {
+  src: string;
+  /** Focal point for the card crop, like Bike.imagePosition. */
+  position?: string;
+}
+
 export interface Bike {
   id: string;
   title: string;
@@ -127,7 +134,7 @@ export const bikes: Bike[] = [
   /* ---------------------------------------------------------------- */
   {
     id: 'bajaj-pulsar',
-    title: 'Bajaj Pulsar 150 / 200',
+    title: 'Bajaj Pulsar N160',
     category: 'Motorbike',
     pricePerDay: 10,
     image: asset('/fleet/bajaj-pulsar.jpg'),
@@ -269,11 +276,11 @@ export const orderOf = (category: string) => {
  *
  * Shared so the fleet page and the booking step show a class the same way.
  */
-export const categoryImage: Record<string, string> = {
-  Scooter: asset('/photos/ntorq-front.jpg'),
-  Motorbike: asset('/fleet/bajaj-pulsar.jpg'),
-  'Tuk Tuk': asset('/fleet/bajaj-re-tuktuk.jpg'),
-  Car: asset('/fleet/toyota-kdh.jpg'),
+export const categoryPhoto: Record<string, CategoryPhoto> = {
+  Scooter: { src: asset('/fleet/tvs-ntorq-front.jpg') },
+  Motorbike: { src: asset('/fleet/bajaj-pulsar-front.jpg'), position: 'center 45%' },
+  'Tuk Tuk': { src: asset('/fleet/bajaj-re-tuktuk.jpg'), position: '35% 60%' },
+  Car: { src: asset('/fleet/toyota-kdh.jpg') },
 };
 
 /* ------------------------------------------------------------------ */
@@ -390,7 +397,8 @@ export function summariseCategories(list: Bike[]) {
         category,
         meta: getCategoryMeta(category),
         from: Math.min(...items.map(b => b.pricePerDay)),
-        image: categoryImage[category] ?? items[0]?.image,
+        image: categoryPhoto[category]?.src ?? items[0]?.image,
+        imagePosition: categoryPhoto[category]?.position,
         count: items.length,
       };
     })

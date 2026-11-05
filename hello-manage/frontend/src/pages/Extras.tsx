@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Save, RefreshCw, GripVertical } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { Loading, SkeletonCards } from '../components/Skeleton';
 import {
   fetchExtras,
   createExtra,
@@ -10,6 +11,7 @@ import {
   type Extra,
   type ExtraInput,
 } from '../lib/api';
+import { PageHeader, Segmented } from '../components/ui';
 
 export default function Extras({ onLogout }: { onLogout: () => void }) {
   const [extras, setExtras] = useState<Extra[]>([]);
@@ -73,19 +75,14 @@ export default function Extras({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-        <div>
-          <span className="eyebrow">[ Booking extras ]</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader title="Extras" subtitle="Add-ons guests can pick when they book">
           <button onClick={() => setAddOpen(true)} className="btn-primary">
             <Plus className="w-4 h-4" /> Add extra
           </button>
           <button onClick={load} className="btn-outline" disabled={loading} aria-label="Refresh">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-        </div>
-      </div>
+      </PageHeader>
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
@@ -94,9 +91,11 @@ export default function Extras({ onLogout }: { onLogout: () => void }) {
       </Drawer>
 
       {loading ? (
-        <p className="text-dark/50 mt-6">Loading extras…</p>
+        <Loading label="Loading extras">
+          <SkeletonCards count={4} lines={1} />
+        </Loading>
       ) : extras.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center text-dark/50">No extras yet. Add one above.</div>
+        <div className="bg-card rounded-3xl p-12 text-center text-dark/50">No extras yet. Add one above.</div>
       ) : (
         <div className="space-y-4">
           {extras.map(extra => (
@@ -213,7 +212,7 @@ function ExtraRow({
     // unsaved toggle look identical to a saved one — the card faded, the change
     // was never written, and the extra kept showing on the website.
     <div
-      className={`bg-white rounded-2xl p-5 md:p-6 transition-opacity ${extra.active ? '' : 'opacity-60'} ${
+      className={`bg-card rounded-2xl p-5 md:p-6 transition-opacity ${extra.active ? '' : 'opacity-60'} ${
         dirty ? 'ring-2 ring-brand/60' : ''
       }`}
     >
@@ -248,7 +247,7 @@ function ExtraRow({
         <button
           type="button"
           onClick={() => setDraft({ ...draft, active: !draft.active })}
-          className={`text-xs font-bold uppercase tracking-wide px-3 py-1.5 rounded-full transition ${
+          className={`text-xs font-semibold px-3 py-1.5 rounded-full transition ${
             draft.active ? 'bg-emerald-100 text-emerald-800' : 'bg-dark/10 text-dark/50'
           }`}
         >
@@ -259,7 +258,7 @@ function ExtraRow({
         {/* Nothing reaches the website until Save is pressed, so say so rather
             than letting the toggle imply it already has. */}
         {dirty && (
-          <span className="text-xs font-bold text-brand inline-flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-brand inline-flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-brand" />
             Unsaved — press Save to apply
           </span>
@@ -277,7 +276,7 @@ function ExtraRow({
           <button
             type="button"
             onClick={() => onDelete(extra.id)}
-            className="text-sm font-bold inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-red-600 hover:bg-red-50 transition"
+            className="text-sm font-semibold inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-red-600 hover:bg-red-50 transition"
           >
             <Trash2 className="w-4 h-4" /> Delete
           </button>
@@ -291,22 +290,16 @@ function PerDayToggle({ value, onChange }: { value: boolean; onChange: (v: boole
   return (
     <div className="space-y-2">
       <span className="label">Charge</span>
-      <div className="flex rounded-xl overflow-hidden border border-dark/10 text-xs font-bold">
-        <button
-          type="button"
-          onClick={() => onChange(true)}
-          className={`flex-1 px-3 py-2.5 transition ${value ? 'bg-brand text-white' : 'bg-beige text-dark/60'}`}
-        >
-          Per day
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(false)}
-          className={`flex-1 px-3 py-2.5 transition ${!value ? 'bg-brand text-white' : 'bg-beige text-dark/60'}`}
-        >
-          Flat
-        </button>
-      </div>
+      <Segmented
+        label="Charge"
+        fill
+        value={value ? 'day' : 'flat'}
+        onChange={v => onChange(v === 'day')}
+        options={[
+          { id: 'day', label: 'Per day' },
+          { id: 'flat', label: 'Flat' },
+        ]}
+      />
     </div>
   );
 }

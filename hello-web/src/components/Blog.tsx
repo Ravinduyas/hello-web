@@ -1,29 +1,19 @@
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { BLOG_POSTS } from '../data/blog';
 import { asset } from '../lib/asset';
 
+const FEATURED_HOME_SLUGS = [
+  'weligama-scooter-bike-rental-guide',
+  'rent-a-scooter-in-sri-lanka',
+  'tuktuk-rental-weligama-sri-lanka',
+];
+
 export function Blog() {
-  const posts = [
-    {
-      title: 'How far can you get in one day?',
-      date: 'Featured · Day Trips',
-      image: asset('/photos/ride-hill-road.jpg'),
-      to: '/tours',
-    },
-    {
-      title: 'Top Scenic Routes to Ride in Sri Lanka',
-      date: '02 May 2026',
-      image: asset('/photos/tea-country-ride.jpg'),
-      to: '/blog',
-    },
-    {
-      title: 'The Coastal Ride: Colombo to Galle',
-      date: '18 Apr 2026',
-      image: asset('/photos/ride-misty-forest.jpg'),
-      to: '/blog',
-    }
-  ];
+  const posts = FEATURED_HOME_SLUGS.map(slug => BLOG_POSTS.find(p => p.slug === slug)).filter(
+    (p): p is NonNullable<typeof p> => Boolean(p),
+  );
 
   return (
     <section className="bg-beige py-16 md:py-24">
@@ -32,7 +22,7 @@ export function Blog() {
           <span className="eyebrow">[ Riding Guides ]</span>
           <div className="rule mt-5">
             <h2 className="display-xl text-4xl md:text-6xl max-w-3xl">
-              Sri Lanka riding guides &amp; routes
+              Weligama &amp; Sri Lanka rental guides
             </h2>
             <span className="section-index">(07)</span>
           </div>
@@ -40,31 +30,49 @@ export function Blog() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {posts.map((post, idx) => (
-            <motion.div
-              key={idx}
+            <motion.article
+              key={post.slug}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1 }}
             >
-              <Link to={post.to} className="group block">
+              <Link to={post.path} className="group block">
                 <div className="aspect-[4/3] rounded-3xl overflow-hidden mb-6">
                   <img
-                    src={post.image}
-                    alt={post.title}
+                    src={asset(post.cardImage)}
+                    alt={post.heroAlt}
                     loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                 </div>
-                <h3 className="font-display text-xl font-bold mb-4 line-clamp-2 group-hover:text-brand transition-colors">
+                <span className="text-[10px] font-bold text-brand uppercase tracking-widest block mb-2">
+                  {post.category} · {post.readingTime}
+                </span>
+                <h3 className="font-display text-xl font-bold mb-3 line-clamp-2 group-hover:text-brand transition-colors">
                   {post.title}
                 </h3>
-                <span className="text-[10px] font-bold text-dark/40 uppercase tracking-widest">
-                  {post.date}
+                <p className="text-sm text-dark/60 leading-relaxed line-clamp-2 mb-4">
+                  {post.excerpt}
+                </p>
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-dark/55 group-hover:text-brand uppercase tracking-widest transition-colors">
+                  Read guide <ArrowRight className="w-3.5 h-3.5" />
                 </span>
               </Link>
-            </motion.div>
+            </motion.article>
           ))}
+        </div>
+
+        <div className="mt-12 pt-8 border-t border-dark/10 flex flex-wrap items-center justify-between gap-4">
+          <p className="text-sm text-dark/55">
+            Written by Lucky &amp; Sandra at Hello Rent - Scooter &amp; Tuktuk Rental in Weligama.
+          </p>
+          <Link
+            to="/blog"
+            className="inline-flex items-center gap-2 text-sm font-bold text-brand hover:gap-3 transition-all"
+          >
+            Browse all riding &amp; rental guides <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </div>
     </section>

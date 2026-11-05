@@ -1,22 +1,22 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowRight,
+  ArrowRight, Loader2,
   ArrowLeft,
   Check,
   Calendar,
   MapPin,
   Bike as BikeIcon,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Info,
-  Minus,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { bikes as defaultBikes, extras as defaultExtras, formatPrice, priceLabel, shopLocation, summariseCategories, type Bike, type Extra } from '../data/fleet';
+import { bikes as defaultBikes, extras as defaultExtras, formatPrice, priceLabel, orderOf, shopLocation, summariseCategories, type Bike, type Extra } from '../data/fleet';
 import { getSpec, type VehicleSpec } from '../data/specs';
 import { asset } from '../lib/asset';
+import { ClassCardButton } from '../components/ClassCard';
 import { createBooking, fetchExtras, fetchBikes } from '../lib/api';
 
 /* ------------------------------------------------------------------ */
@@ -24,6 +24,24 @@ import { createBooking, fetchExtras, fetchBikes } from '../lib/api';
 /* ------------------------------------------------------------------ */
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+/**
+ * One vehicle in a booking, with the dates that vehicle is wanted for.
+ *
+ * The dates sit on the vehicle rather than on the booking because a group
+ * rarely wants everything for the same days — a scooter for the week and a
+ * tuk-tuk for the day out is the ordinary case, not the awkward one.
+ */
+interface CartItem {
+  bikeId: string;
+  pickupDate: string;
+  dropoffDate: string;
+}
+
+const emptyItem = (bikeId: string): CartItem => ({ bikeId, pickupDate: '', dropoffDate: '' });
+
+/** A cart item resolved against the fleet: the vehicle, and how long for. */
+type BookingItem = CartItem & { bike: Bike; days: number };
 
 /** Whole rental days between two ISO dates (min 1 once both are set). */
 function rentalDays(pickup: string, dropoff: string): number {
@@ -60,7 +78,7 @@ interface Renter {
   license: string;
 }
 
-const STEPS = ['Your ride', 'Rental dates', 'Extras', 'Your details'] as const;
+const STEPS = ['Vehicle type', 'Your ride', 'Rental dates', 'Extras', 'Your details'] as const;
 
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
@@ -71,13 +89,13 @@ export default function BookingPage() {
   const location = useLocation();
 
   const [step, setStep] = useState(0);
-  const [bikeId, setBikeId] = useState<string | null>(params.get('bike'));
+  // Arriving with ?bike= starts the cart with that vehicle already in it.
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const seed = params.get('bike');
+    return seed ? [emptyItem(seed)] : [];
+  });
   // Set when the visitor arrives from a category card rather than a vehicle.
   const [category, setCategory] = useState<string | null>(params.get('category'));
-  // Narrows a class by engine size before model — scooters are 110cc or 125cc.
-  const [engineCc, setEngineCc] = useState<number | null>(null);
-  const [pickupDate, setPickupDate] = useState('');
-  const [dropoffDate, setDropoffDate] = useState('');
   // Fleet & extras come from the admin-managed API; fall back to bundled defaults if it's unreachable.
   const [bikes, setBikes] = useState<Bike[]>(defaultBikes);
   const [extras, setExtras] = useState<Extra[]>(defaultExtras);
@@ -90,12 +108,34 @@ export default function BookingPage() {
     license: '',
   });
   const [confirmed, setConfirmed] = useState(false);
-  const [reference, setReference] = useState('');
+  const [references, setReferences] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const bike = bikes.find(b => b.id === bikeId);
-  const days = rentalDays(pickupDate, dropoffDate);
+  /** The cart against the live fleet, dropping anything no longer offered. */
+  const items = useMemo(
+    () =>
+      cart.flatMap(item => {
+        const bike = bikes.find(b => b.id === item.bikeId);
+        return bike ? [{ ...item, bike, days: rentalDays(item.pickupDate, item.dropoffDate) }] : [];
+      }),
+    [cart, bikes],
+  );
+
+  /**
+   * The booking end to end: the first pickup to the last return.
+   *
+   * Per-day extras are charged over this rather than once per vehicle. A phone
+   * mount is hired for the trip, not for each machine, and it is held from the
+   * day the first vehicle is collected to the day the last one comes back.
+   */
+  const dated = items.filter(i => i.days > 0);
+  const spanDays = dated.length
+    ? rentalDays(
+        dated.map(i => i.pickupDate).sort()[0],
+        dated.map(i => i.dropoffDate).sort()[dated.length - 1],
+      )
+    : 0;
 
   /* ---- Arriving at the page ---------------------------------------
    *
@@ -112,11 +152,12 @@ export default function BookingPage() {
     if (!paramCategory && !paramBike) return;
     if (paramCategory) {
       setCategory(paramCategory);
-      setEngineCc(null);
     }
-    // A vehicle from the class you just left cannot stay selected.
-    setBikeId(paramBike ?? null);
-    setStep(0);
+    // Arriving with an explicit vehicle replaces the cart: the link is a
+    // fresh intent, not an addition to whatever was left half-chosen.
+    setCart(paramBike ? [emptyItem(paramBike)] : []);
+    // The class screen is already answered by the link, so land on the ride.
+    setStep(1);
   }, [paramCategory, paramBike]);
 
   // A finished booking is not something to resume — returning starts a new one,
@@ -124,13 +165,10 @@ export default function BookingPage() {
   useEffect(() => {
     if (!confirmed) return;
     setConfirmed(false);
-    setReference('');
+    setReferences([]);
     setStep(0);
-    setBikeId(paramBike ?? null);
+    setCart(paramBike ? [emptyItem(paramBike)] : []);
     setCategory(paramCategory);
-    setEngineCc(null);
-    setPickupDate('');
-    setDropoffDate('');
     setChosenExtras([]);
     setError('');
     // location.key changes on every navigation, including to the same URL.
@@ -160,53 +198,112 @@ export default function BookingPage() {
   /* ---- Price breakdown ------------------------------------------- */
   const summary = useMemo(() => {
     const lines: { label: string; amount: number }[] = [];
-    if (bike && days > 0) {
-      lines.push({ label: `${bike.title} · ${days} day${days > 1 ? 's' : ''}`, amount: bike.pricePerDay * days });
+    for (const item of items) {
+      if (item.days < 1) continue;
+      lines.push({
+        label: `${item.bike.title} · ${item.days} day${item.days > 1 ? 's' : ''}`,
+        amount: item.bike.pricePerDay * item.days,
+      });
     }
+    const chargeDays = Math.max(spanDays, 1);
     for (const ex of extras) {
       if (!chosenExtras.includes(ex.id)) continue;
-      const amount = ex.perDay ? ex.price * Math.max(days, 1) : ex.price;
-      lines.push({ label: ex.perDay ? `${ex.label} (×${Math.max(days, 1)})` : ex.label, amount });
+      const amount = ex.perDay ? ex.price * chargeDays : ex.price;
+      lines.push({ label: ex.perDay ? `${ex.label} (×${chargeDays})` : ex.label, amount });
     }
     const total = lines.reduce((sum, l) => sum + l.amount, 0);
     return { lines, total };
-  }, [bike, days, chosenExtras, extras]);
+  }, [items, spanDays, chosenExtras, extras]);
 
   /* ---- Per-step validation --------------------------------------- */
   const stepValid = [
-    !!bike,
-    !!pickupDate && !!dropoffDate && days > 0,
+    !!category,
+    items.length > 0,
+    items.length > 0 && items.every(i => i.days > 0),
     true, // extras are optional
     !!renter.firstName && !!renter.lastName && /\S+@\S+\.\S+/.test(renter.email) && !!renter.phone,
   ];
+
+  /** Add a vehicle to the booking, or take it back out. */
+  function toggleVehicle(id: string) {
+    setCart(prev =>
+      prev.some(i => i.bikeId === id) ? prev.filter(i => i.bikeId !== id) : [...prev, emptyItem(id)],
+    );
+  }
+
+  function setItemDates(bikeId: string, fields: DateFields) {
+    setCart(prev =>
+      prev.map(item => {
+        if (item.bikeId !== bikeId) return item;
+        const next = { ...item };
+        if (fields.pickupDate !== undefined) {
+          next.pickupDate = fields.pickupDate;
+          // keep drop-off on or after pickup
+          if (next.dropoffDate && fields.pickupDate > next.dropoffDate) next.dropoffDate = fields.pickupDate;
+        }
+        if (fields.dropoffDate !== undefined) next.dropoffDate = fields.dropoffDate;
+        return next;
+      }),
+    );
+  }
 
   function toggleExtra(id: string) {
     setChosenExtras(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
   }
 
+  /**
+   * One booking per vehicle.
+   *
+   * The shop assigns a physical machine and a number plate to a booking, so a
+   * row per vehicle is what lets it do that, and what puts each vehicle on its
+   * own line of the timeline. The extras ride on the first row only — charging
+   * them on every row would bill one phone mount once per scooter.
+   */
   async function submitBooking() {
-    if (!bike) return;
+    if (!items.length) return;
     setSubmitting(true);
     setError('');
+
+    const extraLines = extras
+      .filter(ex => chosenExtras.includes(ex.id))
+      .map(ex => ({
+        id: ex.id,
+        label: ex.label,
+        amount: ex.perDay ? ex.price * Math.max(spanDays, 1) : ex.price,
+      }));
+    const extrasTotal = extraLines.reduce((sum, line) => sum + line.amount, 0);
+    const booked: string[] = [];
+
     try {
-      const { reference } = await createBooking({
-        bikeId: bike.id,
-        bikeTitle: bike.title,
-        pickupLocation: shopLocation.name,
-        dropoffLocation: shopLocation.name,
-        pickupDate,
-        dropoffDate,
-        days,
-        extras: extras
-          .filter(ex => chosenExtras.includes(ex.id))
-          .map(ex => ({ id: ex.id, label: ex.label, amount: ex.perDay ? ex.price * days : ex.price })),
-        total: summary.total,
-        renter,
-      });
-      setReference(reference);
+      for (const [i, item] of items.entries()) {
+        const { reference } = await createBooking({
+          bikeId: item.bike.id,
+          bikeTitle: item.bike.title,
+          pickupLocation: shopLocation.name,
+          dropoffLocation: shopLocation.name,
+          pickupDate: item.pickupDate,
+          dropoffDate: item.dropoffDate,
+          days: item.days,
+          extras: i === 0 ? extraLines : [],
+          total: item.bike.pricePerDay * item.days + (i === 0 ? extrasTotal : 0),
+          renter,
+        });
+        booked.push(reference);
+      }
+      setReferences(booked);
       setConfirmed(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+      const message = e instanceof Error ? e.message : 'Something went wrong. Please try again.';
+      /*
+       * A vehicle already booked stays booked. Saying so is the difference
+       * between a customer ringing the shop about the one that failed and a
+       * customer pressing Confirm again, taking the first scooter twice.
+       */
+      setError(
+        booked.length
+          ? `${message} — but ${booked.length} of ${items.length} vehicles are already reserved (${booked.join(', ')}). Please call us to add the rest rather than booking again.`
+          : message,
+      );
     } finally {
       setSubmitting(false);
     }
@@ -234,26 +331,39 @@ export default function BookingPage() {
           <div className="w-16 h-16 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-6">
             <Check className="w-8 h-8 text-brand" />
           </div>
-          <span className="eyebrow">[ Booking confirmed ]</span>
-          <h1 className="display-xl text-3xl md:text-5xl mt-3 mb-4">You're all set, {renter.firstName}!</h1>
+          <span className="eyebrow">[ Booking received ]</span>
+          <h1 className="display-xl text-3xl md:text-5xl mt-3 mb-4">Thanks, {renter.firstName}!</h1>
           <p className="text-dark/60 mb-8">
-            We've emailed your confirmation to <span className="font-medium text-dark">{renter.email}</span>. Bring
-            your passport &amp; a valid licence to pick up.
+            We've emailed your booking details to <span className="font-medium text-dark">{renter.email}</span>. The
+            shop will confirm shortly by email. Bring your passport &amp; a valid licence to pick up.
           </p>
 
-          <div className="bg-beige rounded-2xl p-6 text-left space-y-3 mb-8">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-dark/40">Reference</span>
-              <span className="font-display font-bold tracking-wide">{reference}</span>
+          {/* One block per vehicle: each is its own reservation at the shop,
+              with its own reference to quote and its own dates. */}
+          <div className="bg-beige rounded-2xl p-6 text-left mb-8">
+            {items.map((item, i) => (
+              <div key={item.bikeId} className={`space-y-3 ${i > 0 ? 'border-t border-dark/10 mt-4 pt-4' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-dark/40">Reference</span>
+                  <span className="font-display font-bold tracking-wide">{references[i] ?? '—'}</span>
+                </div>
+                <Row icon={BikeIcon} label="Ride" value={item.bike.title} />
+                <Row
+                  icon={Calendar}
+                  label="Dates"
+                  value={`${item.pickupDate} → ${item.dropoffDate} (${item.days} day${item.days > 1 ? 's' : ''})`}
+                />
+              </div>
+            ))}
+
+            <div className="space-y-3 border-t border-dark/10 mt-4 pt-4">
+              <Row icon={MapPin} label="Pickup & return" value={shopLocation.address} />
+              <div className="flex items-center justify-between">
+                <span className="font-bold">Total</span>
+                <span className="font-display text-2xl font-black text-brand">{formatPrice(summary.total)}</span>
+              </div>
+              <p className="text-xs text-dark/40">Pay at pickup — no card needed to reserve.</p>
             </div>
-            <Row icon={BikeIcon} label="Ride" value={bike?.title ?? ''} />
-            <Row icon={Calendar} label="Dates" value={`${pickupDate} → ${dropoffDate} (${days} day${days > 1 ? 's' : ''})`} />
-            <Row icon={MapPin} label="Pickup & return" value={shopLocation.address} />
-            <div className="flex items-center justify-between border-t border-dark/10 pt-3">
-              <span className="font-bold">Total</span>
-              <span className="font-display text-2xl font-black text-brand">{formatPrice(summary.total)}</span>
-            </div>
-            <p className="text-xs text-dark/40">Pay at pickup — no card needed to reserve.</p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -272,24 +382,15 @@ export default function BookingPage() {
     // Deliberately tight above the fold. The job of this page is picking a
     // vehicle, so the masthead and step rail give up their height to get the
     // cards into view without scrolling for them.
-    // No navbar on this route, so no clearance to leave for one. The bottom
-    // padding clears the standing summary bar instead, which is fixed.
-    <div className="bg-beige min-h-screen pt-8 md:pt-10 pb-36 px-6">
-      <div className="max-w-7xl mx-auto">
+    // No navbar on this route, so no clearance to leave for one. The summary
+    // bar sits in the page flow at the foot; flex + mt-auto on the bar keeps it
+    // at the bottom of the window when the step content is short.
+    <div className="bg-beige min-h-screen pt-8 md:pt-10 px-6 flex flex-col">
+      <div className="max-w-7xl mx-auto w-full pb-10">
         <header className="mb-5 flex items-start justify-between gap-6">
           <div>
-            {/* The only way back out, since the site nav is hidden here. */}
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 text-sm text-dark/50 hover:text-brand transition-colors mb-4"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="font-display font-bold tracking-tight">Hello Rent</span>
-            </Link>
-            <div>
-              <span className="eyebrow">[ Book your ride ]</span>
-              <h1 className="display-xl text-3xl md:text-4xl mt-2">Reserve in a few taps</h1>
-            </div>
+            <span className="eyebrow">[ Book your ride ]</span>
+            <h1 className="display-xl text-3xl md:text-4xl mt-2">Reserve in a few taps</h1>
           </div>
 
           {/* The logo stands in for the navbar that this route hides — a
@@ -340,46 +441,43 @@ export default function BookingPage() {
                 transition={{ duration: 0.25 }}
               >
                 {step === 0 && (
-                  <StepRide
+                  <StepClass
                     bikes={bikes}
-                    selected={bikeId}
-                    onSelect={setBikeId}
-                    category={category}
-                    onPickCategory={c => {
+                    selected={category}
+                    onPick={c => {
                       setCategory(c);
-                      setEngineCc(null);
-                      setBikeId(null);
+                      // The cart survives the change. Coming back here and
+                      // picking another class is how a second vehicle is
+                      // added, so clearing it would undo the booking.
+                      setStep(1);
                     }}
-                    onClearCategory={() => {
-                      // Back to the class cards, so the selection goes too —
-                      // a Dio cannot stay picked while you browse motorbikes.
-                      setCategory(null);
-                      setEngineCc(null);
-                      setBikeId(null);
-                    }}
-                    engineCc={engineCc}
-                    onPickCapacity={setEngineCc}
                   />
                 )}
 
                 {step === 1 && (
-                  <StepDates
-                    pickupDate={pickupDate}
-                    dropoffDate={dropoffDate}
-                    onChange={f => {
-                      if (f.pickupDate !== undefined) {
-                        setPickupDate(f.pickupDate);
-                        // keep drop-off on/after pickup
-                        if (dropoffDate && f.pickupDate > dropoffDate) setDropoffDate(f.pickupDate);
-                      }
-                      if (f.dropoffDate !== undefined) setDropoffDate(f.dropoffDate);
-                    }}
+                  <StepRide
+                    bikes={bikes}
+                    chosen={cart.map(i => i.bikeId)}
+                    onToggle={toggleVehicle}
+                    category={category}
+                    onChangeCategory={setCategory}
                   />
                 )}
 
-                {step === 2 && <StepExtras extras={extras} chosen={chosenExtras} onToggle={toggleExtra} days={Math.max(days, 1)} />}
+                {step === 2 && (
+                  <StepDates items={items} onChange={setItemDates} />
+                )}
 
-                {step === 3 && <StepDetails renter={renter} onChange={r => setRenter(r)} />}
+                {step === 3 && (
+                  <StepExtras
+                    extras={extras}
+                    chosen={chosenExtras}
+                    onToggle={toggleExtra}
+                    days={Math.max(spanDays, 1)}
+                  />
+                )}
+
+                {step === 4 && <StepDetails renter={renter} onChange={r => setRenter(r)} />}
               </motion.div>
             </AnimatePresence>
 
@@ -395,10 +493,9 @@ export default function BookingPage() {
       </div>
 
       <BookingBar
-        bike={bike}
-        days={days}
-        pickupDate={pickupDate}
-        dropoffDate={dropoffDate}
+        items={items}
+        step={step}
+        stepCount={STEPS.length}
         extrasCount={chosenExtras.length}
         total={summary.total}
         canGoBack={step > 0 && !submitting}
@@ -413,7 +510,52 @@ export default function BookingPage() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Step 1 — choose a ride                                            */
+/*  Step 1 — choose a class                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The four vehicle types, as its own screen.
+ *
+ * Class and vehicle used to share one step, swapping the panel once a class was
+ * picked — so the progress rail said "Your ride" through both and Back could
+ * not return to the classes. They are now two steps, which is what they always
+ * were to the person filling the form in.
+ */
+function StepClass({
+  bikes,
+  selected,
+  onPick,
+}: {
+  bikes: Bike[];
+  selected: string | null;
+  onPick: (category: string) => void;
+}) {
+  const summaries = summariseCategories(bikes);
+
+  return (
+    <div>
+      <h2 className="font-display text-2xl font-bold">What would you like to ride?</h2>
+      <p className="text-dark/50 text-sm">Pick a class, then the vehicle. Every one comes with a helmet.</p>
+
+      {/* The same four columns the fleet page uses, so a visitor who browsed
+          the fleet meets the classes laid out exactly as they left them. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-8 mt-5">
+        {summaries.map(cat => (
+          <ClassCardButton
+            key={cat.category}
+            summary={cat}
+            selected={selected === cat.category}
+            onPick={() => onPick(cat.category)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Step 2 — choose a ride                                            */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -435,68 +577,48 @@ const COMPARE_ATTRS: { label: string; read: (spec: VehicleSpec | undefined) => s
   { label: 'Storage', read: spec => specRow(spec, 'Storage') },
 ];
 
-/**
- * Per-vehicle detail, collapsed. A plain <details> keeps it keyboard-accessible
- * and working without JS; vehicles with no spec sheet fall back to the feature
- * list the admin holds for them.
- */
-function VehicleDetails({ bike }: { bike: Bike }) {
-  const spec = getSpec(bike.id);
-
+/** One vehicle, as a single photograph of it. */
+function RideCard({ bike, active, onSelect }: { bike: Bike; active: boolean; onSelect: () => void }) {
   return (
-    <details className="group/vd border-t border-dark/10">
-      <summary className="flex items-center justify-center gap-2 cursor-pointer list-none px-4 py-2.5 text-xs font-bold text-dark/65 hover:text-brand transition-colors">
-        <Info className="w-3.5 h-3.5" />
-        Vehicle details
-        <ChevronDown className="w-3.5 h-3.5 transition-transform group-open/vd:rotate-180" />
-      </summary>
+    <div
+      className={`h-full rounded-2xl border-2 overflow-hidden transition-all ${
+        active ? 'border-brand shadow-md' : 'border-dark/10 hover:border-dark/30'
+      }`}
+    >
+      <div className="relative aspect-[3/2] overflow-hidden bg-beige">
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-pressed={active}
+          aria-label={`Choose the ${bike.title}`}
+          className="absolute inset-0 w-full h-full"
+        >
+          <img
+            src={bike.image}
+            alt={bike.title}
+            loading="lazy"
+            style={{ objectPosition: bike.imagePosition ?? 'center' }}
+            className="w-full h-full object-cover"
+          />
+        </button>
 
-      <div className="px-4 pb-4 text-xs space-y-3">
-        {spec ? (
-          <>
-            <dl className="divide-y divide-dark/10 border-y border-dark/10">
-              {spec.specs.map(row => (
-                <div key={row.label} className="flex justify-between gap-3 py-1.5">
-                  <dt className="text-dark/45 shrink-0">{row.label}</dt>
-                  <dd className="text-dark/80 text-right">{row.value}</dd>
-                </div>
-              ))}
-            </dl>
-
-            {spec.pros.length > 0 && (
-              <ul className="space-y-1">
-                {spec.pros.map(p => (
-                  <li key={p} className="flex gap-1.5 text-dark/65 leading-snug">
-                    <Check className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
-                    {p}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {spec.cons.length > 0 && (
-              <ul className="space-y-1">
-                {spec.cons.map(c => (
-                  <li key={c} className="flex gap-1.5 text-dark/50 leading-snug">
-                    <Minus className="w-3 h-3 text-dark/35 shrink-0 mt-0.5" />
-                    {c}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        ) : (
-          <ul className="space-y-1">
-            {bike.features.map(f => (
-              <li key={f} className="flex gap-1.5 text-dark/65 leading-snug">
-                <span className="w-1 h-1 mt-1.5 rounded-full bg-brand shrink-0" />
-                {f}
-              </li>
-            ))}
-          </ul>
+        {active && (
+          <span className="absolute top-3 right-3 w-7 h-7 bg-brand rounded-full flex items-center justify-center pointer-events-none">
+            <Check className="w-4 h-4 text-white" />
+          </span>
         )}
       </div>
-    </details>
+
+      <button type="button" onClick={onSelect} className="block w-full text-left p-4 pb-3">
+        <span className="text-[10px] font-bold text-brand uppercase tracking-widest">
+          {bike.bodyType ?? bike.category}
+        </span>
+        <p className="font-display font-bold leading-tight">{bike.title}</p>
+        {getSpec(bike.id)?.headline && (
+          <p className="text-xs text-dark/45 leading-snug mt-0.5">{getSpec(bike.id)?.headline}</p>
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -548,24 +670,117 @@ function CompareTable({ bikes }: { bikes: Bike[] }) {
   );
 }
 
+/**
+ * The class on show, and the way to change it.
+ *
+ * It closes on a click outside and on Escape, because a menu that can only be
+ * dismissed by choosing something makes the customer commit to an answer just
+ * to get rid of the question.
+ */
+function ClassMenu({
+  classes,
+  current,
+  onPick,
+}: {
+  classes: { category: string | null; label: string }[];
+  current: string | null;
+  onPick: (category: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const label = classes.find(c => c.category === current)?.label ?? 'All vehicles';
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex items-center gap-2 pl-3.5 pr-3 py-1.5 rounded-full bg-dark text-beige text-[11px] font-bold uppercase tracking-widest hover:bg-dark/85 transition-colors"
+      >
+        {label}
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 top-full mt-2 z-20 min-w-[190px] rounded-2xl border border-dark/10 bg-white shadow-xl shadow-dark/10 p-1.5"
+        >
+          {classes.map(c => (
+            <button
+              key={c.category ?? 'all'}
+              type="button"
+              role="menuitem"
+              aria-current={c.category === current}
+              onClick={() => {
+                onPick(c.category);
+                setOpen(false);
+              }}
+              className={`w-full flex items-center justify-between gap-3 text-left px-3 py-2 rounded-xl text-sm transition-colors ${
+                c.category === current ? 'bg-beige font-bold' : 'hover:bg-beige/60'
+              }`}
+            >
+              {c.label}
+              {c.category === current && <Check className="w-4 h-4 text-brand shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * How wide a capacity's enclosure is, and how many columns of cards it holds.
+ *
+ * Written out rather than composed, because Tailwind finds class names by
+ * reading the source: a string built at runtime never reaches the stylesheet.
+ */
+const BAND_SPAN: Record<number, string> = {
+  1: 'lg:col-span-1',
+  2: 'lg:col-span-2',
+  3: 'lg:col-span-3',
+  4: 'lg:col-span-4',
+};
+
+const BAND_COLS: Record<number, string> = {
+  1: 'lg:grid-cols-1',
+  2: 'lg:grid-cols-2',
+  3: 'lg:grid-cols-3',
+  4: 'lg:grid-cols-4',
+};
+
 function StepRide({
   bikes,
-  selected,
-  onSelect,
+  chosen,
+  onToggle,
   category,
-  onClearCategory,
-  onPickCategory,
-  engineCc,
-  onPickCapacity,
+  onChangeCategory,
 }: {
   bikes: Bike[];
-  selected: string | null;
-  onSelect: (id: string) => void;
+  chosen: string[];
+  onToggle: (id: string) => void;
   category: string | null;
-  onClearCategory: () => void;
-  onPickCategory: (category: string) => void;
-  engineCc: number | null;
-  onPickCapacity: (cc: number | null) => void;
+  onChangeCategory: (category: string | null) => void;
 }) {
   // Arriving from a category card on the fleet page shows just that class;
   // the fleet page no longer lists models, so this is where a visitor meets
@@ -573,221 +788,144 @@ function StepRide({
   const shown = category ? bikes.filter(b => b.category === category) : bikes;
   const inCategory = shown.length ? shown : bikes;
 
-  // Nothing chosen yet: open on the classes, the same four cards the fleet page
-  // shows, rather than dropping someone straight into fifteen named vehicles.
-  // A vehicle arriving by link skips this — it has already been chosen.
-  if (!category && !selected) {
-    const summaries = summariseCategories(bikes);
-    return (
-      <div>
-        <h2 className="font-display text-2xl font-bold">What would you like to ride?</h2>
-        <p className="text-dark/50 text-sm">Pick a class, then the vehicle. Every one comes with a helmet.</p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-          {summaries.map(cat => (
-            <button
-              key={cat.category}
-              type="button"
-              onClick={() => onPickCategory(cat.category)}
-              // Tall enough for the photograph to read as a vehicle: at h-56 a
-              // wide card cropped these to a letterbox strip of the middle.
-              className="group relative block h-72 md:h-80 rounded-2xl overflow-hidden text-left border-2 border-transparent hover:border-brand transition-all"
-            >
-              <img
-                src={cat.image}
-                alt={cat.meta.label}
-                loading="lazy"
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-dark/85 via-dark/30 to-dark/10" />
-
-              {cat.meta.transmission && (
-                <span className="absolute top-4 left-4 eyebrow !text-white/70">{cat.meta.transmission}</span>
-              )}
-
-              <div className="absolute inset-x-0 bottom-0 p-5 text-beige">
-                <h3 className="display-xl text-2xl">{cat.meta.label}</h3>
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-beige/20">
-                  <span className="font-display text-sm font-bold">From {formatPrice(cat.from)} / day</span>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide group-hover:gap-2.5 transition-all">
-                    Choose <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // Scooters are chosen by engine capacity before model — that is how the
-  // price list is written (110cc €5, 125cc €6). The chooser appears only when
-  // the class actually spans more than one capacity, so it never shows up for
-  // cars or the tuk-tuk.
+  // Scooters come in two engine capacities, and that is how the price list is
+  // written (110cc €5, 125cc €6), so the cards are grouped and headed by
+  // capacity. Only when the class actually spans more than one, so it never
+  // applies to cars or the tuk-tuk.
   const capacities = Array.from(
     new Set(inCategory.map(b => b.engineCc).filter((cc): cc is number => typeof cc === 'number')),
   ).sort((a, b) => a - b);
-  const showCapacities = capacities.length > 1;
+  /*
+   * Only group by capacity when every vehicle on screen has one. Showing all
+   * classes at once puts tuk-tuks and cars beside the scooters, and they have
+   * no engine size to be filed under — grouped, they would have been left out
+   * of the grid altogether.
+   */
+  const showCapacities =
+    capacities.length > 1 && inCategory.every(b => typeof b.engineCc === 'number');
 
-  // The cheapest rate at a given capacity, for the chooser's label.
+  // The cheapest rate at a given capacity, for the band heading.
   const rateAt = (cc: number) =>
     Math.min(...inCategory.filter(b => b.engineCc === cc).map(b => b.pricePerDay));
 
-  const visible = (
-    showCapacities && engineCc ? inCategory.filter(b => b.engineCc === engineCc) : inCategory
-  )
+  const visible = inCategory
     .slice()
-    // Smallest engine first, so the row reads 110cc then 125cc and the two
-    // groups below are contiguous rather than interleaved.
-    .sort((a, b) => (a.engineCc ?? 0) - (b.engineCc ?? 0));
+    // Class order first: with every class on screen at once this is the order
+    // the class screen offers them in, so scooters lead instead of trailing
+    // the cars because they are the only ones with an engine size to sort by.
+    // Then smallest engine first, so a class priced by capacity reads 110cc
+    // before 125cc and its groups stay contiguous.
+    .sort(
+      (a, b) => orderOf(a.category) - orderOf(b.category) || (a.engineCc ?? 0) - (b.engineCc ?? 0),
+    );
 
   /**
    * The row split by engine size — 110cc on the left, 125cc on the right.
    *
-   * The cards stay in one grid; these are only headings laid over the same
-   * columns, each spanning as many as its capacity has vehicles, with a rule
-   * down the left of every group after the first. Splitting the grid itself
-   * would have made the lone 125cc card as wide as the three beside it.
+   * Each capacity is drawn as an enclosure with its rate cut into the top
+   * edge, so a card belongs to a price by sitting inside it rather than by
+   * sitting under a heading that a wrapped row could separate it from.
+   *
+   * The enclosures share the four columns the cards would have had, each
+   * spanning as many as its capacity has vehicles — so the lone 125cc card
+   * stays a quarter of the row instead of swelling to match the three beside it.
    */
-  const capacityBands =
-    showCapacities && !engineCc
-      ? capacities.map(cc => ({ cc, span: visible.filter(b => b.engineCc === cc).length }))
-      : [];
-
-  // The first vehicle of each band after the first carries the dividing rule,
-  // so the line runs on down through the cards rather than stopping at the
-  // heading.
-  const bandStartIds = new Set(
-    capacityBands
-      .slice(1)
-      .map(band => visible.find(b => b.engineCc === band.cc)?.id)
-      .filter((id): id is string => Boolean(id)),
-  );
+  const capacityBands = showCapacities
+    ? capacities.map(cc => ({ cc, vehicles: visible.filter(b => b.engineCc === cc) }))
+    : [];
 
   return (
     <div>
       <h2 className="font-display text-2xl font-bold">Choose your ride</h2>
-      <p className="text-dark/50 text-sm">Every bike comes with a helmet and 24/7 roadside support.</p>
+      <p className="text-dark/50 text-sm">
+        Take as many as you need — every bike comes with a helmet and 24/7 roadside support.
+      </p>
 
-      {/* Class and engine size share one strip rather than stacking two
-          labelled blocks — it saves a screenful before the cards. */}
-      {(showCapacities || (category && shown.length > 0)) && (
-        <div className="flex flex-wrap items-center gap-2 mt-4 mb-5">
-          {category && shown.length > 0 && (
-            <>
-              <span className="px-3.5 py-1.5 rounded-full bg-dark text-beige text-[11px] font-bold uppercase tracking-widest">
-                {category}
-              </span>
+      {/* What is in the booking so far, including vehicles from classes this
+          screen is not showing. Without it, going back for a tuk-tuk would
+          make the scooter you already chose look like it had been dropped. */}
+      {chosen.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mt-4">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-dark/40">In this booking</span>
+          {chosen.map(id => {
+            const picked = bikes.find(b => b.id === id);
+            return picked ? (
               <button
+                key={id}
                 type="button"
-                onClick={onClearCategory}
-                className="text-sm text-brand font-medium hover:underline"
+                onClick={() => onToggle(id)}
+                aria-label={`Remove ${picked.title} from this booking`}
+                className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1 rounded-full bg-dark text-beige text-xs font-bold hover:bg-dark/80 transition-colors"
               >
-                Change class
+                {picked.title}
+                <X className="w-3 h-3" />
               </button>
-              {showCapacities && <span className="w-px h-5 bg-dark/15 mx-1.5" aria-hidden="true" />}
-            </>
-          )}
-
-          {capacities.map(cc => (
-            <button
-              key={cc}
-              type="button"
-              onClick={() => onPickCapacity(engineCc === cc ? null : cc)}
-              aria-pressed={engineCc === cc}
-              className={`px-3.5 py-1.5 rounded-full border text-[11px] font-bold uppercase tracking-widest transition-all ${
-                engineCc === cc
-                  ? 'border-brand bg-brand text-beige'
-                  : 'border-dark/15 text-dark hover:border-dark/40'
-              }`}
-            >
-              {cc}cc · {formatPrice(rateAt(cc))}
-            </button>
-          ))}
+            ) : null;
+          })}
         </div>
       )}
 
-      {/* Engine-size headings, on the same four columns as the cards below so
-          each sits exactly over its own vehicles. Hidden under lg, where the
-          cards wrap and the columns no longer line up. */}
-      {capacityBands.length > 1 && (
-        <div className="hidden lg:grid lg:grid-cols-4 gap-4 mb-3">
-          {capacityBands.map((band, i) => (
-            <div
+      <p className="text-dark/40 text-xs mt-3">
+        Want a vehicle from another class too? Switch class below — this list is kept.
+      </p>
+
+      {/* Which class is being shown — and the way to a different one. The
+          chip is the control rather than a label with a link beside it: the
+          thing that names the class you are in is the thing you press to
+          leave it. */}
+      {shown.length > 0 && (
+        <div className="mt-4 mb-5">
+          <ClassMenu
+            classes={[
+              { category: null, label: 'All vehicles' },
+              ...summariseCategories(bikes).map(c => ({ category: c.category, label: c.meta.label })),
+            ]}
+            current={category}
+            onPick={onChangeCategory}
+          />
+        </div>
+      )}
+
+      {/* A class priced by engine size is drawn as one enclosure per capacity,
+          the rate sitting in the top edge. Below lg the enclosures stack and
+          each keeps its own label, which is where the old headings-over-columns
+          arrangement gave up and hid itself.
+
+          A class with a single rate needs no enclosure — it would be a box
+          drawn around everything, saying only what the class chip already
+          says. */}
+      {capacityBands.length > 1 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {capacityBands.map(band => (
+            <fieldset
               key={band.cc}
-              style={{ gridColumn: `span ${band.span} / span ${band.span}` }}
-              className={i > 0 ? 'border-l border-dark/25 pl-4' : ''}
+              className={`${BAND_SPAN[band.vehicles.length] ?? 'lg:col-span-1'} rounded-2xl border border-dark/20 px-2 pt-1 pb-2`}
             >
-              <p className="text-[11px] font-bold uppercase tracking-widest text-brand">
+              <legend className="mx-auto px-3 text-[11px] font-bold uppercase tracking-widest text-brand">
                 {band.cc}cc
                 <span className="text-dark/30"> · </span>
                 <span className="text-dark/70">{formatPrice(rateAt(band.cc))} / day</span>
-              </p>
-            </div>
+              </legend>
+
+              <div className={`grid grid-cols-1 sm:grid-cols-2 ${BAND_COLS[band.vehicles.length] ?? 'lg:grid-cols-1'} gap-4`}>
+                {band.vehicles.map(b => (
+                  <RideCard key={b.id} bike={b} active={chosen.includes(b.id)} onSelect={() => onToggle(b.id)} />
+                ))}
+              </div>
+            </fieldset>
+          ))}
+        </div>
+      ) : (
+        /* Four across from lg: scooters and motorbikes are classes of four, so
+           a whole class lands on one row with nothing orphaned, and the
+           comparison reads across without scrolling. */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {visible.map(b => (
+            <RideCard key={b.id} bike={b} active={chosen.includes(b.id)} onSelect={() => onToggle(b.id)} />
           ))}
         </div>
       )}
-
-      {/* Four across from lg: scooters and motorbikes are classes of four, so a
-          whole class lands on one row with nothing orphaned, and the
-          comparison reads across without scrolling. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {visible.map(b => {
-          const active = b.id === selected;
-          return (
-            // A div, not a button: the details disclosure below is interactive
-            // and may not be nested inside one. The outer wrapper exists only
-            // to carry the rule between engine sizes without disturbing the
-            // card's own border.
-            <div
-              key={b.id}
-              className={bandStartIds.has(b.id) ? 'lg:border-l lg:border-dark/25 lg:pl-4' : ''}
-            >
-            <div
-              className={`h-full rounded-2xl border-2 overflow-hidden transition-all ${
-                active ? 'border-brand shadow-md' : 'border-dark/10 hover:border-dark/30'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => onSelect(b.id)}
-                aria-pressed={active}
-                className="block w-full text-left"
-              >
-                <div className="relative aspect-[3/2] overflow-hidden bg-beige">
-                  <img
-                    src={b.image}
-                    alt={b.title}
-                    loading="lazy"
-                    style={{ objectPosition: b.imagePosition ?? 'center' }}
-                    className="w-full h-full object-cover"
-                  />
-                  {active && (
-                    <span className="absolute top-3 right-3 w-7 h-7 bg-brand rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-white" />
-                    </span>
-                  )}
-                </div>
-                <div className="p-4 pb-3">
-                  <span className="text-[10px] font-bold text-brand uppercase tracking-widest">
-                    {b.bodyType ?? b.category}
-                  </span>
-                  <p className="font-display font-bold leading-tight">{b.title}</p>
-                  {getSpec(b.id)?.headline && (
-                    <p className="text-xs text-dark/45 leading-snug mt-0.5">
-                      {getSpec(b.id)?.headline}
-                    </p>
-                  )}
-                </div>
-              </button>
-
-              <VehicleDetails bike={b} />
-            </div>
-            </div>
-          );
-        })}
-      </div>
 
       <CompareTable bikes={visible} />
     </div>
@@ -795,7 +933,7 @@ function StepRide({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Step 2 — rental dates                                             */
+/*  Step 3 — rental dates                                             */
 /* ------------------------------------------------------------------ */
 
 interface DateFields {
@@ -803,16 +941,32 @@ interface DateFields {
   dropoffDate?: string;
 }
 
-function StepDates(props: {
-  pickupDate: string;
-  dropoffDate: string;
-  onChange: (f: DateFields) => void;
+/**
+ * When each vehicle is wanted.
+ *
+ * One calendar per vehicle rather than one for the booking: the scooter is
+ * often taken for the week and the tuk-tuk for a single day out, and a shared
+ * range would either overcharge for the tuk-tuk or hold the scooter too briefly.
+ * A booking of one vehicle reads exactly as it did before — the vehicle's name
+ * only appears once there is another one to tell it apart from.
+ */
+function StepDates({
+  items,
+  onChange,
+}: {
+  items: BookingItem[];
+  onChange: (bikeId: string, fields: DateFields) => void;
 }) {
-  const { pickupDate, dropoffDate, onChange } = props;
+  const many = items.length > 1;
+
   return (
     <div>
       <h2 className="font-display text-2xl font-bold mb-1">Rental dates</h2>
-      <p className="text-dark/50 text-sm mb-6">Choose when you'll pick up and return the bike.</p>
+      <p className="text-dark/50 text-sm mb-6">
+        {many
+          ? 'Each vehicle has its own dates — take the scooter for the week and the tuk-tuk for a day if you like.'
+          : "Choose when you'll pick up and return the bike."}
+      </p>
 
       <div className="flex items-start gap-3 bg-beige rounded-2xl p-4 mb-6">
         <MapPin className="w-5 h-5 text-brand mt-0.5 shrink-0" />
@@ -822,21 +976,44 @@ function StepDates(props: {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
-        <RangeCalendar pickupDate={pickupDate} dropoffDate={dropoffDate} onChange={onChange} />
+      <div className="space-y-8">
+        {items.map((item, i) => (
+          <div key={item.bikeId} className={i > 0 ? 'border-t border-dark/10 pt-8' : ''}>
+            {many && (
+              <div className="flex items-center gap-3 mb-4">
+                <img
+                  src={item.bike.image}
+                  alt=""
+                  style={{ objectPosition: item.bike.imagePosition ?? 'center' }}
+                  className="w-14 h-11 object-cover rounded-lg shrink-0"
+                />
+                <div className="min-w-0">
+                  <p className="font-bold text-sm leading-tight truncate">{item.bike.title}</p>
+                  <p className="text-dark/45 text-xs">{formatPrice(item.bike.pricePerDay)} / day</p>
+                </div>
+              </div>
+            )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-          <DateReadout label="Pickup" value={pickupDate} placeholder="Pick a date" />
-          <DateReadout label="Drop-off" value={dropoffDate} placeholder="Pick a date" />
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+              <RangeCalendar
+                pickupDate={item.pickupDate}
+                dropoffDate={item.dropoffDate}
+                onChange={fields => onChange(item.bikeId, fields)}
+              />
 
-          {pickupDate && dropoffDate && (
-            <p className="col-span-2 lg:col-span-1 text-sm text-dark/60 bg-beige rounded-2xl px-4 py-3">
-              {rentalDays(pickupDate, dropoffDate)} day
-              {rentalDays(pickupDate, dropoffDate) > 1 ? 's' : ''} — pick up and return at{' '}
-              {shopLocation.name}.
-            </p>
-          )}
-        </div>
+              <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+                <DateReadout label="Pickup" value={item.pickupDate} placeholder="Pick a date" />
+                <DateReadout label="Drop-off" value={item.dropoffDate} placeholder="Pick a date" />
+
+                {item.days > 0 && (
+                  <p className="col-span-2 lg:col-span-1 text-sm text-dark/60 bg-beige rounded-2xl px-4 py-3">
+                    {item.days} day{item.days > 1 ? 's' : ''} — pick up and return at {shopLocation.name}.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -979,7 +1156,7 @@ function RangeCalendar({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Step 3 — extras                                                   */
+/*  Step 4 — extras                                                   */
 /* ------------------------------------------------------------------ */
 
 function StepExtras({ extras, chosen, onToggle, days }: { extras: Extra[]; chosen: string[]; onToggle: (id: string) => void; days: number }) {
@@ -1031,7 +1208,7 @@ function StepExtras({ extras, chosen, onToggle, days }: { extras: Extra[]; chose
 }
 
 /* ------------------------------------------------------------------ */
-/*  Step 4 — renter details                                          */
+/*  Step 5 — renter details                                          */
 /* ------------------------------------------------------------------ */
 
 function StepDetails({ renter, onChange }: { renter: Renter; onChange: (r: Renter) => void }) {
@@ -1101,15 +1278,13 @@ function Row({ icon: Icon, label, value }: { icon: typeof MapPin; label: string;
  * controls that move through it.
  *
  * This is the old sidebar panel's job done in a strip rather than a column,
- * and it holds Back and Continue so the way forward is always on screen —
- * previously they sat at the end of the step content, which on the details
- * step meant scrolling past a form to reach them.
+ * and it holds Back and Continue. It sits in the page flow at the foot of the
+ * booking (not fixed to the window), so it scrolls with the content.
  */
 function BookingBar({
-  bike,
-  days,
-  pickupDate,
-  dropoffDate,
+  items,
+  step,
+  stepCount,
   extrasCount,
   total,
   canGoBack,
@@ -1119,10 +1294,9 @@ function BookingBar({
   onBack,
   onNext,
 }: {
-  bike: Bike | undefined;
-  days: number;
-  pickupDate: string;
-  dropoffDate: string;
+  items: BookingItem[];
+  step: number;
+  stepCount: number;
   extrasCount: number;
   total: number;
   canGoBack: boolean;
@@ -1132,50 +1306,105 @@ function BookingBar({
   onBack: () => void;
   onNext: () => void;
 }) {
+  const lead = items[0];
+  // The span the booking covers, and the days actually being charged for —
+  // which are not the same number once two vehicles are out for different
+  // stretches, so both are worth saying.
+  const dated = items.filter(i => i.days > 0);
+  const firstPickup = dated.map(i => i.pickupDate).sort()[0];
+  const lastReturn = dated.map(i => i.dropoffDate).sort()[dated.length - 1];
+  const chargedDays = dated.reduce((sum, i) => sum + i.days, 0);
+
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 bg-dark text-beige border-t border-beige/10">
+    /* A bar the full width of the window, holding the foot of the booking.
+       Its contents line up with the page's own container, so the summary sits
+       directly under the cards it is summarising. */
+    <div className="relative -mx-6 mt-auto bg-dark text-beige border-t border-beige/10 shadow-[0_-10px_30px_rgba(0,0,0,0.18)]">
+      {/* How far through the booking, drawn edge to edge along the top. The
+          step rail says the same thing in words, but it is at the top of the
+          page and gone the moment anyone scrolls to the cards. */}
+      <div className="absolute inset-x-0 top-0 h-[3px] bg-beige/10">
+        <div
+          className="h-full bg-brand transition-[width] duration-500 ease-out"
+          style={{ width: `${((step + 1) / stepCount) * 100}%` }}
+        />
+      </div>
+
       {/* One row that never wraps: summary on the left, giving up width by
-          truncating, and the controls on the right at their natural size. */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 lg:gap-6 min-w-0">
-          {bike && (
-            <div className="flex items-center gap-3 min-w-0">
-              <img
-                src={bike.image}
-                alt=""
-                style={{ objectPosition: bike.imagePosition ?? 'center' }}
-                className="hidden sm:block w-14 h-11 object-cover rounded-lg shrink-0"
-              />
+          truncating, and the controls on the right at their natural size.
+          The height is set by the summary rather than by the buttons — a bar
+          the height of a button reads as a toolbar stuck to the page, not as
+          the running account of the booking that it is. */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 lg:gap-7 min-w-0 min-h-[48px]">
+          {lead ? (
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              {/* The cart as pictures, overlapped like a dealt hand: three at
+                  most, then a count. How many vehicles are in the booking is
+                  then seen before it is read. */}
+              <div className="hidden sm:flex shrink-0">
+                {items.slice(0, 3).map((item, i) => (
+                  <img
+                    key={item.bikeId}
+                    src={item.bike.image}
+                    alt=""
+                    style={{ objectPosition: item.bike.imagePosition ?? 'center', zIndex: 3 - i }}
+                    className={`relative w-16 h-16 object-cover rounded-xl ring-2 ring-dark ${i > 0 ? '-ml-4' : ''}`}
+                  />
+                ))}
+                {items.length > 3 && (
+                  <span className="relative -ml-4 w-16 h-16 rounded-xl ring-2 ring-dark bg-beige/10 grid place-items-center text-xs font-bold">
+                    +{items.length - 3}
+                  </span>
+                )}
+              </div>
               <div className="min-w-0">
-                <p className="font-bold text-sm leading-tight truncate">{bike.title}</p>
-                <p className="text-beige/45 text-xs truncate">
-                  {bike.bodyType ?? bike.category} · {formatPrice(bike.pricePerDay)}/day
+                {/* One vehicle names itself; several are counted and then
+                    listed, because a truncated list of four titles tells you
+                    nothing about how many you have chosen. */}
+                <p className="font-bold text-sm sm:text-base leading-tight truncate">
+                  {items.length === 1 ? lead.bike.title : `${items.length} vehicles`}
+                </p>
+                <p className="text-beige/45 text-xs sm:text-[13px] truncate mt-0.5">
+                  {items.length === 1
+                    ? `${lead.bike.bodyType ?? lead.bike.category} · ${formatPrice(lead.bike.pricePerDay)}/day`
+                    : items.map(i => i.bike.title).join(', ')}
                 </p>
               </div>
             </div>
+          ) : (
+            /* Empty until something is chosen. The row carries a minimum
+               height so the bar does not grow the moment a vehicle lands in
+               it: a bar that changes height under you as you move through the
+               steps is the thing that reads as unfinished. */
+            <p className="text-beige/35 text-sm">Nothing chosen yet</p>
           )}
 
-          {/* Dates and extras need room the controls have first claim on. */}
-          <div className="hidden xl:flex flex-col gap-0.5 text-xs text-beige/55 shrink-0">
-            {days > 0 && (
-              <span className="whitespace-nowrap">
-                {longDate(pickupDate)} → {longDate(dropoffDate)} · {days} day{days > 1 ? 's' : ''}
-              </span>
-            )}
-            {extrasCount > 0 && (
-              <span className="whitespace-nowrap">
-                {extrasCount} extra{extrasCount > 1 ? 's' : ''} added
-              </span>
-            )}
-          </div>
+          {/* Dates and extras earn their room from lg; below that the controls
+              have first claim on the width. */}
+          {(dated.length > 0 || extrasCount > 0) && (
+            <div className="hidden lg:flex flex-col gap-1 text-xs text-beige/55 shrink-0 border-l border-beige/10 pl-7">
+              {dated.length > 0 && (
+                <span className="whitespace-nowrap">
+                  {longDate(firstPickup)} → {longDate(lastReturn)} · {chargedDays} rental day
+                  {chargedDays > 1 ? 's' : ''}
+                </span>
+              )}
+              {extrasCount > 0 && (
+                <span className="whitespace-nowrap">
+                  {extrasCount} extra{extrasCount > 1 ? 's' : ''} added
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-3 sm:gap-5 shrink-0">
+        <div className="flex items-center gap-4 sm:gap-6 shrink-0">
           {/* No point announcing a total of nothing on the first step. */}
           {total > 0 && (
-            <div className="text-right leading-none">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-beige/40">Total</p>
-              <p className="font-display text-xl sm:text-2xl font-black text-brand tabular-nums mt-1">
+            <div className="text-right leading-none sm:border-r sm:border-beige/10 sm:pr-6">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-beige/40">Total</p>
+              <p className="font-display text-2xl sm:text-3xl font-black text-brand tabular-nums mt-1.5">
                 {formatPrice(total)}
               </p>
             </div>
@@ -1201,7 +1430,14 @@ function BookingBar({
             className="btn-primary whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none"
           >
             {submitting ? 'Booking…' : isLastStep ? 'Confirm booking' : 'Continue'}
-            <ArrowRight className="w-4 h-4 shrink-0" />
+            {/* The one moment on this site with a real wait behind it: the
+                booking is on its way to the server and the button should not
+                look like it is still waiting to be pressed. */}
+            {submitting ? (
+              <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+            ) : (
+              <ArrowRight className="w-4 h-4 shrink-0" />
+            )}
           </button>
         </div>
       </div>

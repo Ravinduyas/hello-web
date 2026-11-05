@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { fetchBookings, fetchBikes, fetchUnits, UnauthorizedError, type Booking, type Bike, type Unit } from '../lib/api';
 import TimelineCalendar from '../components/TimelineCalendar';
+import { Loading, SkeletonPanel } from '../components/Skeleton';
+import { PageHeader } from '../components/ui';
 
 export default function Calendar({ onLogout }: { onLogout: () => void }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -32,18 +34,23 @@ export default function Calendar({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-        <div>
-          <span className="eyebrow">[ Calendar ]</span>
-        </div>
+      <PageHeader title="Calendar" subtitle="Every plate, day by day">
         <button onClick={load} className="btn-outline" disabled={loading} aria-label="Refresh">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
-      </div>
+      </PageHeader>
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
-      {loading ? <p className="text-dark/50">Loading calendar…</p> : <TimelineCalendar bookings={bookings} bikes={bikes} units={units} />}
+      {loading ? (
+        <Loading label="Loading the calendar">
+          <SkeletonPanel lines={10} />
+        </Loading>
+      ) : (
+        <div className="rise">
+          <TimelineCalendar bookings={bookings} bikes={bikes} units={units} />
+        </div>
+      )}
     </div>
   );
 }

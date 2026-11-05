@@ -12,6 +12,8 @@ import {
   type Extra,
   type Booking,
 } from '../lib/api';
+import { Loading, SkeletonPanel } from '../components/Skeleton';
+import { PageHeader } from '../components/ui';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const todayISO = () => new Date().toISOString().split('T')[0];
@@ -144,18 +146,18 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
     return (
       <div>
         <Header />
-        <div className="bg-white rounded-3xl p-8 md:p-10 max-w-2xl">
+        <div className="bg-card rounded-3xl p-8 md:p-10 max-w-2xl">
           <div className="w-14 h-14 bg-brand/10 rounded-full flex items-center justify-center mb-5">
             <Check className="w-7 h-7 text-brand" />
           </div>
-          <span className="eyebrow">[ Rental created ]</span>
+          <span className="eyebrow">Rental created</span>
           <h2 className="display-xl text-3xl md:text-4xl mt-2 mb-6">{done.renter.firstName} is on the road</h2>
           <div className="bg-beige rounded-2xl p-6 space-y-3">
             <SummaryRow icon={BikeIcon} label="Bike" value={`${done.bikeTitle} · Plate ${done.plate}`} />
             <SummaryRow icon={Calendar} label="Dates" value={`${done.pickupDate} → ${done.dropoffDate} (${done.days} day${done.days > 1 ? 's' : ''})`} />
             <SummaryRow icon={Store} label="Customer" value={`${done.renter.firstName} ${done.renter.lastName}`.trim() + ` · ${done.renter.phone}`} />
             <div className="flex items-center justify-between border-t border-dark/10 pt-3">
-              <span className="font-bold">Total</span>
+              <span className="font-semibold">Total</span>
               <span className="font-display text-2xl font-black text-brand">{money(done.total)}</span>
             </div>
             <p className="text-xs text-dark/40">Collected at the counter. The plate is now marked rented.</p>
@@ -178,7 +180,12 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
       {loading ? (
-        <p className="text-dark/50">Loading shop data…</p>
+        <Loading label="Loading the shop's bikes and extras">
+          <div className="grid lg:grid-cols-3 gap-4">
+            <SkeletonPanel className="lg:col-span-2" lines={7} />
+            <SkeletonPanel lines={5} />
+          </div>
+        </Loading>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
           <div className="space-y-6">
@@ -258,8 +265,8 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
                         <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ${active ? 'bg-brand border-brand' : 'border-dark/25'}`}>
                           {active && <Check className="w-3.5 h-3.5 text-white" />}
                         </span>
-                        <span className="flex-1 text-sm font-bold">{ex.label}</span>
-                        <span className="font-display font-bold text-brand text-sm">{money(amount)}</span>
+                        <span className="flex-1 text-sm font-semibold">{ex.label}</span>
+                        <span className="font-display font-semibold text-brand text-sm">{money(amount)}</span>
                       </button>
                     );
                   })}
@@ -306,33 +313,33 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
           </div>
 
           {/* Summary */}
-          <aside className="bg-dark text-beige rounded-3xl p-6 lg:sticky lg:top-10">
-            <h2 className="font-display text-lg font-bold mb-5 flex items-center gap-2">
+          <aside className="bg-card rounded-2xl p-6 lg:sticky lg:top-10">
+            <h2 className="font-display text-lg font-semibold mb-5 flex items-center gap-2">
               <Store className="w-5 h-5 text-brand" /> Rental summary
             </h2>
             {bike ? (
               <div className="mb-4">
-                <p className="font-bold leading-tight">{bike.title}</p>
-                <p className="text-beige/50 text-sm">
+                <p className="font-semibold leading-tight">{bike.title}</p>
+                <p className="text-dark/40 text-sm">
                   {unitId ? `Plate ${plates.find(u => u.id === unitId)?.plate}` : 'No plate selected'} · {money(bike.pricePerDay)}/day
                 </p>
               </div>
             ) : (
-              <p className="text-beige/50 text-sm mb-4">No bike selected yet.</p>
+              <p className="text-dark/40 text-sm mb-4">No bike selected yet.</p>
             )}
 
-            <div className="space-y-2 text-sm border-t border-beige/15 pt-4">
-              {summary.lines.length === 0 && <p className="text-beige/40">Pick a bike and dates to see pricing.</p>}
+            <div className="space-y-2 text-sm border-t border-dark/[0.08] pt-4">
+              {summary.lines.length === 0 && <p className="text-dark/40">Pick a bike and dates to see pricing.</p>}
               {summary.lines.map(line => (
                 <div key={line.label} className="flex justify-between gap-4">
-                  <span className="text-beige/70">{line.label}</span>
+                  <span className="text-dark/60">{line.label}</span>
                   <span className="font-medium tabular-nums">{money(line.amount)}</span>
                 </div>
               ))}
             </div>
 
-            <div className="flex items-end justify-between border-t border-beige/15 mt-4 pt-4">
-              <span className="font-bold">Total</span>
+            <div className="flex items-end justify-between border-t border-dark/[0.08] mt-4 pt-4">
+              <span className="font-semibold">Total</span>
               <span className="font-display text-3xl font-black text-brand tabular-nums">{money(summary.total)}</span>
             </div>
 
@@ -340,12 +347,12 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
               <div className="space-y-1 text-sm mt-3">
                 {Number(paidNow) > 0 && (
                   <>
-                    <div className="flex justify-between"><span className="text-beige/70">Paid now</span><span className="tabular-nums text-emerald-300">{money(Number(paidNow))}</span></div>
-                    <div className="flex justify-between"><span className="text-beige/70">Balance due</span><span className="tabular-nums">{money(Math.max(0, summary.total - Number(paidNow)))}</span></div>
+                    <div className="flex justify-between"><span className="text-dark/60">Paid now</span><span className="tabular-nums text-emerald-600">{money(Number(paidNow))}</span></div>
+                    <div className="flex justify-between"><span className="text-dark/60">Balance due</span><span className="tabular-nums">{money(Math.max(0, summary.total - Number(paidNow)))}</span></div>
                   </>
                 )}
                 {Number(deposit) > 0 && (
-                  <div className="flex justify-between"><span className="text-beige/70">Deposit (held)</span><span className="tabular-nums">{money(Number(deposit))}</span></div>
+                  <div className="flex justify-between"><span className="text-dark/60">Deposit (held)</span><span className="tabular-nums">{money(Number(deposit))}</span></div>
                 )}
               </div>
             )}
@@ -354,7 +361,7 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
               {busy ? 'Creating…' : 'Create rental'}
               <ArrowRight className="w-4 h-4" />
             </button>
-            {!valid && <p className="text-beige/40 text-[11px] mt-3 text-center">Bike, plate, dates, name &amp; phone are required.</p>}
+            {!valid && <p className="text-dark/40 text-[11px] mt-3 text-center">Bike, plate, dates, name &amp; phone are required.</p>}
           </aside>
         </div>
       )}
@@ -366,26 +373,23 @@ export default function WalkIn({ onLogout }: { onLogout: () => void }) {
 
 function Header({ onRefresh, loading }: { onRefresh?: () => void; loading?: boolean } = {}) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-      <div>
-        <span className="eyebrow">[ Walk-in ]</span>
-      </div>
+    <PageHeader title="Walk-in" subtitle="Rent a bike to someone at the counter">
       {onRefresh && (
         <button onClick={onRefresh} className="btn-outline" disabled={loading} aria-label="Refresh">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       )}
-    </div>
+    </PageHeader>
   );
 }
 
 function Section({ title, step, hint, children }: { title: string; step: number; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white rounded-2xl p-5 md:p-6">
+    <section className="bg-card rounded-2xl p-5 md:p-6">
       <div className="flex items-center gap-3 mb-4">
-        <span className="w-6 h-6 rounded-full bg-dark text-white text-xs font-bold flex items-center justify-center shrink-0">{step}</span>
-        <h2 className="font-display font-bold">{title}</h2>
-        {hint && <span className="text-[10px] font-bold uppercase tracking-widest text-dark/30">{hint}</span>}
+        <span className="w-6 h-6 rounded-full bg-brand text-white text-xs font-semibold flex items-center justify-center shrink-0">{step}</span>
+        <h2 className="font-display font-semibold">{title}</h2>
+        {hint && <span className="text-[10px] font-semibold text-dark/30">{hint}</span>}
       </div>
       {children}
     </section>
@@ -397,7 +401,7 @@ function SummaryRow({ icon: Icon, label, value }: { icon: typeof BikeIcon; label
     <div className="flex items-start gap-3">
       <Icon className="w-4 h-4 text-brand mt-1 shrink-0" />
       <div className="flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-dark/40">{label}</p>
+        <p className="text-[10px] font-semibold text-dark/40">{label}</p>
         <p className="font-medium text-sm">{value}</p>
       </div>
     </div>

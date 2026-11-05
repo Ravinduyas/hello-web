@@ -14,6 +14,7 @@
  * Deactivated models disappear from the public site but stay in the admin.
  */
 import './env.ts';
+import { connect, close } from './mongo.ts';
 import {
   addBike,
   addCategory,
@@ -25,7 +26,12 @@ import {
   listExtras,
   updateBike,
   updateExtra,
+  seed,
 } from './store.ts';
+
+await connect();
+await seed();
+
 import { FLEET_BIKES, FLEET_CATEGORIES, FLEET_EXTRAS } from './fleet-data.ts';
 
 let added = 0;
@@ -33,19 +39,19 @@ let updated = 0;
 let retired = 0;
 
 /* ---- Categories -------------------------------------------------- */
-const existingCategories = new Set(listCategories().map(c => c.name));
+const existingCategories = new Set((await listCategories()).map(c => c.name));
 for (const name of FLEET_CATEGORIES) {
   if (!existingCategories.has(name)) {
-    addCategory(name);
+    await addCategory(name);
     console.log(`  + category  ${name}`);
   }
 }
 
 /* ---- Bikes ------------------------------------------------------- */
 for (const bike of FLEET_BIKES) {
-  const current = getBikeById(bike.id);
+  const current = await getBikeById(bike.id);
   if (current) {
-    updateBike(bike.id, { ...bike, active: true });
+    await updateBike(bike.id, { ...bike, active: true });
     updated++;
     const priceChanged = current.pricePerDay !== bike.pricePerDay;
     console.log(
@@ -53,16 +59,16 @@ for (const bike of FLEET_BIKES) {
         (priceChanged ? `  (${current.pricePerDay} -> €${bike.pricePerDay}/day)` : ''),
     );
   } else {
-    addBike({ ...bike, active: true });
+    await addBike({ ...bike, active: true });
     added++;
     console.log(`  + bike      ${bike.title}  €${bike.pricePerDay}/day`);
   }
 }
 
 const keepBikes = new Set(FLEET_BIKES.map(b => b.id));
-for (const bike of listBikes()) {
+for (const bike of await listBikes()) {
   if (!keepBikes.has(bike.id) && bike.active) {
-    updateBike(bike.id, { active: false });
+    await updateBike(bike.id, { active: false });
     retired++;
     console.log(`  - retired   ${bike.title}  (deactivated, bookings kept)`);
   }
@@ -70,22 +76,24 @@ for (const bike of listBikes()) {
 
 /* ---- Extras ------------------------------------------------------ */
 for (const extra of FLEET_EXTRAS) {
-  if (getExtra(extra.id)) {
-    updateExtra(extra.id, { ...extra, active: true });
+  if (await getExtra(extra.id)) {
+    await updateExtra(extra.id, { ...extra, active: true });
     console.log(`  ~ extra     ${extra.label}  €${extra.price}`);
   } else {
-    addExtra({ ...extra, active: true });
+    await addExtra({ ...extra, active: true });
     console.log(`  + extra     ${extra.label}  €${extra.price}`);
   }
 }
 
 const keepExtras = new Set(FLEET_EXTRAS.map(e => e.id));
-for (const extra of listExtras()) {
+for (const extra of await listExtras()) {
   if (!keepExtras.has(extra.id) && extra.active) {
-    updateExtra(extra.id, { active: false });
+    await updateExtra(extra.id, { active: false });
     console.log(`  - retired   ${extra.label}  (deactivated)`);
   }
 }
+
+await close();
 
 console.log(
   `\nFleet synced — ${added} added, ${updated} updated, ${retired} retired. ` +

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Pencil, RefreshCw, Bike as BikeIcon, ChevronDown } from 'lucide-react';
 import Drawer from '../components/Drawer';
+import { Loading, SkeletonTable } from '../components/Skeleton';
 import {
   fetchOwners,
   createOwner,
@@ -19,6 +20,7 @@ import {
 } from '../lib/api';
 import { ownerCommission } from '../lib/commission';
 import { money } from '../lib/money';
+import { PageHeader } from '../components/ui';
 
 
 const unitStatusChip: Record<UnitStatus, string> = {
@@ -105,19 +107,14 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-        <div>
-          <span className="eyebrow">[ Owners ]</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader title="Owners" subtitle="Who owns each bike, and their commission">
           <button onClick={() => setAddOpen(true)} className="btn-primary">
             <Plus className="w-4 h-4" /> Add owner
           </button>
           <button onClick={load} className="btn-outline" disabled={loading} aria-label="Refresh">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-        </div>
-      </div>
+      </PageHeader>
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">{error}</p>}
 
@@ -132,13 +129,15 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
       </Drawer>
 
       {loading ? (
-        <p className="text-dark/50 mt-6">Loading owners…</p>
+        <Loading label="Loading owners">
+          <SkeletonTable rows={4} cols={4} />
+        </Loading>
       ) : owners.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center text-dark/50 mt-6">No owners yet. Add one above.</div>
+        <div className="bg-card rounded-3xl p-12 text-center text-dark/50 mt-6">No owners yet. Add one above.</div>
       ) : (
-        <div className="bg-white rounded-2xl overflow-hidden">
+        <div className="bg-card rounded-2xl overflow-hidden">
           {/* Column headers (desktop) */}
-          <div className="hidden md:grid grid-cols-[2fr_1.4fr_1fr_auto] gap-4 px-6 py-3 border-b border-dark/10 text-[10px] font-bold uppercase tracking-widest text-dark/40">
+          <div className="hidden md:grid grid-cols-[2fr_1.4fr_1fr_auto] gap-4 px-6 py-3 border-b border-dark/10 text-[10px] font-semibold text-dark/40">
             <span>Owner</span>
             <span>Phone</span>
             <span>NIC / ID</span>
@@ -157,19 +156,19 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
                     {/* Owner + email + bikes toggle */}
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-bold truncate">{owner.name}</p>
+                        <p className="font-semibold truncate">{owner.name}</p>
                         <button
                           onClick={() => setExpanded(prev => (prev === owner.id ? null : owner.id))}
                           disabled={count === 0}
                           aria-expanded={isOpen}
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 transition-colors ${
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 transition-colors ${
                             count === 0 ? 'bg-beige text-dark/40' : 'bg-beige hover:bg-brand/15 text-dark'
                           }`}
                         >
                           <BikeIcon className="w-3 h-3 text-brand" /> {count} {count === 1 ? 'bike' : 'bikes'}
                           {count > 0 && <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />}
                         </button>
-                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 bg-emerald-100 text-emerald-800" title="Shop commission from confirmed rentals">
+                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-emerald-100 text-emerald-800" title="Shop commission from confirmed rentals">
                           Comm {money(c.commission)}
                         </span>
                       </div>
@@ -181,13 +180,13 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
 
                     {/* Phone */}
                     <div className="text-sm min-w-0 truncate">
-                      <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-dark/40 mr-2">Phone</span>
+                      <span className="md:hidden text-[10px] font-semibold text-dark/40 mr-2">Phone</span>
                       {owner.phone || '—'}
                     </div>
 
                     {/* NIC */}
                     <div className="text-sm min-w-0 truncate">
-                      <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-dark/40 mr-2">NIC</span>
+                      <span className="md:hidden text-[10px] font-semibold text-dark/40 mr-2">NIC</span>
                       {owner.nic || '—'}
                     </div>
 
@@ -195,14 +194,14 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
                     <div className="flex items-center gap-1 md:justify-end mt-1 md:mt-0">
                       <button
                         onClick={() => setEditing(owner)}
-                        className="text-sm font-bold inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
+                        className="text-sm font-semibold inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-dark/5 text-dark hover:bg-dark/10 transition"
                       >
                         <Pencil className="w-4 h-4" /> Edit
                       </button>
                       <button
                         onClick={() => handleDelete(owner.id)}
                         aria-label={`Delete ${owner.name}`}
-                        className="text-sm font-bold inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-red-600 hover:bg-red-50 transition"
+                        className="text-sm font-semibold inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-red-600 hover:bg-red-50 transition"
                       >
                         <Trash2 className="w-4 h-4" />
                         <span className="md:hidden">Delete</span>
@@ -214,11 +213,11 @@ export default function Owners({ onLogout }: { onLogout: () => void }) {
                   {isOpen && count > 0 && (
                     <div className="mt-3 bg-beige/60 rounded-xl p-3 space-y-1.5">
                       {ownersBikes.map(u => (
-                        <div key={u.id} className="flex items-center gap-3 text-sm bg-white rounded-lg px-3 py-2">
-                          <span className="font-display font-bold tracking-wide w-28 shrink-0">{u.plate}</span>
+                        <div key={u.id} className="flex items-center gap-3 text-sm bg-card rounded-lg px-3 py-2">
+                          <span className="font-display font-semibold w-28 shrink-0">{u.plate}</span>
                           <span className="text-dark/60 flex-1 truncate">{bikeTitle(u.bikeId)}</span>
                           <span className="text-dark/50 tabular-nums shrink-0" title="Revenue from confirmed rentals">{money(plateRevenue(u.id))}</span>
-                          <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${unitStatusChip[u.status]}`}>
+                          <span className={`text-[11px] font-medium capitalize px-2 py-0.5 rounded-full ${unitStatusChip[u.status]}`}>
                             {u.status}
                           </span>
                         </div>

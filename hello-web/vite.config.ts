@@ -2,6 +2,8 @@ import { fileURLToPath } from 'node:url';
 import { createLogger, defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import sitemap from './vite-plugin-sitemap';
+import seoRoutes from './vite-plugin-seo-routes';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 
@@ -22,15 +24,28 @@ logger.error = (msg, options) => {
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, root, '');
-  // GitHub Pages serves a project site under /<repo>/, so the build needs that
-  // prefix on every asset URL. Dev stays at '/'. Override with BASE_PATH if the
-  // repo is renamed or the site moves to a custom domain (then use '/').
-  const base = env.BASE_PATH || (command === 'build' ? '/hello-web/' : '/');
+  // The site answers at the root of its own domain, so assets do too. It used
+  // to default to the GitHub Pages sub-path /hello-web/, which is the opposite
+  // of where it now lives; a project-site deploy needs BASE_PATH=/hello-web/
+  // set explicitly.
+  const base = env.BASE_PATH || '/';
+  // Where the site actually answers, for the absolute URLs a sitemap and a
+  // robots.txt must carry. The default is the live domain: an unset SITE_URL
+  // used to hand crawlers a github.io address, and on Amplify the branch URL,
+  // neither of which is the site anyone should be indexing.
+  const siteUrl = env.SITE_URL || 'https://hellorentsrilanka.com';
+  if (command === 'build' && !env.SITE_URL) {
+    console.log(
+      `  ➜  SITE_URL not set — sitemap.xml points at ${siteUrl}${base}. ` +
+        'Set SITE_URL to the live domain to fix it.',
+    );
+  }
+
   return {
     root,
     base,
     customLogger: logger,
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), sitemap({ siteUrl }), seoRoutes({ siteUrl })],
     server: {
       port: 3000,
       host: '0.0.0.0',
